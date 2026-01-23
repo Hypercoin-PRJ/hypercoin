@@ -1,10 +1,10 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <qt/qvalidatedlineedit.h>
 
-#include <qt/bitcoinaddressvalidator.h>
+#include <qt/hypercoinaddressvalidator.h>
 #include <qt/guiconstants.h>
 
 QValidatedLineEdit::QValidatedLineEdit(QWidget* parent)

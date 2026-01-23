@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -19,6 +19,8 @@
 #include <util/string.h>
 
 #ifdef WIN32
+#include <codecvt>
+#include <shellapi.h>
 #include <shlobj.h>
 #endif
 
@@ -34,8 +36,8 @@
 #include <utility>
 #include <variant>
 
-const char * const BITCOIN_CONF_FILENAME = "bitcoin.conf";
-const char * const BITCOIN_SETTINGS_FILENAME = "settings.json";
+const char * const HYPERCOIN_CONF_FILENAME = "hypercoin.conf";
+const char * const HYPERCOIN_SETTINGS_FILENAME = "settings.json";
 
 ArgsManager gArgs;
 
@@ -113,7 +115,7 @@ std::optional<common::SettingsValue> InterpretValue(const KeyInfo& key, const st
         }
         // Double negatives like -nofoo=0 are supported (but discouraged)
         if (value && !InterpretBool(*value)) {
-            LogWarning("Parsed potentially confusing double-negative -%s=%s", key.name, *value);
+            LogPrintf("Warning: parsed potentially confusing double-negative -%s=%s\n", key.name, *value);
             return true;
         }
         return false;
@@ -164,7 +166,7 @@ std::list<SectionInfo> ArgsManager::GetUnrecognizedSections() const
 
     LOCK(cs_args);
     std::list<SectionInfo> unrecognized = m_config_sections;
-    unrecognized.remove_if([](const SectionInfo& appeared){ return available_sections.contains(appeared.m_name); });
+    unrecognized.remove_if([](const SectionInfo& appeared){ return available_sections.find(appeared.m_name) != available_sections.end(); });
     return unrecognized;
 }
 
@@ -190,7 +192,7 @@ bool ArgsManager::ParseParameters(int argc, const char* const argv[], std::strin
         if (key.starts_with("-psn_")) continue;
 #endif
 
-        if (key == "-") break; //bitcoin-tx using stdin
+        if (key == "-") break; //hypercoin-tx using stdin
         std::optional<std::string> val;
         size_t is_index = key.find('=');
         if (is_index != std::string::npos) {
@@ -379,7 +381,7 @@ bool ArgsManager::IsArgSet(const std::string& strArg) const
 
 bool ArgsManager::GetSettingsPath(fs::path* filepath, bool temp, bool backup) const
 {
-    fs::path settings = GetPathArg("-settings", BITCOIN_SETTINGS_FILENAME);
+    fs::path settings = GetPathArg("-settings", HYPERCOIN_SETTINGS_FILENAME);
     if (settings.empty()) {
         return false;
     }
@@ -398,7 +400,7 @@ static void SaveErrors(const std::vector<std::string> errors, std::vector<std::s
         if (error_out) {
             error_out->emplace_back(error);
         } else {
-            LogWarning("%s", error);
+            LogPrintf("%s\n", error);
         }
     }
 }
@@ -420,7 +422,7 @@ bool ArgsManager::ReadSettingsFile(std::vector<std::string>* errors)
     for (const auto& setting : m_settings.rw_settings) {
         KeyInfo key = InterpretKey(setting.first); // Split setting key into section and argname
         if (!GetArgFlags('-' + key.name)) {
-            LogWarning("Ignoring unknown rw_settings value %s", setting.first);
+            LogPrintf("Ignoring unknown rw_settings value %s\n", setting.first);
         }
     }
     return true;
@@ -736,18 +738,18 @@ bool HasTestOption(const ArgsManager& args, const std::string& test_option)
 fs::path GetDefaultDataDir()
 {
     // Windows:
-    //   old: C:\Users\Username\AppData\Roaming\Bitcoin
-    //   new: C:\Users\Username\AppData\Local\Bitcoin
-    // macOS: ~/Library/Application Support/Bitcoin
-    // Unix-like: ~/.bitcoin
+    //   old: C:\Users\Username\AppData\Roaming\Hypercoin
+    //   new: C:\Users\Username\AppData\Local\Hypercoin
+    // macOS: ~/Library/Application Support/Hypercoin
+    // Unix-like: ~/.hypercoin
 #ifdef WIN32
     // Windows
     // Check for existence of datadir in old location and keep it there
-    fs::path legacy_path = GetSpecialFolderPath(CSIDL_APPDATA) / "Bitcoin";
+    fs::path legacy_path = GetSpecialFolderPath(CSIDL_APPDATA) / "Hypercoin";
     if (fs::exists(legacy_path)) return legacy_path;
 
     // Otherwise, fresh installs can start in the new, "proper" location
-    return GetSpecialFolderPath(CSIDL_LOCAL_APPDATA) / "Bitcoin";
+    return GetSpecialFolderPath(CSIDL_LOCAL_APPDATA) / "Hypercoin";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -757,10 +759,10 @@ fs::path GetDefaultDataDir()
         pathRet = fs::path(pszHome);
 #ifdef __APPLE__
     // macOS
-    return pathRet / "Library/Application Support/Bitcoin";
+    return pathRet / "Library/Application Support/Hypercoin";
 #else
     // Unix-like
-    return pathRet / ".bitcoin";
+    return pathRet / ".hypercoin";
 #endif
 #endif
 }
@@ -832,7 +834,7 @@ std::variant<ChainType, std::string> ArgsManager::GetChainArg() const
 
 bool ArgsManager::UseDefaultSection(const std::string& arg) const
 {
-    return m_network == ChainTypeToString(ChainType::MAIN) || !m_network_only_args.contains(arg);
+    return m_network == ChainTypeToString(ChainType::MAIN) || m_network_only_args.count(arg) == 0;
 }
 
 common::SettingsValue ArgsManager::GetSetting(const std::string& arg) const
@@ -860,7 +862,7 @@ void ArgsManager::logArgsPrefix(
             std::optional<unsigned int> flags = GetArgFlags('-' + arg.first);
             if (flags) {
                 std::string value_str = (*flags & SENSITIVE) ? "****" : value.write();
-                LogInfo("%s %s%s=%s\n", prefix, section_str, arg.first, value_str);
+                LogPrintf("%s %s%s=%s\n", prefix, section_str, arg.first, value_str);
             }
         }
     }
@@ -873,7 +875,34 @@ void ArgsManager::LogArgs() const
         logArgsPrefix("Config file arg:", section.first, section.second);
     }
     for (const auto& setting : m_settings.rw_settings) {
-        LogInfo("Setting file arg: %s = %s\n", setting.first, setting.second.write());
+        LogPrintf("Setting file arg: %s = %s\n", setting.first, setting.second.write());
     }
     logArgsPrefix("Command-line arg:", "", m_settings.command_line_options);
 }
+
+namespace common {
+#ifdef WIN32
+WinCmdLineArgs::WinCmdLineArgs()
+{
+    wchar_t** wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t> utf8_cvt;
+    argv = new char*[argc];
+    args.resize(argc);
+    for (int i = 0; i < argc; i++) {
+        args[i] = utf8_cvt.to_bytes(wargv[i]);
+        argv[i] = &*args[i].begin();
+    }
+    LocalFree(wargv);
+}
+
+WinCmdLineArgs::~WinCmdLineArgs()
+{
+    delete[] argv;
+}
+
+std::pair<int, char**> WinCmdLineArgs::get()
+{
+    return std::make_pair(argc, argv);
+}
+#endif
+} // namespace common

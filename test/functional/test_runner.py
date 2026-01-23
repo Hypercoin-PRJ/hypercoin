@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-present The Bitcoin Core developers
+# Copyright (c) 2014-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Run regression test suite.
@@ -8,13 +8,12 @@ This module calls down into individual test cases via subprocess. It will
 forward all unrecognized arguments onto the individual test scripts.
 
 For a description of arguments recognized by test scripts, see
-`test/functional/test_framework/test_framework.py:BitcoinTestFramework.main`.
+`test/functional/test_framework/test_framework.py:HypercoinTestFramework.main`.
 
 """
 
 import argparse
 from collections import deque
-from concurrent import futures
 import configparser
 import csv
 import datetime
@@ -29,11 +28,6 @@ import sys
 import tempfile
 import re
 import logging
-from test_framework.util import (
-    Binaries,
-    export_env_build_path,
-    get_binary_paths,
-)
 
 # Minimum amount of space to run the tests.
 MIN_FREE_SPACE = 1.1 * 1024 * 1024 * 1024
@@ -92,12 +86,7 @@ EXTENDED_SCRIPTS = [
     'feature_index_prune.py',
 ]
 
-# Special script to run each bench sanity check
-TOOL_BENCH_SANITY_CHECK = "tool_bench_sanity_check.py"
-
 BASE_SCRIPTS = [
-    # Special scripts that are "expanded" later
-    TOOL_BENCH_SANITY_CHECK,
     # Scripts that are run by default.
     # Longest test should go first, to favor running tests in parallel
     # vv Tests less than 5m vv
@@ -177,11 +166,11 @@ BASE_SCRIPTS = [
     'interface_zmq.py',
     'rpc_invalid_address_message.py',
     'rpc_validateaddress.py',
-    'interface_bitcoin_cli.py',
+    'interface_hypercoin_cli.py',
     'feature_bind_extra.py',
     'mempool_resurrect.py',
     'wallet_txn_doublespend.py --mineblock',
-    'tool_bitcoin_chainstate.py',
+    'tool_hypercoin_chainstate.py',
     'tool_wallet.py',
     'tool_utils.py',
     'tool_signet_miner.py',
@@ -264,6 +253,7 @@ BASE_SCRIPTS = [
     'feature_utxo_set_hash.py',
     'feature_rbf.py',
     'mempool_packages.py',
+    'mempool_package_onemore.py',
     'mempool_package_limits.py',
     'mempool_package_rbf.py',
     'tool_utxo_to_sqlite.py',
@@ -286,7 +276,6 @@ BASE_SCRIPTS = [
     'p2p_initial_headers_sync.py',
     'feature_nulldummy.py',
     'mempool_accept.py',
-    'p2p_addr_selfannouncement.py',
     'mempool_expiry.py',
     'wallet_importdescriptors.py',
     'wallet_crosschain.py',
@@ -311,7 +300,6 @@ BASE_SCRIPTS = [
     'rpc_dumptxoutset.py',
     'feature_minchainwork.py',
     'rpc_estimatefee.py',
-    'p2p_private_broadcast.py',
     'rpc_getblockstats.py',
     'feature_port.py',
     'feature_bind_port_externalip.py',
@@ -335,7 +323,6 @@ BASE_SCRIPTS = [
     'feature_includeconf.py',
     'feature_addrman.py',
     'feature_asmap.py',
-    'feature_chain_tiebreaks.py',
     'feature_fastprune.py',
     'feature_framework_miniwallet.py',
     'mempool_unbroadcast.py',
@@ -349,11 +336,10 @@ BASE_SCRIPTS = [
     'p2p_tx_privacy.py',
     'rpc_getdescriptoractivity.py',
     'rpc_scanblocks.py',
-    'tool_bitcoin.py',
+    'tool_hypercoin.py',
     'p2p_sendtxrcncl.py',
     'rpc_scantxoutset.py',
     'feature_unsupported_utxo_db.py',
-    'mempool_cluster.py',
     'feature_logging.py',
     'interface_ipc.py',
     'feature_anchors.py',
@@ -361,7 +347,6 @@ BASE_SCRIPTS = [
     'feature_coinstatsindex.py',
     'feature_coinstatsindex_compatibility.py',
     'wallet_orphanedreward.py',
-    'wallet_musig.py',
     'wallet_timelock.py',
     'p2p_permissions.py',
     'feature_blocksdir.py',
@@ -374,7 +359,6 @@ BASE_SCRIPTS = [
     'rpc_getdescriptorinfo.py',
     'rpc_mempool_info.py',
     'rpc_help.py',
-    'feature_framework_testshell.py',
     'tool_rpcauth.py',
     'p2p_handshake.py',
     'p2p_handshake.py --v2transport',
@@ -410,7 +394,8 @@ def main():
     parser.add_argument('--ansi', action='store_true', default=sys.stdout.isatty(), help="Use ANSI colors and dots in output (enabled by default when standard output is a TTY)")
     parser.add_argument('--combinedlogslen', '-c', type=int, default=0, metavar='n', help='On failure, print a log (of length n lines) to the console, combined from the test framework and all test nodes.')
     parser.add_argument('--coverage', action='store_true', help='generate a basic coverage report for the RPC interface')
-    parser.add_argument('--exclude', '-x', action='append', help='specify a script to exclude. Can be specified multiple times. The .py extension is optional.')
+    parser.add_argument('--ci', action='store_true', help='Run checks and code that are usually only enabled in a continuous integration environment')
+    parser.add_argument('--exclude', '-x', help='specify a comma-separated-list of scripts to exclude.')
     parser.add_argument('--extended', action='store_true', help='run the extended test suite in addition to the basic tests')
     parser.add_argument('--help', '-h', '-?', action='store_true', help='print help text and exit')
     parser.add_argument('--jobs', '-j', type=int, default=4, help='how many test scripts to run in parallel. Default=4.')
@@ -420,12 +405,11 @@ def main():
     parser.add_argument('--failfast', '-F', action='store_true', help='stop execution after the first test failure')
     parser.add_argument('--filter', help='filter scripts to run by regular expression')
     parser.add_argument("--nocleanup", dest="nocleanup", default=False, action="store_true",
-                        help="Leave bitcoinds and test.* datadir on exit or error")
+                        help="Leave hypercoinds and test.* datadir on exit or error")
     parser.add_argument('--resultsfile', '-r', help='store test results (as CSV) to the provided file')
 
     args, unknown_args = parser.parse_known_args()
-    # Fail on self-check warnings before running the tests.
-    fail_on_warn = True
+    fail_on_warn = args.ci
     if not args.ansi:
         global DEFAULT, BOLD, GREEN, RED
         DEFAULT = ("", "")
@@ -440,7 +424,7 @@ def main():
     # Read config generated by configure.
     config = configparser.ConfigParser()
     configfile = os.path.abspath(os.path.dirname(__file__)) + "/../config.ini"
-    config.read_file(open(configfile))
+    config.read_file(open(configfile, encoding="utf8"))
 
     passon_args.append("--configfile=%s" % configfile)
 
@@ -462,17 +446,15 @@ def main():
         assert results_filepath.parent.exists(), "Results file parent directory does not exist"
         logging.debug("Test results will be written to " + str(results_filepath))
 
-    enable_bitcoind = config["components"].getboolean("ENABLE_BITCOIND")
+    enable_hypercoind = config["components"].getboolean("ENABLE_HYPERCOIND")
 
-    if not enable_bitcoind:
+    if not enable_hypercoind:
         print("No functional tests to run.")
         print("Re-compile with the -DBUILD_DAEMON=ON build option")
         sys.exit(1)
 
-    export_env_build_path(config)
-
-    # Build tests
-    test_list = deque()
+    # Build list of tests
+    test_list = []
     if tests:
         # Individual tests have been specified. Run specified tests that exist
         # in the ALL_SCRIPTS list. Accept names with or without a .py extension.
@@ -491,7 +473,7 @@ def main():
             script = script + ".py" if ".py" not in script else script
             matching_scripts = [s for s in ALL_SCRIPTS if s.startswith(script)]
             if matching_scripts:
-                test_list += matching_scripts
+                test_list.extend(matching_scripts)
             else:
                 print("{}WARNING!{} Test '{}' not found in full test list.".format(BOLD[1], BOLD[0], test))
     elif args.extended:
@@ -506,7 +488,7 @@ def main():
     if args.exclude:
 
         def print_warning_missing_test(test_name):
-            print("{}WARNING!{} Test '{}' not found in current test list. Check the --exclude options.".format(BOLD[1], BOLD[0], test_name))
+            print("{}WARNING!{} Test '{}' not found in current test list. Check the --exclude list.".format(BOLD[1], BOLD[0], test_name))
             if fail_on_warn:
                 sys.exit(1)
 
@@ -514,16 +496,10 @@ def main():
             if not exclude_list:
                 print_warning_missing_test(exclude_test)
             for exclude_item in exclude_list:
-                print("Excluding %s" % exclude_item)
                 test_list.remove(exclude_item)
 
-        for exclude_test in args.exclude:
-            if ',' in exclude_test:
-                print("{}WARNING!{} --exclude '{}' contains a comma. Use --exclude for each test.".format(BOLD[1], BOLD[0], exclude_test))
-                if fail_on_warn:
-                    sys.exit(1)
-
-        for exclude_test in args.exclude:
+        exclude_tests = [test.strip() for test in args.exclude.split(",")]
+        for exclude_test in exclude_tests:
             # A space in the name indicates it has arguments such as "rpc_bind.py --ipv4"
             if ' ' in exclude_test:
                 remove_tests([test for test in test_list if test.replace('.py', '') == exclude_test.replace('.py', '')])
@@ -531,17 +507,8 @@ def main():
                 # Exclude all variants of a test
                 remove_tests([test for test in test_list if test.split('.py')[0] == exclude_test.split('.py')[0]])
 
-    if config["components"].getboolean("BUILD_BENCH") and TOOL_BENCH_SANITY_CHECK in test_list:
-        # Remove it, and expand it for each bench in the list
-        test_list.remove(TOOL_BENCH_SANITY_CHECK)
-        bench_cmd = Binaries(get_binary_paths(config), bin_dir=None).bench_argv() + ["-list"]
-        bench_list = subprocess.check_output(bench_cmd, text=True).splitlines()
-        bench_list = [f"{TOOL_BENCH_SANITY_CHECK} --bench={b}" for b in bench_list]
-        # Start with special scripts (variable, unknown runtime)
-        test_list.extendleft(reversed(bench_list))
-
     if args.filter:
-        test_list = deque(filter(re.compile(args.filter).search, test_list))
+        test_list = list(filter(re.compile(args.filter).search, test_list))
 
     if not test_list:
         print("No valid test scripts specified. Check that your test is in one "
@@ -583,11 +550,11 @@ def main():
 def run_tests(*, test_list, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0, failfast=False, use_term_control, results_filepath=None):
     args = args or []
 
-    # Warn if bitcoind is already running
+    # Warn if hypercoind is already running
     try:
         # pgrep exits with code zero when one or more matching processes found
-        if subprocess.run(["pgrep", "-x", "bitcoind"], stdout=subprocess.DEVNULL).returncode == 0:
-            print("%sWARNING!%s There is already a bitcoind process running on this system. Tests may fail unexpectedly due to resource contention!" % (BOLD[1], BOLD[0]))
+        if subprocess.run(["pgrep", "-x", "hypercoind"], stdout=subprocess.DEVNULL).returncode == 0:
+            print("%sWARNING!%s There is already a hypercoind process running on this system. Tests may fail unexpectedly due to resource contention!" % (BOLD[1], BOLD[0]))
     except OSError:
         # pgrep not supported
         pass
@@ -600,12 +567,12 @@ def run_tests(*, test_list, build_dir, tmpdir, jobs=1, enable_coverage=False, ar
     # Warn if there is not enough space on the testing dir
     min_space = MIN_FREE_SPACE + (jobs - 1) * ADDITIONAL_SPACE_PER_JOB
     if shutil.disk_usage(tmpdir).free < min_space:
-        print(f"{BOLD[1]}WARNING!{BOLD[0]} There may be insufficient free space in {tmpdir} to run the Bitcoin functional test suite. "
+        print(f"{BOLD[1]}WARNING!{BOLD[0]} There may be insufficient free space in {tmpdir} to run the Hypercoin functional test suite. "
               f"Running the test suite with fewer than {min_space // (1024 * 1024)} MB of free space might cause tests to fail.")
 
     tests_dir = f"{build_dir}/test/functional/"
     # This allows `test_runner.py` to work from an out-of-source build directory using a symlink,
-    # a hard link or a copy on any platform. See https://github.com/bitcoin/bitcoin/pull/27561.
+    # a hard link or a copy on any platform. See https://github.com/hypercoin/hypercoin/pull/27561.
     sys.path.append(tests_dir)
 
     flags = ['--cachedir={}'.format(cache_dir)] + args
@@ -728,7 +695,7 @@ def print_results(test_results, max_len_name, runtime):
 
 
 def write_results(test_results, filepath, total_runtime):
-    with open(filepath, mode="w") as results_file:
+    with open(filepath, mode="w", encoding="utf8") as results_file:
         results_writer = csv.writer(results_file)
         results_writer.writerow(['test', 'status', 'duration(seconds)'])
         all_passed = True
@@ -741,15 +708,15 @@ class TestHandler:
     """
     Trigger the test scripts passed in via the list.
     """
+
     def __init__(self, *, num_tests_parallel, tests_dir, tmpdir, test_list, flags, use_term_control):
         assert num_tests_parallel >= 1
-        self.executor = futures.ThreadPoolExecutor(max_workers=num_tests_parallel)
         self.num_jobs = num_tests_parallel
         self.tests_dir = tests_dir
         self.tmpdir = tmpdir
         self.test_list = test_list
         self.flags = flags
-        self.jobs = {}
+        self.jobs = []
         self.use_term_control = use_term_control
 
     def done(self):
@@ -758,7 +725,7 @@ class TestHandler:
     def get_next(self):
         while len(self.jobs) < self.num_jobs and self.test_list:
             # Add tests
-            test = self.test_list.popleft()
+            test = self.test_list.pop(0)
             portseed = len(self.test_list)
             portseed_arg = ["--portseed={}".format(portseed)]
             log_stdout = tempfile.SpooledTemporaryFile(max_size=2**16)
@@ -766,58 +733,47 @@ class TestHandler:
             test_argv = test.split()
             testdir = "{}/{}_{}".format(self.tmpdir, re.sub(".py$", "", test_argv[0]), portseed)
             tmpdir_arg = ["--tmpdir={}".format(testdir)]
-
-            def proc_wait(task):
-                task[2].wait()
-                return task
-
-            task = [
-                test,
-                time.time(),
-                subprocess.Popen(
-                    [sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + portseed_arg + tmpdir_arg,
-                    text=True,
-                    stdout=log_stdout,
-                    stderr=log_stderr,
-                ),
-                testdir,
-                log_stdout,
-                log_stderr,
-            ]
-            fut = self.executor.submit(proc_wait, task)
-            self.jobs[fut] = test
-        assert self.jobs  # Must not be empty here
+            self.jobs.append((test,
+                              time.time(),
+                              subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + portseed_arg + tmpdir_arg,
+                                               text=True,
+                                               stdout=log_stdout,
+                                               stderr=log_stderr),
+                              testdir,
+                              log_stdout,
+                              log_stderr))
+        if not self.jobs:
+            raise IndexError('pop from empty list')
 
         # Print remaining running jobs when all jobs have been started.
         if not self.test_list:
-            print("Remaining jobs: [{}]".format(", ".join(sorted(self.jobs.values()))))
+            print("Remaining jobs: [{}]".format(", ".join(j[0] for j in self.jobs)))
 
         dot_count = 0
         while True:
             # Return all procs that have finished, if any. Otherwise sleep until there is one.
-            procs = futures.wait(self.jobs.keys(), timeout=.5, return_when=futures.FIRST_COMPLETED)
-            self.jobs = {fut: self.jobs[fut] for fut in procs.not_done}
+            time.sleep(.5)
             ret = []
-            for job in procs.done:
-                (name, start_time, proc, testdir, log_out, log_err) = job.result()
-
-                log_out.seek(0), log_err.seek(0)
-                [stdout, stderr] = [log_file.read().decode('utf-8') for log_file in (log_out, log_err)]
-                log_out.close(), log_err.close()
-                skip_reason = None
-                if proc.returncode == TEST_EXIT_PASSED and stderr == "":
-                    status = "Passed"
-                elif proc.returncode == TEST_EXIT_SKIPPED:
-                    status = "Skipped"
-                    skip_reason = re.search(r"Test Skipped: (.*)", stdout).group(1).strip()
-                else:
-                    status = "Failed"
-
-                if self.use_term_control:
-                    clearline = '\r' + (' ' * dot_count) + '\r'
-                    print(clearline, end='', flush=True)
-                dot_count = 0
-                ret.append((TestResult(name, status, int(time.time() - start_time)), testdir, stdout, stderr, skip_reason))
+            for job in self.jobs:
+                (name, start_time, proc, testdir, log_out, log_err) = job
+                if proc.poll() is not None:
+                    log_out.seek(0), log_err.seek(0)
+                    [stdout, stderr] = [log_file.read().decode('utf-8') for log_file in (log_out, log_err)]
+                    log_out.close(), log_err.close()
+                    skip_reason = None
+                    if proc.returncode == TEST_EXIT_PASSED and stderr == "":
+                        status = "Passed"
+                    elif proc.returncode == TEST_EXIT_SKIPPED:
+                        status = "Skipped"
+                        skip_reason = re.search(r"Test Skipped: (.*)", stdout).group(1)
+                    else:
+                        status = "Failed"
+                    self.jobs.remove(job)
+                    if self.use_term_control:
+                        clearline = '\r' + (' ' * dot_count) + '\r'
+                        print(clearline, end='', flush=True)
+                    dot_count = 0
+                    ret.append((TestResult(name, status, int(time.time() - start_time)), testdir, stdout, stderr, skip_reason))
             if ret:
                 return ret
             if self.use_term_control:
@@ -891,7 +847,7 @@ class RPCCoverage():
     Coverage calculation works by having each test script subprocess write
     coverage files into a particular directory. These files contain the RPC
     commands invoked during testing, as well as a complete listing of RPC
-    commands per `bitcoin-cli help` (`rpc_interface.txt`).
+    commands per `hypercoin-cli help` (`rpc_interface.txt`).
 
     After all tests complete, the commands run are combined and diff'd against
     the complete list to calculate uncovered RPC commands.
@@ -940,7 +896,7 @@ class RPCCoverage():
         if not os.path.isfile(coverage_ref_filename):
             raise RuntimeError("No coverage reference found")
 
-        with open(coverage_ref_filename, 'r') as coverage_ref_file:
+        with open(coverage_ref_filename, 'r', encoding="utf8") as coverage_ref_file:
             all_cmds.update([line.strip() for line in coverage_ref_file.readlines()])
 
         for root, _, files in os.walk(self.dir):
@@ -949,7 +905,7 @@ class RPCCoverage():
                     coverage_filenames.add(os.path.join(root, filename))
 
         for filename in coverage_filenames:
-            with open(filename, 'r') as coverage_file:
+            with open(filename, 'r', encoding="utf8") as coverage_file:
                 covered_cmds.update([line.strip() for line in coverage_file.readlines()])
 
         return all_cmds - covered_cmds

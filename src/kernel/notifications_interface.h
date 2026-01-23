@@ -1,9 +1,9 @@
-// Copyright (c) 2023-present The Bitcoin Core developers
+// Copyright (c) 2023 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_KERNEL_NOTIFICATIONS_INTERFACE_H
-#define BITCOIN_KERNEL_NOTIFICATIONS_INTERFACE_H
+#ifndef HYPERCOIN_KERNEL_NOTIFICATIONS_INTERFACE_H
+#define HYPERCOIN_KERNEL_NOTIFICATIONS_INTERFACE_H
 
 #include <cstdint>
 #include <variant>
@@ -37,7 +37,7 @@ class Notifications
 public:
     virtual ~Notifications() = default;
 
-    [[nodiscard]] virtual InterruptResult blockTip(SynchronizationState state, const CBlockIndex& index, double verification_progress) { return {}; }
+    [[nodiscard]] virtual InterruptResult blockTip(SynchronizationState state, CBlockIndex& index, double verification_progress) { return {}; }
     virtual void headerTip(SynchronizationState state, int64_t height, int64_t timestamp, bool presync) {}
     virtual void progress(const bilingual_str& title, int progress_percent, bool resume_possible) {}
     virtual void warningSet(Warning id, const bilingual_str& message) {}
@@ -62,4 +62,4 @@ public:
 };
 } // namespace kernel
 
-#endif // BITCOIN_KERNEL_NOTIFICATIONS_INTERFACE_H
+#endif // HYPERCOIN_KERNEL_NOTIFICATIONS_INTERFACE_H

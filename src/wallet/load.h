@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_WALLET_LOAD_H
-#define BITCOIN_WALLET_LOAD_H
+#ifndef HYPERCOIN_WALLET_LOAD_H
+#define HYPERCOIN_WALLET_LOAD_H
 
 #include <string>
 #include <vector>
@@ -31,4 +31,4 @@ void StartWallets(WalletContext& context);
 void UnloadWallets(WalletContext& context);
 } // namespace wallet
 
-#endif // BITCOIN_WALLET_LOAD_H
+#endif // HYPERCOIN_WALLET_LOAD_H

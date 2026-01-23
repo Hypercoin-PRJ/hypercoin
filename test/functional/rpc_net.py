@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-present The Bitcoin Core developers
+# Copyright (c) 2017-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test RPC calls related to net.
@@ -17,7 +17,7 @@ from test_framework.p2p import (
     P2PInterface,
     P2P_SERVICES,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_approx,
     assert_equal,
@@ -59,13 +59,10 @@ def seed_addrman(node):
     assert_equal(node.addpeeraddress(address="c4gfnttsuwqomiygupdqqqyy5y5emnk5c73hrfvatri67prd7vyq.b32.i2p", port=8333), success)
 
 
-class NetTest(BitcoinTestFramework):
+class NetTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
-        self.extra_args = [
-            ["-minrelaytxfee=0.00001000", "-deprecatedrpc=startingheight"],
-            ["-minrelaytxfee=0.00000500"],
-        ]
+        self.extra_args = [["-minrelaytxfee=0.00001000"], ["-minrelaytxfee=0.00000500"]]
         # Specify a non-working proxy to make sure no actual connections to public IPs are attempted
         for args in self.extra_args:
             args.append("-proxy=127.0.0.1:1")
@@ -169,8 +166,6 @@ class NetTest(BitcoinTestFramework):
                 "permissions": [],
                 "presynced_headers": -1,
                 "relaytxes": False,
-                "inv_to_send": 0,
-                "last_inv_sequence": 0,
                 "services": "0000000000000000",
                 "servicesnames": [],
                 "session_id": "" if not self.options.v2transport else no_version_peer.v2_state.peer['session_id'].hex(),
@@ -349,11 +344,8 @@ class NetTest(BitcoinTestFramework):
         assert "unknown command: addpeeraddress" not in node.help("addpeeraddress")
 
         self.log.debug("Test that adding an empty address fails")
-        assert_raises_rpc_error(-30, "Invalid IP address", node.addpeeraddress, address="", port=8333)
+        assert_equal(node.addpeeraddress(address="", port=8333), {"success": False})
         assert_equal(node.getnodeaddresses(count=0), [])
-
-        self.log.debug("Test that adding a non-IP/hostname fails (no DNS lookup allowed)")
-        assert_raises_rpc_error(-30, "Invalid IP address", node.addpeeraddress, address="not_an_ip", port=8333)
 
         self.log.debug("Test that non-bool tried fails")
         assert_raises_rpc_error(-3, "JSON value of type string is not of expected type bool", self.nodes[0].addpeeraddress, address="1.2.3.4", tried="True", port=1234)

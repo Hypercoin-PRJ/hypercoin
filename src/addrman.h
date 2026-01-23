@@ -1,10 +1,10 @@
 // Copyright (c) 2012 Pieter Wuille
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_ADDRMAN_H
-#define BITCOIN_ADDRMAN_H
+#ifndef HYPERCOIN_ADDRMAN_H
+#define HYPERCOIN_ADDRMAN_H
 
 #include <netaddress.h>
 #include <netgroup.h>
@@ -172,7 +172,7 @@ public:
      *
      * @return                   A vector of randomly selected addresses from vRandom.
      */
-    std::vector<CAddress> GetAddr(size_t max_addresses, size_t max_pct, std::optional<Network> network, bool filtered = true) const;
+    std::vector<CAddress> GetAddr(size_t max_addresses, size_t max_pct, std::optional<Network> network, const bool filtered = true) const;
 
     /**
      * Returns an information-location pair for all addresses in the selected addrman table.
@@ -211,4 +211,4 @@ public:
     std::optional<AddressPosition> FindAddressEntry(const CAddress& addr);
 };
 
-#endif // BITCOIN_ADDRMAN_H
+#endif // HYPERCOIN_ADDRMAN_H

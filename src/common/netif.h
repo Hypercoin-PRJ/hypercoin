@@ -1,9 +1,9 @@
-// Copyright (c) 2024-present The Bitcoin Core developers
+// Copyright (c) 2024 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_COMMON_NETIF_H
-#define BITCOIN_COMMON_NETIF_H
+#ifndef HYPERCOIN_COMMON_NETIF_H
+#define HYPERCOIN_COMMON_NETIF_H
 
 #include <netaddress.h>
 
@@ -16,4 +16,4 @@ std::optional<CNetAddr> QueryDefaultGateway(Network network);
 //! Return all local non-loopback IPv4 and IPv6 network addresses.
 std::vector<CNetAddr> GetLocalAddresses();
 
-#endif // BITCOIN_COMMON_NETIF_H
+#endif // HYPERCOIN_COMMON_NETIF_H

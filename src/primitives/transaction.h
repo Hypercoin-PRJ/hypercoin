@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_PRIMITIVES_TRANSACTION_H
-#define BITCOIN_PRIMITIVES_TRANSACTION_H
+#ifndef HYPERCOIN_PRIMITIVES_TRANSACTION_H
+#define HYPERCOIN_PRIMITIVES_TRANSACTION_H
 
 #include <attributes.h>
 #include <consensus/amount.h>
@@ -49,6 +49,11 @@ public:
     friend bool operator==(const COutPoint& a, const COutPoint& b)
     {
         return (a.hash == b.hash && a.n == b.n);
+    }
+
+    friend bool operator!=(const COutPoint& a, const COutPoint& b)
+    {
+        return !(a == b);
     }
 
     std::string ToString() const;
@@ -130,6 +135,11 @@ public:
                 a.nSequence == b.nSequence);
     }
 
+    friend bool operator!=(const CTxIn& a, const CTxIn& b)
+    {
+        return !(a == b);
+    }
+
     std::string ToString() const;
 };
 
@@ -166,6 +176,11 @@ public:
     {
         return (a.nValue       == b.nValue &&
                 a.scriptPubKey == b.scriptPubKey);
+    }
+
+    friend bool operator!=(const CTxOut& a, const CTxOut& b)
+    {
+        return !(a == b);
     }
 
     std::string ToString() const;
@@ -332,11 +347,11 @@ public:
     CAmount GetValueOut() const;
 
     /**
-     * Calculate the total transaction size in bytes, including witness data.
+     * Get the total transaction size in bytes, including witness data.
      * "Total Size" defined in BIP141 and BIP144.
      * @return Total transaction size in bytes
      */
-    unsigned int ComputeTotalSize() const;
+    unsigned int GetTotalSize() const;
 
     bool IsCoinBase() const
     {
@@ -346,6 +361,11 @@ public:
     friend bool operator==(const CTransaction& a, const CTransaction& b)
     {
         return a.GetWitnessHash() == b.GetWitnessHash();
+    }
+
+    friend bool operator!=(const CTransaction& a, const CTransaction& b)
+    {
+        return !operator==(a, b);
     }
 
     std::string ToString() const;
@@ -403,4 +423,4 @@ struct CMutableTransaction
 typedef std::shared_ptr<const CTransaction> CTransactionRef;
 template <typename Tx> static inline CTransactionRef MakeTransactionRef(Tx&& txIn) { return std::make_shared<const CTransaction>(std::forward<Tx>(txIn)); }
 
-#endif // BITCOIN_PRIMITIVES_TRANSACTION_H
+#endif // HYPERCOIN_PRIMITIVES_TRANSACTION_H

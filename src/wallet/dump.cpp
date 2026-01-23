@@ -1,4 +1,4 @@
-// Copyright (c) 2020-present The Bitcoin Core developers
+// Copyright (c) 2020-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -18,7 +18,7 @@
 #include <vector>
 
 namespace wallet {
-static const std::string DUMP_MAGIC = "BITCOIN_CORE_WALLET_DUMP";
+static const std::string DUMP_MAGIC = "HYPERCOIN_CORE_WALLET_DUMP";
 uint32_t DUMP_VERSION = 1;
 
 bool DumpWallet(const ArgsManager& args, WalletDatabase& db, bilingual_str& error)
@@ -37,7 +37,7 @@ bool DumpWallet(const ArgsManager& args, WalletDatabase& db, bilingual_str& erro
         return false;
     }
     std::ofstream dump_file;
-    dump_file.open(path.std_path());
+    dump_file.open(path);
     if (dump_file.fail()) {
         error = strprintf(_("Unable to open %s for writing"), fs::PathToString(path));
         return false;
@@ -110,7 +110,7 @@ bool DumpWallet(const ArgsManager& args, WalletDatabase& db, bilingual_str& erro
 }
 
 // The standard wallet deleter function blocks on the validation interface
-// queue, which doesn't exist for the bitcoin-wallet. Define our own
+// queue, which doesn't exist for the hypercoin-wallet. Define our own
 // deleter here.
 static void WalletToolReleaseWallet(CWallet* wallet)
 {
@@ -134,7 +134,7 @@ bool CreateFromDump(const ArgsManager& args, const std::string& name, const fs::
         error = strprintf(_("Dump file %s does not exist."), fs::PathToString(dump_path));
         return false;
     }
-    std::ifstream dump_file{dump_path.std_path()};
+    std::ifstream dump_file{dump_path};
 
     // Compute the checksum
     HashWriter hasher{};
@@ -158,7 +158,7 @@ bool CreateFromDump(const ArgsManager& args, const std::string& name, const fs::
         return false;
     }
     if (*ver != DUMP_VERSION) {
-        error = strprintf(_("Error: Dumpfile version is not supported. This version of bitcoin-wallet only supports version 1 dumpfiles. Got dumpfile with version %s"), version_value);
+        error = strprintf(_("Error: Dumpfile version is not supported. This version of hypercoin-wallet only supports version 1 dumpfiles. Got dumpfile with version %s"), version_value);
         dump_file.close();
         return false;
     }

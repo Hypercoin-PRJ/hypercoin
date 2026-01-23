@@ -1,4 +1,4 @@
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -67,8 +67,7 @@ BOOST_AUTO_TEST_CASE(cnode_simple_test)
                                                             CAddress(),
                                                             pszDest,
                                                             ConnectionType::OUTBOUND_FULL_RELAY,
-                                                            /*inbound_onion=*/false,
-                                                            /*network_key=*/0);
+                                                            /*inbound_onion=*/false);
     BOOST_CHECK(pnode1->IsFullOutboundConn() == true);
     BOOST_CHECK(pnode1->IsManualConn() == false);
     BOOST_CHECK(pnode1->IsBlockOnlyConn() == false);
@@ -86,8 +85,7 @@ BOOST_AUTO_TEST_CASE(cnode_simple_test)
                                                             CAddress(),
                                                             pszDest,
                                                             ConnectionType::INBOUND,
-                                                            /*inbound_onion=*/false,
-                                                            /*network_key=*/1);
+                                                            /*inbound_onion=*/false);
     BOOST_CHECK(pnode2->IsFullOutboundConn() == false);
     BOOST_CHECK(pnode2->IsManualConn() == false);
     BOOST_CHECK(pnode2->IsBlockOnlyConn() == false);
@@ -105,8 +103,7 @@ BOOST_AUTO_TEST_CASE(cnode_simple_test)
                                                             CAddress(),
                                                             pszDest,
                                                             ConnectionType::OUTBOUND_FULL_RELAY,
-                                                            /*inbound_onion=*/false,
-                                                            /*network_key=*/2);
+                                                            /*inbound_onion=*/false);
     BOOST_CHECK(pnode3->IsFullOutboundConn() == true);
     BOOST_CHECK(pnode3->IsManualConn() == false);
     BOOST_CHECK(pnode3->IsBlockOnlyConn() == false);
@@ -124,8 +121,7 @@ BOOST_AUTO_TEST_CASE(cnode_simple_test)
                                                             CAddress(),
                                                             pszDest,
                                                             ConnectionType::INBOUND,
-                                                            /*inbound_onion=*/true,
-                                                            /*network_key=*/3);
+                                                            /*inbound_onion=*/true);
     BOOST_CHECK(pnode4->IsFullOutboundConn() == false);
     BOOST_CHECK(pnode4->IsManualConn() == false);
     BOOST_CHECK(pnode4->IsBlockOnlyConn() == false);
@@ -448,7 +444,7 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
     // Valid IPv6, contains embedded "internal".
     s << "02"                                    // network type (IPv6)
          "10"                                    // address length
-         "fd6b88c08724ca978112ca1bbdcafac2"_hex; // address: 0xfd + sha256("bitcoin")[0:5] +
+         "fd6b88c08724ca978112ca1bbdcafac2"_hex; // address: 0xfd + sha256("hypercoin")[0:5] +
                                                  // sha256(name)[0:10]
     s >> ser_params(addr);
     BOOST_CHECK(addr.IsInternal());
@@ -617,8 +613,7 @@ BOOST_AUTO_TEST_CASE(ipv4_peer_with_ipv6_addrMe_test)
                                                            CAddress{},
                                                            /*pszDest=*/std::string{},
                                                            ConnectionType::OUTBOUND_FULL_RELAY,
-                                                           /*inbound_onion=*/false,
-                                                           /*network_key=*/0);
+                                                           /*inbound_onion=*/false);
     pnode->fSuccessfullyConnected.store(true);
 
     // the peer claims to be reaching us via IPv6
@@ -672,8 +667,7 @@ BOOST_AUTO_TEST_CASE(get_local_addr_for_peer_port)
                    /*addrBindIn=*/CService{},
                    /*addrNameIn=*/std::string{},
                    /*conn_type_in=*/ConnectionType::OUTBOUND_FULL_RELAY,
-                   /*inbound_onion=*/false,
-                   /*network_key=*/0};
+                   /*inbound_onion=*/false};
     peer_out.fSuccessfullyConnected = true;
     peer_out.SetAddrLocal(peer_us);
 
@@ -694,8 +688,7 @@ BOOST_AUTO_TEST_CASE(get_local_addr_for_peer_port)
                   /*addrBindIn=*/CService{},
                   /*addrNameIn=*/std::string{},
                   /*conn_type_in=*/ConnectionType::INBOUND,
-                  /*inbound_onion=*/false,
-                  /*network_key=*/1};
+                  /*inbound_onion=*/false};
     peer_in.fSuccessfullyConnected = true;
     peer_in.SetAddrLocal(peer_us);
 
@@ -814,7 +807,7 @@ BOOST_AUTO_TEST_CASE(initial_advertise_from_version_message)
     // Pretend that we bound to this port.
     const uint16_t bind_port = 20001;
     m_node.args->ForceSetArg("-bind", strprintf("3.4.5.6:%u", bind_port));
-    m_node.connman->SetCaptureMessages(true);
+    m_node.args->ForceSetArg("-capturemessages", "1");
 
     // Our address:port as seen from the peer - 2.3.4.5:20002 (different from the above).
     in_addr peer_us_addr;
@@ -832,8 +825,7 @@ BOOST_AUTO_TEST_CASE(initial_advertise_from_version_message)
                /*addrBindIn=*/CService{},
                /*addrNameIn=*/std::string{},
                /*conn_type_in=*/ConnectionType::OUTBOUND_FULL_RELAY,
-               /*inbound_onion=*/false,
-               /*network_key=*/2};
+               /*inbound_onion=*/false};
 
     const uint64_t services{NODE_NETWORK | NODE_WITNESS};
     const int64_t time{0};
@@ -892,7 +884,7 @@ BOOST_AUTO_TEST_CASE(initial_advertise_from_version_message)
 
     CaptureMessage = CaptureMessageOrig;
     chainman.ResetIbd();
-    m_node.connman->SetCaptureMessages(false);
+    m_node.args->ForceSetArg("-capturemessages", "0");
     m_node.args->ForceSetArg("-bind", "");
 }
 
@@ -908,8 +900,7 @@ BOOST_AUTO_TEST_CASE(advertise_local_address)
                                        CAddress{},
                                        /*pszDest=*/std::string{},
                                        ConnectionType::OUTBOUND_FULL_RELAY,
-                                       /*inbound_onion=*/false,
-                                       /*network_key=*/0);
+                                       /*inbound_onion=*/false);
     };
     g_reachable_nets.Add(NET_CJDNS);
 
@@ -1301,7 +1292,7 @@ public:
     {
         // Construct contents consisting of 0x00 + 12-byte message type + payload.
         std::vector<uint8_t> contents(1 + CMessageHeader::MESSAGE_TYPE_SIZE + payload.size());
-        std::copy(mtype.begin(), mtype.end(), contents.begin() + 1);
+        std::copy(mtype.begin(), mtype.end(), reinterpret_cast<char*>(contents.data() + 1));
         std::copy(payload.begin(), payload.end(), contents.begin() + 1 + CMessageHeader::MESSAGE_TYPE_SIZE);
         // Send a packet with that as contents.
         SendPacket(contents);

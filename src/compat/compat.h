@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_COMPAT_COMPAT_H
-#define BITCOIN_COMPAT_COMPAT_H
+#ifndef HYPERCOIN_COMPAT_COMPAT_H
+#define HYPERCOIN_COMPAT_COMPAT_H
 
 // Windows defines FD_SETSIZE to 64 (see _fd_types.h in mingw-w64),
 // which is too small for our usage, but allows us to redefine it safely.
@@ -75,6 +75,14 @@ typedef unsigned int SOCKET;
 typedef SSIZE_T ssize_t;
 #endif
 
+// The type of the option value passed to getsockopt & setsockopt
+// differs between Windows and non-Windows.
+#ifndef WIN32
+typedef void* sockopt_arg_type;
+#else
+typedef char* sockopt_arg_type;
+#endif
+
 #ifdef WIN32
 // Export main() and ensure working ASLR when using mingw-w64.
 // Exporting a symbol will prevent the linker from stripping
@@ -88,7 +96,7 @@ typedef SSIZE_T ssize_t;
 
 // Note these both should work with the current usage of poll, but best to be safe
 // WIN32 poll is broken https://daniel.haxx.se/blog/2012/10/10/wsapoll-is-broken/
-// __APPLE__ poll is broke https://github.com/bitcoin/bitcoin/pull/14336#issuecomment-437384408
+// __APPLE__ poll is broke https://github.com/hypercoin/hypercoin/pull/14336#issuecomment-437384408
 #if defined(__linux__)
 #define USE_POLL
 #endif
@@ -103,4 +111,4 @@ typedef SSIZE_T ssize_t;
 #define MSG_DONTWAIT 0
 #endif
 
-#endif // BITCOIN_COMPAT_COMPAT_H
+#endif // HYPERCOIN_COMPAT_COMPAT_H

@@ -1,4 +1,4 @@
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -376,9 +376,9 @@ BOOST_AUTO_TEST_CASE(key_schnorr_tweak_smoke_test)
     secp256k1_keypair keypair;
     BOOST_CHECK(secp256k1_keypair_create(secp256k1_context_sign, &keypair, UCharCast(key.begin())));
     secp256k1_xonly_pubkey xonly_pubkey;
-    BOOST_CHECK(secp256k1_keypair_xonly_pub(secp256k1_context_static, &xonly_pubkey, nullptr, &keypair));
+    BOOST_CHECK(secp256k1_keypair_xonly_pub(secp256k1_context_sign, &xonly_pubkey, nullptr, &keypair));
     unsigned char xonly_bytes[32];
-    BOOST_CHECK(secp256k1_xonly_pubkey_serialize(secp256k1_context_static, xonly_bytes, &xonly_pubkey));
+    BOOST_CHECK(secp256k1_xonly_pubkey_serialize(secp256k1_context_sign, xonly_bytes, &xonly_pubkey));
     uint256 tweak_old = XOnlyPubKey(xonly_bytes).ComputeTapTweakHash(&merkle_root);
 
     // CPubKey

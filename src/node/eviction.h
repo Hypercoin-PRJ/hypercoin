@@ -1,9 +1,9 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NODE_EVICTION_H
-#define BITCOIN_NODE_EVICTION_H
+#ifndef HYPERCOIN_NODE_EVICTION_H
+#define HYPERCOIN_NODE_EVICTION_H
 
 #include <node/connection_types.h>
 #include <net_permissions.h>
@@ -66,4 +66,4 @@ struct NodeEvictionCandidate {
  */
 void ProtectEvictionCandidatesByRatio(std::vector<NodeEvictionCandidate>& vEvictionCandidates);
 
-#endif // BITCOIN_NODE_EVICTION_H
+#endif // HYPERCOIN_NODE_EVICTION_H

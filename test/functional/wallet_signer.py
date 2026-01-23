@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-present The Bitcoin Core developers
+# Copyright (c) 2017-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test external signer.
 
-Verify that a bitcoind node can use an external signer command
+Verify that a hypercoind node can use an external signer command
 See also rpc_signer.py for tests without wallet context.
 """
 import os
 import sys
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -18,7 +18,7 @@ from test_framework.util import (
 )
 
 
-class WalletSignerTest(BitcoinTestFramework):
+class WalletSignerTest(HypercoinTestFramework):
     def mock_signer_path(self):
         path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'mocks', 'signer.py')
         return sys.executable + " " + path
@@ -48,7 +48,7 @@ class WalletSignerTest(BitcoinTestFramework):
         self.skip_if_no_wallet()
 
     def set_mock_result(self, node, res):
-        with open(os.path.join(node.cwd, "mock_result"), "w") as f:
+        with open(os.path.join(node.cwd, "mock_result"), "w", encoding="utf8") as f:
             f.write(res)
 
     def clear_mock_result(self, node):
@@ -170,7 +170,7 @@ class WalletSignerTest(BitcoinTestFramework):
 
         assert hww.testmempoolaccept([mock_tx])[0]["allowed"]
 
-        with open(os.path.join(self.nodes[1].cwd, "mock_psbt"), "w") as f:
+        with open(os.path.join(self.nodes[1].cwd, "mock_psbt"), "w", encoding="utf8") as f:
             f.write(mock_psbt_signed["psbt"])
 
         self.log.info('Test send using hww1')
@@ -195,7 +195,7 @@ class WalletSignerTest(BitcoinTestFramework):
         mock_psbt_bumped = mock_wallet.psbtbumpfee(orig_tx_id)["psbt"]
         mock_psbt_bumped_signed = mock_wallet.walletprocesspsbt(psbt=mock_psbt_bumped, sign=True, sighashtype="ALL", bip32derivs=True)
 
-        with open(os.path.join(self.nodes[1].cwd, "mock_psbt"), "w") as f:
+        with open(os.path.join(self.nodes[1].cwd, "mock_psbt"), "w", encoding="utf8") as f:
             f.write(mock_psbt_bumped_signed["psbt"])
 
         self.log.info('Test bumpfee using hww1')

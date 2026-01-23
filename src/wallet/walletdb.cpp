@@ -1,9 +1,9 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <wallet/walletdb.h>
 
@@ -62,12 +62,6 @@ const std::string WATCHMETA{"watchmeta"};
 const std::string WATCHS{"watchs"};
 const std::unordered_set<std::string> LEGACY_TYPES{CRYPTED_KEY, CSCRIPT, DEFAULTKEY, HDCHAIN, KEYMETA, KEY, OLD_KEY, POOL, WATCHMETA, WATCHS};
 } // namespace DBKeys
-
-void LogDBInfo()
-{
-    // Add useful DB information here. This will be printed during startup.
-    LogInfo("Using SQLite Version %s", SQLiteDatabaseVersion());
-}
 
 //
 // WalletBatch
@@ -409,7 +403,7 @@ bool LoadEncryptionKey(CWallet* pwallet, DataStream& ssKey, DataStream& ssValue,
         ssKey >> nID;
         CMasterKey kMasterKey;
         ssValue >> kMasterKey;
-        if(pwallet->mapMasterKeys.contains(nID))
+        if(pwallet->mapMasterKeys.count(nID) != 0)
         {
             strErr = strprintf("Error reading wallet database: duplicate CMasterKey id %u", nID);
             return false;
@@ -613,7 +607,7 @@ static DBErrors LoadLegacyWalletRecords(CWallet* pwallet, DatabaseBatch& batch, 
         if (keyMeta.nVersion >= CKeyMetadata::VERSION_WITH_HDDATA && !keyMeta.hd_seed_id.IsNull() && keyMeta.hdKeypath.size() > 0) {
             // Get the path from the key origin or from the path string
             // Not applicable when path is "s" or "m" as those indicate a seed
-            // See https://github.com/bitcoin/bitcoin/pull/12924
+            // See https://github.com/hypercoin/hypercoin/pull/12924
             bool internal = false;
             uint32_t index = 0;
             if (keyMeta.hdKeypath != "s" && keyMeta.hdKeypath != "m") {

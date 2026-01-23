@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_WALLET_WALLET_H
-#define BITCOIN_WALLET_WALLET_H
+#ifndef HYPERCOIN_WALLET_WALLET_H
+#define HYPERCOIN_WALLET_WALLET_H
 
 #include <addresstype.h>
 #include <consensus/amount.h>
@@ -12,7 +12,6 @@
 #include <interfaces/handler.h>
 #include <kernel/cs_main.h>
 #include <logging.h>
-#include <node/types.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
@@ -444,7 +443,7 @@ private:
      * block locator and m_last_block_processed, and registering for
      * notifications about new blocks and transactions.
      */
-    static bool AttachChain(const std::shared_ptr<CWallet>& wallet, interfaces::Chain& chain, bool rescan_required, bilingual_str& error, std::vector<bilingual_str>& warnings);
+    static bool AttachChain(const std::shared_ptr<CWallet>& wallet, interfaces::Chain& chain, const bool rescan_required, bilingual_str& error, std::vector<bilingual_str>& warnings);
 
     static NodeClock::time_point GetDefaultNextResend();
 
@@ -489,6 +488,7 @@ public:
         assert(NotifyUnload.empty());
     }
 
+    bool IsCrypted() const;
     bool IsLocked() const override;
     bool Lock();
 
@@ -541,7 +541,7 @@ public:
      *
      * Preconditions: it is only valid to call this function when the wallet is
      * online and the block index is loaded. So this cannot be called by
-     * bitcoin-wallet tool code or by wallet migration code. If this is called
+     * hypercoin-wallet tool code or by wallet migration code. If this is called
      * without the wallet being online, it won't be able able to determine the
      * the height of the last block processed, or the heights of blocks
      * referenced in transaction, and might cause assert failures.
@@ -628,7 +628,7 @@ public:
     CWalletTx* AddToWallet(CTransactionRef tx, const TxState& state, const UpdateWalletTxFn& update_wtx=nullptr, bool rescanning_old_block = false);
     bool LoadToWallet(const Txid& hash, const UpdateWalletTxFn& fill_wtx) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void transactionAddedToMempool(const CTransactionRef& tx) override;
-    void blockConnected(const kernel::ChainstateRole& role, const interfaces::BlockInfo& block) override;
+    void blockConnected(ChainstateRole role, const interfaces::BlockInfo& block) override;
     void blockDisconnected(const interfaces::BlockInfo& block) override;
     void updatedBlockTip() override;
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
@@ -648,13 +648,13 @@ public:
         //! USER_ABORT.
         uint256 last_failed_block;
     };
-    ScanResult ScanForWalletTransactions(const uint256& start_block, int start_height, std::optional<int> max_height, const WalletRescanReserver& reserver, bool fUpdate, bool save_progress);
+    ScanResult ScanForWalletTransactions(const uint256& start_block, int start_height, std::optional<int> max_height, const WalletRescanReserver& reserver, bool fUpdate, const bool save_progress);
     void transactionRemovedFromMempool(const CTransactionRef& tx, MemPoolRemovalReason reason) override;
     /** Set the next time this wallet should resend transactions to 12-36 hours from now, ~1 day on average. */
     void SetNextResend() { m_next_resend = GetDefaultNextResend(); }
     /** Return true if all conditions for periodically resending transactions are met. */
     bool ShouldResend() const;
-    void ResubmitWalletTransactions(node::TxBroadcast broadcast_method, bool force);
+    void ResubmitWalletTransactions(bool relay, bool force);
 
     OutputType TransactionChangeType(const std::optional<OutputType>& change_type, const std::vector<CRecipient>& vecSend) const;
 
@@ -698,8 +698,8 @@ public:
      */
     void CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm);
 
-    /** Pass this transaction to node for optional mempool insertion and relay to peers. */
-    bool SubmitTxMemoryPoolAndRelay(CWalletTx& wtx, std::string& err_string, node::TxBroadcast broadcast_method) const
+    /** Pass this transaction to node for mempool insertion and relay to peers if flag set to true */
+    bool SubmitTxMemoryPoolAndRelay(CWalletTx& wtx, std::string& err_string, bool relay) const
         EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /** Updates wallet birth time if 'time' is below it */
@@ -768,7 +768,7 @@ public:
     /**
      * Retrieve all the known labels in the address book
      */
-    std::set<std::string> ListAddrBookLabels(std::optional<AddressPurpose> purpose) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    std::set<std::string> ListAddrBookLabels(const std::optional<AddressPurpose> purpose) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /**
      * Walk-through the address book entries.
@@ -783,8 +783,8 @@ public:
      */
     void MarkDestinationsDirty(const std::set<CTxDestination>& destinations) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
-    util::Result<CTxDestination> GetNewDestination(OutputType type, const std::string& label);
-    util::Result<CTxDestination> GetNewChangeDestination(OutputType type);
+    util::Result<CTxDestination> GetNewDestination(const OutputType type, const std::string label);
+    util::Result<CTxDestination> GetNewChangeDestination(const OutputType type);
 
     bool IsMine(const CTxDestination& dest) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     bool IsMine(const CScript& script) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
@@ -1133,4 +1133,4 @@ struct MigrationResult {
 [[nodiscard]] util::Result<MigrationResult> MigrateLegacyToDescriptor(std::shared_ptr<CWallet> local_wallet, const SecureString& passphrase, WalletContext& context);
 } // namespace wallet
 
-#endif // BITCOIN_WALLET_WALLET_H
+#endif // HYPERCOIN_WALLET_WALLET_H

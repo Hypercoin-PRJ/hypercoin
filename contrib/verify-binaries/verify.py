@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020-present The Bitcoin Core developers
+# Copyright (c) 2020-2021 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Script for verifying Bitcoin Core release binaries.
+"""Script for verifying Hypercoin Core release binaries.
 
 This script attempts to download the sum file SHA256SUMS and corresponding
-signature file SHA256SUMS.asc from bitcoincore.org and bitcoin.org and
+signature file SHA256SUMS.asc from hypercoincore.org and hypercoin.org and
 compares them.
 
 The sum-signature file is signed by a number of builder keys. This script
@@ -15,7 +15,7 @@ here, but by default is based upon local GPG trust settings.
 
 The builder keys are available in the guix.sigs repo:
 
-    https://github.com/bitcoin-core/guix.sigs/tree/main/builder-keys
+    https://github.com/hypercoin-core/guix.sigs/tree/main/builder-keys
 
 If a minimum good, trusted signature threshold is met on the sum file, we then
 download the files specified in SHA256SUMS, and check if the hashes of these
@@ -39,14 +39,16 @@ import sys
 import shutil
 import tempfile
 import textwrap
+import urllib.request
+import urllib.error
 import enum
 from hashlib import sha256
 from pathlib import PurePath, Path
 
 # The primary host; this will fail if we can't retrieve files from here.
-HOST1 = "https://bitcoincore.org"
-HOST2 = "https://bitcoin.org"
-VERSIONPREFIX = "bitcoin-core-"
+HOST1 = "https://hypercoincore.org"
+HOST2 = "https://hypercoin.org"
+VERSIONPREFIX = "hypercoin-core-"
 SUMS_FILENAME = 'SHA256SUMS'
 SIGNATUREFILENAME = f"{SUMS_FILENAME}.asc"
 
@@ -114,6 +116,18 @@ def download_with_wget(remote_file, local_file):
     return result.returncode == 0, result.stdout.decode().rstrip()
 
 
+def download_lines_with_urllib(url) -> tuple[bool, list[str]]:
+    """Get (success, text lines of a file) over HTTP."""
+    try:
+        return (True, [
+            line.strip().decode() for line in urllib.request.urlopen(url).readlines()])
+    except urllib.error.HTTPError as e:
+        log.warning(f"HTTP request to {url} failed (HTTPError): {e}")
+    except Exception as e:
+        log.warning(f"HTTP request to {url} failed ({e})")
+    return (False, [])
+
+
 def verify_with_gpg(
     filename,
     signature_filename,
@@ -132,6 +146,11 @@ def verify_with_gpg(
     log.debug(f'Result from GPG ({result.returncode}): {result.stdout.decode()}')
     log.debug(f"{gpg_data}")
     return result.returncode, gpg_data
+
+
+def remove_files(filenames):
+    for filename in filenames:
+        os.remove(filename)
 
 
 class SigData:
@@ -227,8 +246,8 @@ def files_are_equal(filename1, filename2):
     eq = contents1 == contents2
 
     if not eq:
-        with open(filename1, 'r') as f1, \
-                open(filename2, 'r') as f2:
+        with open(filename1, 'r', encoding='utf-8') as f1, \
+                open(filename2, 'r', encoding='utf-8') as f2:
             f1lines = f1.readlines()
             f2lines = f2.readlines()
 
@@ -359,7 +378,7 @@ def verify_shasums_signature(
 
     # Decide which keys we trust, though not "trust" in the GPG sense, but rather
     # which pubkeys convince us that this sums file is legitimate. In other words,
-    # which pubkeys within the Bitcoin community do we trust for the purposes of
+    # which pubkeys within the Hypercoin community do we trust for the purposes of
     # binary verification?
     trusted_keys = set()
     if args.trusted_keys:
@@ -407,7 +426,7 @@ def verify_shasums_signature(
 def parse_sums_file(sums_file_path: str, filename_filter: list[str]) -> list[list[str]]:
     # extract hashes/filenames of binaries to verify from hash file;
     # each line has the following format: "<hash> <binary_filename>"
-    with open(sums_file_path, 'r') as hash_file:
+    with open(sums_file_path, 'r', encoding='utf8') as hash_file:
         return [line.split()[:2] for line in hash_file if len(filename_filter) == 0 or any(f in line for f in filename_filter)]
 
 
@@ -434,7 +453,7 @@ def verify_binary_hashes(hashes_to_verify: list[list[str]]) -> tuple[ReturnCode,
 
 
 def verify_published_handler(args: argparse.Namespace) -> ReturnCode:
-    WORKINGDIR = Path(tempfile.gettempdir()) / f"bitcoin_verify_binaries.{args.version}"
+    WORKINGDIR = Path(tempfile.gettempdir()) / f"hypercoin_verify_binaries.{args.version}"
 
     def cleanup():
         log.info("cleaning up files")
@@ -494,7 +513,7 @@ def verify_published_handler(args: argparse.Namespace) -> ReturnCode:
         log.error(f"No files matched the platform specified. Did you mean: {closest_match}")
         return ReturnCode.NO_BINARIES_MATCH
 
-    # remove binaries that are known not to be hosted by bitcoincore.org
+    # remove binaries that are known not to be hosted by hypercoincore.org
     fragments_to_remove = ['-unsigned', '-debug', '-codesignatures']
     for fragment in fragments_to_remove:
         nobinaries = [i for i in hashes_to_verify if fragment in i[1]]
@@ -654,7 +673,7 @@ def main():
     pub_parser.set_defaults(func=verify_published_handler)
     pub_parser.add_argument(
         'version', type=str, help=(
-            f'version of the bitcoin release to download; of the format '
+            f'version of the hypercoin release to download; of the format '
             f'{VERSION_FORMAT}. Example: {VERSION_EXAMPLE}')
     )
     pub_parser.add_argument(
@@ -667,7 +686,7 @@ def main():
         default=bool_from_env('BINVERIFY_REQUIRE_ALL_HOSTS'),
         help=(
             f'If set, require all hosts ({HOST1}, {HOST2}) to provide signatures. '
-            '(Sometimes bitcoin.org lags behind bitcoincore.org.)')
+            '(Sometimes hypercoin.org lags behind hypercoincore.org.)')
     )
 
     bin_parser = subparsers.add_parser("bin", help="Verify local binaries.")

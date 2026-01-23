@@ -1,4 +1,4 @@
-// Copyright (c) 2023-present The Bitcoin Core developers
+// Copyright (c) 2023-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -19,4 +19,4 @@ static void CheckBlockIndex(benchmark::Bench& bench)
 }
 
 
-BENCHMARK(CheckBlockIndex);
+BENCHMARK(CheckBlockIndex, benchmark::PriorityLevel::HIGH);

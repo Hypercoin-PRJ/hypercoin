@@ -12,7 +12,12 @@ other consensus and policy rules, each of the following conditions are met:
 
 1. (Removed)
 
-2. (Removed)
+2. The replacement transaction only include an unconfirmed input if that input was included in
+   one of the directly conflicting transactions. An unconfirmed input spends an output from a
+   currently-unconfirmed transaction.
+
+   *Rationale*: When RBF was originally implemented, the mempool did not keep track of
+   ancestor feerates yet. This rule was suggested as a temporary restriction.
 
 3. The replacement transaction pays an absolute fee of at least the sum paid by the original
    transactions.
@@ -33,39 +38,44 @@ other consensus and policy rules, each of the following conditions are met:
    *Rationale*: Try to prevent DoS attacks where an attacker causes the network to repeatedly relay
    transactions each paying a tiny additional amount in fees, e.g. just 1 satoshi.
 
-5. The number of distinct clusters corresponding to conflicting transactions does not exceed 100.
+5. The number of original transactions does not exceed 100. More precisely, the sum of all
+   directly conflicting transactions' descendant counts (number of transactions inclusive of itself
+   and its descendants) must not exceed 100; it is possible that this overestimates the true number
+   of original transactions.
 
-   *Rationale*: Limit CPU usage required to update the mempool for so many transactions being
-   removed at once.
+   *Rationale*: Try to prevent DoS attacks where an attacker is able to easily occupy and flush out
+   significant portions of the node's mempool using replacements with multiple directly conflicting
+   transactions, each with large descendant sets.
 
-6. The feerate diagram of the mempool must be strictly improved by the replacement transaction.
+6. The replacement transaction's feerate is greater than the feerates of all directly conflicting
+   transactions.
 
-   *Rationale*: This ensures that block fees in all future blocks will go up
-   after the replacement (ignoring tail effects at the end of a block).
+   *Rationale*: This rule was originally intended to ensure that the replacement transaction is
+   preferable for block-inclusion, compared to what would be removed from the mempool. This rule
+   predates ancestor feerate-based transaction selection.
 
+This set of rules is similar but distinct from BIP125.
 
 ## History
 
 * Opt-in full replace-by-fee (without inherited signaling) honoured in mempool and mining as of
-  **v0.12.0** ([PR 6871](https://github.com/bitcoin/bitcoin/pull/6871)).
+  **v0.12.0** ([PR 6871](https://github.com/hypercoin/hypercoin/pull/6871)).
 
-* [BIP125](https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki) defined based on
-  Bitcoin Core implementation.
+* [BIP125](https://github.com/hypercoin/bips/blob/master/bip-0125.mediawiki) defined based on
+  Hypercoin Core implementation.
 
 * The incremental relay feerate used to calculate the required additional fees is distinct from
   `-minrelaytxfee` and configurable using `-incrementalrelayfee`
-  ([PR #9380](https://github.com/bitcoin/bitcoin/pull/9380)).
+  ([PR #9380](https://github.com/hypercoin/hypercoin/pull/9380)).
 
 * RBF enabled by default in the wallet GUI as of **v0.18.1** ([PR
-  #11605](https://github.com/bitcoin/bitcoin/pull/11605)).
+  #11605](https://github.com/hypercoin/hypercoin/pull/11605)).
 
 * Full replace-by-fee enabled as a configurable mempool policy as of **v24.0** ([PR
-  #25353](https://github.com/bitcoin/bitcoin/pull/25353)).
+  #25353](https://github.com/hypercoin/hypercoin/pull/25353)).
 
-* Full replace-by-fee is the default policy as of **v28.0** ([PR #30493](https://github.com/bitcoin/bitcoin/pull/30493)).
+* Full replace-by-fee is the default policy as of **v28.0** ([PR #30493](https://github.com/hypercoin/hypercoin/pull/30493)).
 
-* Signaling for replace-by-fee is no longer required as of [PR 30592](https://github.com/bitcoin/bitcoin/pull/30592).
+* Signaling for replace-by-fee is no longer required as of [PR 30592](https://github.com/hypercoin/hypercoin/pull/30592).
 
-* The incremental relay feerate default is 0.1sat/vB ([PR #33106](https://github.com/bitcoin/bitcoin/pull/33106)).
-
-* Feerate diagram policy enabled in conjunction with switch to cluster mempool as of **v31.0**.
+* The incremental relay feerate default is 0.1sat/vB ([PR #33106](https://github.com/hypercoin/hypercoin/pull/33106)).

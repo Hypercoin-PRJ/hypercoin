@@ -1,10 +1,10 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_RPC_SERVER_H
-#define BITCOIN_RPC_SERVER_H
+#ifndef HYPERCOIN_RPC_SERVER_H
+#define HYPERCOIN_RPC_SERVER_H
 
 #include <rpc/request.h>
 #include <rpc/util.h>
@@ -89,7 +89,7 @@ private:
     std::map<std::string, std::vector<const CRPCCommand*>> mapCommands;
 public:
     CRPCTable();
-    std::string help(std::string_view name, const JSONRPCRequest& helpreq) const;
+    std::string help(const std::string& name, const JSONRPCRequest& helpreq) const;
 
     /**
      * Execute a method.
@@ -135,4 +135,4 @@ void InterruptRPC();
 void StopRPC();
 UniValue JSONRPCExec(const JSONRPCRequest& jreq, bool catch_errors);
 
-#endif // BITCOIN_RPC_SERVER_H
+#endif // HYPERCOIN_RPC_SERVER_H

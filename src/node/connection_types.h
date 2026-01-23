@@ -1,9 +1,9 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NODE_CONNECTION_TYPES_H
-#define BITCOIN_NODE_CONNECTION_TYPES_H
+#ifndef HYPERCOIN_NODE_CONNECTION_TYPES_H
+#define HYPERCOIN_NODE_CONNECTION_TYPES_H
 
 #include <cstdint>
 #include <string>
@@ -14,7 +14,7 @@
  *
  * If adding or removing types, please update CONNECTION_TYPE_DOC in
  * src/rpc/net.cpp and src/qt/rpcconsole.cpp, as well as the descriptions in
- * src/qt/guiutil.cpp and src/bitcoin-cli.cpp::NetinfoRequestHandler. */
+ * src/qt/guiutil.cpp and src/hypercoin-cli.cpp::NetinfoRequestHandler. */
 enum class ConnectionType {
     /**
      * Inbound connections are those initiated by a peer. This is the only
@@ -48,7 +48,7 @@ enum class ConnectionType {
      *   evict only if this longer-known peer is offline.
      * - move node addresses from New to Tried table, so that we have more
      *   connectable addresses in our AddrMan.
-     * Note that in the literature ("Eclipse Attacks on Bitcoin’s Peer-to-Peer Network")
+     * Note that in the literature ("Eclipse Attacks on Hypercoin’s Peer-to-Peer Network")
      * only the latter feature is referred to as "feeler connections",
      * although in our codebase feeler connections encompass test-before-evict as well.
      * We make these connections approximately every FEELER_INTERVAL:
@@ -75,13 +75,6 @@ enum class ConnectionType {
      * AddrMan is empty.
      */
     ADDR_FETCH,
-
-    /**
-     * Private broadcast connections are short-lived and only opened to
-     * privacy networks (Tor, I2P) for relaying privacy-sensitive data (like
-     * our own transactions) and closed afterwards.
-     */
-    PRIVATE_BROADCAST,
 };
 
 /** Convert ConnectionType enum to a string value */
@@ -97,4 +90,4 @@ enum class TransportProtocolType : uint8_t {
 /** Convert TransportProtocolType enum to a string value */
 std::string TransportTypeAsString(TransportProtocolType transport_type);
 
-#endif // BITCOIN_NODE_CONNECTION_TYPES_H
+#endif // HYPERCOIN_NODE_CONNECTION_TYPES_H

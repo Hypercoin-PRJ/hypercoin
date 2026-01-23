@@ -1,13 +1,12 @@
-// Copyright (c) 2017-present The Bitcoin Core developers
+// Copyright (c) 2017-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_RPC_RAWTRANSACTION_UTIL_H
-#define BITCOIN_RPC_RAWTRANSACTION_UTIL_H
+#ifndef HYPERCOIN_RPC_RAWTRANSACTION_UTIL_H
+#define HYPERCOIN_RPC_RAWTRANSACTION_UTIL_H
 
 #include <addresstype.h>
 #include <consensus/amount.h>
-#include <rpc/util.h>
 #include <map>
 #include <string>
 #include <optional>
@@ -54,9 +53,6 @@ std::vector<std::pair<CTxDestination, CAmount>> ParseOutputs(const UniValue& out
 void AddOutputs(CMutableTransaction& rawTx, const UniValue& outputs_in);
 
 /** Create a transaction from univalue parameters */
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, std::optional<bool> rbf, uint32_t version);
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, std::optional<bool> rbf, const uint32_t version);
 
-/** Explain the UniValue "decoded" transaction object, may include extra fields if processed by wallet **/
-std::vector<RPCResult> DecodeTxDoc(const std::string& txid_field_doc, bool wallet);
-
-#endif // BITCOIN_RPC_RAWTRANSACTION_UTIL_H
+#endif // HYPERCOIN_RPC_RAWTRANSACTION_UTIL_H

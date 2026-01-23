@@ -1,0 +1,33 @@
+# /etc/conf.d/hypercoind: config file for /etc/init.d/hypercoind
+
+# Config file location
+#HYPERCOIND_CONFIGFILE="/etc/hypercoin/hypercoin.conf"
+
+# What directory to write pidfile to?  (created and owned by $HYPERCOIND_USER)
+#HYPERCOIND_PIDDIR="/var/run/hypercoind"
+
+# What filename to give the pidfile
+#HYPERCOIND_PIDFILE="${HYPERCOIND_PIDDIR}/hypercoind.pid"
+
+# Where to write hypercoind data (be mindful that the blockchain is large)
+#HYPERCOIND_DATADIR="/var/lib/hypercoind"
+
+# User and group to own hypercoind process
+#HYPERCOIND_USER="hypercoin"
+#HYPERCOIND_GROUP="hypercoin"
+
+# Path to hypercoind executable
+#HYPERCOIND_BIN="/usr/bin/hypercoind"
+
+# Nice value to run hypercoind under
+#HYPERCOIND_NICE=0
+
+# Additional options (avoid -conf and -datadir, use flags above)
+#HYPERCOIND_OPTS=""
+
+# The timeout in seconds OpenRC will wait for hypercoind to terminate
+# after a SIGTERM has been raised.
+# Note that this will be mapped as argument to start-stop-daemon's
+# '--retry' option, which means you can specify a retry schedule
+# here. For more information see man 8 start-stop-daemon.
+HYPERCOIND_SIGTERM_TIMEOUT=600

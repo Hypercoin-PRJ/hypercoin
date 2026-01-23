@@ -1,9 +1,9 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_TRANSACTIONFILTERPROXY_H
-#define BITCOIN_QT_TRANSACTIONFILTERPROXY_H
+#ifndef HYPERCOIN_QT_TRANSACTIONFILTERPROXY_H
+#define HYPERCOIN_QT_TRANSACTIONFILTERPROXY_H
 
 #include <consensus/amount.h>
 
@@ -44,9 +44,9 @@ private:
     std::optional<QDateTime> dateFrom;
     std::optional<QDateTime> dateTo;
     QString m_search_string;
-    quint32 typeFilter{ALL_TYPES};
+    quint32 typeFilter;
     CAmount minAmount{0};
     bool showInactive{true};
 };
 
-#endif // BITCOIN_QT_TRANSACTIONFILTERPROXY_H
+#endif // HYPERCOIN_QT_TRANSACTIONFILTERPROXY_H

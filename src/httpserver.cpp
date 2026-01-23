@@ -1,4 +1,4 @@
-// Copyright (c) 2015-present The Bitcoin Core developers
+// Copyright (c) 2015-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -277,7 +277,7 @@ static void http_request_cb(struct evhttp_request* req, void* arg)
 
     // Disable reading to work around a libevent bug, fixed in 2.1.9
     // See https://github.com/libevent/libevent/commit/5ff8eb26371c4dc56f384b2de35bea2d87814779
-    // and https://github.com/bitcoin/bitcoin/pull/11593.
+    // and https://github.com/hypercoin/hypercoin/pull/11593.
     if (event_get_version_number() >= 0x02010600 && event_get_version_number() < 0x02010900) {
         if (conn) {
             bufferevent* bev = evhttp_connection_get_bufferevent(conn);
@@ -330,9 +330,9 @@ static void http_request_cb(struct evhttp_request* req, void* arg)
         std::unique_ptr<HTTPWorkItem> item(new HTTPWorkItem(std::move(hreq), path, i->handler));
         assert(g_work_queue);
         if (g_work_queue->Enqueue(item.get())) {
-            [[maybe_unused]] auto _{item.release()}; /* if true, queue took ownership */
+            item.release(); /* if true, queue took ownership */
         } else {
-            LogWarning("Request rejected because http work queue depth exceeded, it can be increased with the -rpcworkqueue= setting");
+            LogPrintf("WARNING: request rejected because http work queue depth exceeded, it can be increased with the -rpcworkqueue= setting\n");
             item->req->WriteReply(HTTP_SERVICE_UNAVAILABLE, "Work queue depth exceeded");
         }
     } else {
@@ -372,10 +372,10 @@ static bool HTTPBindAddresses(struct evhttp* http)
         endpoints.emplace_back("::1", http_port);
         endpoints.emplace_back("127.0.0.1", http_port);
         if (!gArgs.GetArgs("-rpcallowip").empty()) {
-            LogWarning("Option -rpcallowip was specified without -rpcbind; this doesn't usually make sense");
+            LogPrintf("WARNING: option -rpcallowip was specified without -rpcbind; this doesn't usually make sense\n");
         }
         if (!gArgs.GetArgs("-rpcbind").empty()) {
-            LogWarning("Option -rpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect");
+            LogPrintf("WARNING: option -rpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
         }
     } else { // Specific bind addresses
         for (const std::string& strRPCBind : gArgs.GetArgs("-rpcbind")) {
@@ -396,17 +396,17 @@ static bool HTTPBindAddresses(struct evhttp* http)
         if (bind_handle) {
             const std::optional<CNetAddr> addr{LookupHost(i->first, false)};
             if (i->first.empty() || (addr.has_value() && addr->IsBindAny())) {
-                LogWarning("The RPC server is not safe to expose to untrusted networks such as the public internet");
+                LogPrintf("WARNING: the RPC server is not safe to expose to untrusted networks such as the public internet\n");
             }
             // Set the no-delay option (disable Nagle's algorithm) on the TCP socket.
             evutil_socket_t fd = evhttp_bound_socket_get_fd(bind_handle);
             int one = 1;
-            if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&one), sizeof(one)) == SOCKET_ERROR) {
+            if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (sockopt_arg_type)&one, sizeof(one)) == SOCKET_ERROR) {
                 LogInfo("WARNING: Unable to set TCP_NODELAY on RPC server socket, continuing anyway\n");
             }
             boundSockets.push_back(bind_handle);
         } else {
-            LogWarning("Binding RPC on address %s port %i failed.", i->first, i->second);
+            LogPrintf("Binding RPC on address %s port %i failed.\n", i->first, i->second);
         }
     }
     return !boundSockets.empty();
@@ -422,20 +422,22 @@ static void HTTPWorkQueueRun(WorkQueue<HTTPClosure>* queue, int worker_num)
 /** libevent event log callback */
 static void libevent_log_cb(int severity, const char *msg)
 {
+    BCLog::Level level;
     switch (severity) {
     case EVENT_LOG_DEBUG:
-        LogDebug(BCLog::LIBEVENT, "%s", msg);
+        level = BCLog::Level::Debug;
         break;
     case EVENT_LOG_MSG:
-        LogInfo("libevent: %s", msg);
+        level = BCLog::Level::Info;
         break;
     case EVENT_LOG_WARN:
-        LogWarning("libevent: %s", msg);
+        level = BCLog::Level::Warning;
         break;
     default: // EVENT_LOG_ERR and others are mapped to error
-        LogError("libevent: %s", msg);
+        level = BCLog::Level::Error;
         break;
     }
+    LogPrintLevel(BCLog::LIBEVENT, level, "%s\n", msg);
 }
 
 bool InitHTTPServer(const util::SignalInterrupt& interrupt)
@@ -460,7 +462,7 @@ bool InitHTTPServer(const util::SignalInterrupt& interrupt)
     raii_evhttp http_ctr = obtain_evhttp(base_ctr.get());
     struct evhttp* http = http_ctr.get();
     if (!http) {
-        LogError("Couldn't create evhttp. Exiting.");
+        LogPrintf("couldn't create evhttp. Exiting.\n");
         return false;
     }
 
@@ -470,7 +472,7 @@ bool InitHTTPServer(const util::SignalInterrupt& interrupt)
     evhttp_set_gencb(http, http_request_cb, (void*)&interrupt);
 
     if (!HTTPBindAddresses(http)) {
-        LogError("Unable to bind any endpoint for RPC server");
+        LogPrintf("Unable to bind any endpoint for RPC server\n");
         return false;
     }
 
@@ -600,7 +602,7 @@ HTTPRequest::~HTTPRequest()
 {
     if (!replySent) {
         // Keep track of whether reply was sent to avoid request leaks
-        LogWarning("Unhandled HTTP request");
+        LogPrintf("%s: Unhandled request\n", __func__);
         WriteReply(HTTP_INTERNAL_SERVER_ERROR, "Unhandled request");
     }
     // evhttpd cleans up the request, as long as a reply was sent.

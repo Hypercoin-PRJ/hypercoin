@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SCRIPT_SCRIPT_ERROR_H
-#define BITCOIN_SCRIPT_SCRIPT_ERROR_H
+#ifndef HYPERCOIN_SCRIPT_SCRIPT_ERROR_H
+#define HYPERCOIN_SCRIPT_SCRIPT_ERROR_H
 
 #include <string>
 
@@ -77,7 +77,6 @@ typedef enum ScriptError_t
     SCRIPT_ERR_TAPSCRIPT_VALIDATION_WEIGHT,
     SCRIPT_ERR_TAPSCRIPT_CHECKMULTISIG,
     SCRIPT_ERR_TAPSCRIPT_MINIMALIF,
-    SCRIPT_ERR_TAPSCRIPT_EMPTY_PUBKEY,
 
     /* Constant scriptCode */
     SCRIPT_ERR_OP_CODESEPARATOR,
@@ -88,6 +87,6 @@ typedef enum ScriptError_t
 
 #define SCRIPT_ERR_LAST SCRIPT_ERR_ERROR_COUNT
 
-std::string ScriptErrorString(ScriptError error);
+std::string ScriptErrorString(const ScriptError error);
 
-#endif // BITCOIN_SCRIPT_SCRIPT_ERROR_H
+#endif // HYPERCOIN_SCRIPT_SCRIPT_ERROR_H

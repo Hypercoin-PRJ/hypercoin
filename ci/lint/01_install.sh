@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2018-present The Bitcoin Core developers
+# Copyright (c) 2018-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -18,8 +18,7 @@ ${CI_RETRY_EXE} apt-get update
 # - curl/xz-utils (to install shellcheck)
 # - git (used in many lint scripts)
 # - gpg (used by verify-commits)
-# - moreutils (used by scripted-diff)
-${CI_RETRY_EXE} apt-get install -y cargo curl xz-utils git gpg moreutils
+${CI_RETRY_EXE} apt-get install -y cargo curl xz-utils git gpg
 
 PYTHON_PATH="/python_build"
 if [ ! -d "${PYTHON_PATH}/bin" ]; then
@@ -40,11 +39,12 @@ command -v python3
 python3 --version
 
 ${CI_RETRY_EXE} pip3 install \
+  codespell==2.4.1 \
   lief==0.16.6 \
-  mypy==1.18.2 \
-  pyzmq==27.1.0 \
-  ruff==0.13.2 \
-  vulture==2.14
+  mypy==1.4.1 \
+  pyzmq==25.1.0 \
+  ruff==0.5.5 \
+  vulture==2.6
 
 SHELLCHECK_VERSION=v0.11.0
 curl -sL "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" | \

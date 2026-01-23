@@ -1,4 +1,4 @@
-// Copyright (c) 2017-present The Bitcoin Core developers
+// Copyright (c) 2017-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -7,12 +7,11 @@
 #include <crypto/chacha20.h>
 #include <crypto/common.h>
 #include <hash.h>
-#include <span.h>
-#include <uint256.h>
 #include <util/check.h>
 
 #include <bit>
-#include <cstring>
+#include <cassert>
+#include <cstdio>
 #include <limits>
 
 namespace {
@@ -386,9 +385,9 @@ Num3072 Num3072::GetInverse() const
     // Compute a modular inverse based on a variant of the safegcd algorithm:
     // - Paper: https://gcd.cr.yp.to/papers.html
     // - Inspired by this code in libsecp256k1:
-    //   https://github.com/bitcoin-core/secp256k1/blob/master/src/modinv32_impl.h
+    //   https://github.com/hypercoin-core/secp256k1/blob/master/src/modinv32_impl.h
     // - Explanation of the algorithm:
-    //   https://github.com/bitcoin-core/secp256k1/blob/master/doc/safegcd_implementation.md
+    //   https://github.com/hypercoin-core/secp256k1/blob/master/doc/safegcd_implementation.md
 
     // Local variables d, e, f, g:
     // - f and g are the variables whose gcd we compute (despite knowing the answer is 1):

@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UINT256_H
-#define BITCOIN_UINT256_H
+#ifndef HYPERCOIN_UINT256_H
+#define HYPERCOIN_UINT256_H
 
 #include <crypto/common.h>
 #include <span.h>
@@ -64,6 +64,7 @@ public:
     constexpr int Compare(const base_blob& other) const { return std::memcmp(m_data.data(), other.m_data.data(), WIDTH); }
 
     friend constexpr bool operator==(const base_blob& a, const base_blob& b) { return a.Compare(b) == 0; }
+    friend constexpr bool operator!=(const base_blob& a, const base_blob& b) { return a.Compare(b) != 0; }
     friend constexpr bool operator<(const base_blob& a, const base_blob& b) { return a.Compare(b) < 0; }
 
     /** @name Hex representation
@@ -204,4 +205,4 @@ public:
     static const uint256 ONE;
 };
 
-#endif // BITCOIN_UINT256_H
+#endif // HYPERCOIN_UINT256_H

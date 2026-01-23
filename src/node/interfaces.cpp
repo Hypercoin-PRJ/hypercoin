@@ -1,4 +1,4 @@
-// Copyright (c) 2018-present The Bitcoin Core developers
+// Copyright (c) 2018-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -40,7 +40,7 @@
 #include <node/types.h>
 #include <node/warnings.h>
 #include <policy/feerate.h>
-#include <policy/fees/block_policy_estimator.h>
+#include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <policy/settings.h>
@@ -62,7 +62,7 @@
 #include <validation.h>
 #include <validationinterface.h>
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <any>
 #include <memory>
@@ -81,10 +81,8 @@ using interfaces::MakeSignalHandler;
 using interfaces::Mining;
 using interfaces::Node;
 using interfaces::WalletLoader;
-using kernel::ChainstateRole;
 using node::BlockAssembler;
 using node::BlockWaitOptions;
-using node::CoinbaseTx;
 using util::Join;
 
 namespace node {
@@ -359,12 +357,7 @@ public:
     }
     TransactionError broadcastTransaction(CTransactionRef tx, CAmount max_tx_fee, std::string& err_string) override
     {
-        return BroadcastTransaction(*m_context,
-                                    std::move(tx),
-                                    err_string,
-                                    max_tx_fee,
-                                    TxBroadcast::MEMPOOL_AND_BROADCAST_TO_ALL,
-                                    /*wait_callback=*/false);
+        return BroadcastTransaction(*m_context, std::move(tx), err_string, max_tx_fee, /*relay=*/ true, /*wait_callback=*/ false);
     }
     WalletLoader& walletLoader() override
     {
@@ -463,7 +456,7 @@ public:
     {
         m_notifications->transactionRemovedFromMempool(tx, reason);
     }
-    void BlockConnected(const ChainstateRole& role, const std::shared_ptr<const CBlock>& block, const CBlockIndex* index) override
+    void BlockConnected(ChainstateRole role, const std::shared_ptr<const CBlock>& block, const CBlockIndex* index) override
     {
         m_notifications->blockConnected(role, kernel::MakeBlockInfo(index, block.get()));
     }
@@ -475,8 +468,7 @@ public:
     {
         m_notifications->updatedBlockTip();
     }
-    void ChainStateFlushed(const ChainstateRole& role, const CBlockLocator& locator) override
-    {
+    void ChainStateFlushed(ChainstateRole role, const CBlockLocator& locator) override {
         m_notifications->chainStateFlushed(role, locator);
     }
     std::shared_ptr<Chain::Notifications> m_notifications;
@@ -661,29 +653,33 @@ public:
     bool isInMempool(const Txid& txid) override
     {
         if (!m_node.mempool) return false;
+        LOCK(m_node.mempool->cs);
         return m_node.mempool->exists(txid);
     }
     bool hasDescendantsInMempool(const Txid& txid) override
     {
         if (!m_node.mempool) return false;
-        return m_node.mempool->HasDescendants(txid);
+        LOCK(m_node.mempool->cs);
+        const auto entry{m_node.mempool->GetEntry(txid)};
+        if (entry == nullptr) return false;
+        return entry->GetCountWithDescendants() > 1;
     }
     bool broadcastTransaction(const CTransactionRef& tx,
         const CAmount& max_tx_fee,
-        TxBroadcast broadcast_method,
+        bool relay,
         std::string& err_string) override
     {
-        const TransactionError err = BroadcastTransaction(m_node, tx, err_string, max_tx_fee, broadcast_method, /*wait_callback=*/false);
+        const TransactionError err = BroadcastTransaction(m_node, tx, err_string, max_tx_fee, relay, /*wait_callback=*/false);
         // Chain clients only care about failures to accept the tx to the mempool. Disregard non-mempool related failures.
         // Note: this will need to be updated if BroadcastTransactions() is updated to return other non-mempool failures
         // that Chain clients do not need to know about.
         return TransactionError::OK == err;
     }
-    void getTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize, CAmount* ancestorfees) override
+    void getTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& descendants, size_t* ancestorsize, CAmount* ancestorfees) override
     {
-        ancestors = cluster_count = 0;
+        ancestors = descendants = 0;
         if (!m_node.mempool) return;
-        m_node.mempool->GetTransactionAncestry(txid, ancestors, cluster_count, ancestorsize, ancestorfees);
+        m_node.mempool->GetTransactionAncestry(txid, ancestors, descendants, ancestorsize, ancestorfees);
     }
 
     std::map<COutPoint, CAmount> calculateIndividualBumpFees(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) override
@@ -717,10 +713,10 @@ public:
     util::Result<void> checkChainLimits(const CTransactionRef& tx) override
     {
         if (!m_node.mempool) return {};
-        if (!m_node.mempool->CheckPolicyLimits(tx)) {
-            return util::Error{Untranslated("too many unconfirmed transactions in cluster")};
-        }
-        return {};
+        LockPoints lp;
+        CTxMemPoolEntry entry(tx, 0, 0, 0, 0, false, 0, lp);
+        LOCK(m_node.mempool->cs);
+        return m_node.mempool->CheckPackageLimits({tx}, entry.GetTxSize());
     }
     CFeeRate estimateSmartFee(int num_blocks, bool conservative, FeeCalculation* calc) override
     {
@@ -846,8 +842,7 @@ public:
     }
     bool hasAssumedValidChain() override
     {
-        LOCK(::cs_main);
-        return bool{chainman().CurrentChainstate().m_from_snapshot_blockhash};
+        return chainman().IsSnapshotActive();
     }
 
     NodeContext* context() override { return &m_node; }
@@ -889,14 +884,9 @@ public:
         return m_block_template->vTxSigOpsCost;
     }
 
-    CTransactionRef getCoinbaseRawTx() override
+    CTransactionRef getCoinbaseTx() override
     {
         return m_block_template->block.vtx[0];
-    }
-
-    CoinbaseTx getCoinbaseTx() override
-    {
-        return m_block_template->m_coinbase_tx;
     }
 
     std::vector<unsigned char> getCoinbaseCommitment() override

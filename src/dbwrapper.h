@@ -1,9 +1,9 @@
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_DBWRAPPER_H
-#define BITCOIN_DBWRAPPER_H
+#ifndef HYPERCOIN_DBWRAPPER_H
+#define HYPERCOIN_DBWRAPPER_H
 
 #include <attributes.h>
 #include <serialize.h>
@@ -191,6 +191,12 @@ private:
     //! obfuscation key storage key, null-prefixed to avoid collisions
     inline static const std::string OBFUSCATION_KEY{"\000obfuscate_key", 14}; // explicit size to avoid truncation at leading \0
 
+    //! path to filesystem storage
+    const fs::path m_path;
+
+    //! whether or not the database resides in memory
+    bool m_is_memory;
+
     std::optional<std::string> ReadImpl(std::span<const std::byte> key) const;
     bool ExistsImpl(std::span<const std::byte> key) const;
     size_t EstimateSizeImpl(std::span<const std::byte> key1, std::span<const std::byte> key2) const;
@@ -224,11 +230,19 @@ public:
     }
 
     template <typename K, typename V>
-    void Write(const K& key, const V& value, bool fSync = false)
+    bool Write(const K& key, const V& value, bool fSync = false)
     {
         CDBBatch batch(*this);
         batch.Write(key, value);
-        WriteBatch(batch, fSync);
+        return WriteBatch(batch, fSync);
+    }
+
+    //! @returns filesystem path to the on-disk data.
+    std::optional<fs::path> StoragePath() {
+        if (m_is_memory) {
+            return {};
+        }
+        return m_path;
     }
 
     template <typename K>
@@ -241,14 +255,14 @@ public:
     }
 
     template <typename K>
-    void Erase(const K& key, bool fSync = false)
+    bool Erase(const K& key, bool fSync = false)
     {
         CDBBatch batch(*this);
         batch.Erase(key);
-        WriteBatch(batch, fSync);
+        return WriteBatch(batch, fSync);
     }
 
-    void WriteBatch(CDBBatch& batch, bool fSync = false);
+    bool WriteBatch(CDBBatch& batch, bool fSync = false);
 
     // Get an estimate of LevelDB memory usage (in bytes).
     size_t DynamicMemoryUsage() const;
@@ -272,4 +286,4 @@ public:
     }
 };
 
-#endif // BITCOIN_DBWRAPPER_H
+#endif // HYPERCOIN_DBWRAPPER_H

@@ -1,4 +1,4 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -45,7 +45,7 @@ inline std::ostream& operator<<(std::ostream& os, const std::pair<std::string, c
 inline void WriteText(const fs::path& path, const std::string& text)
 {
     std::ofstream file;
-    file.open(path.std_path());
+    file.open(path);
     file << text;
 }
 
@@ -256,7 +256,7 @@ BOOST_FIXTURE_TEST_CASE(Merge, MergeTestingSetup)
 
     // If check below fails, should manually dump the results with:
     //
-    //   SETTINGS_MERGE_TEST_OUT=results.txt ./test_bitcoin --run_test=settings_tests/Merge
+    //   SETTINGS_MERGE_TEST_OUT=results.txt ./test_hypercoin --run_test=settings_tests/Merge
     //
     // And verify diff against previous results to make sure the changes are expected.
     //

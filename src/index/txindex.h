@@ -1,20 +1,11 @@
-// Copyright (c) 2017-present The Bitcoin Core developers
+// Copyright (c) 2017-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_INDEX_TXINDEX_H
-#define BITCOIN_INDEX_TXINDEX_H
+#ifndef HYPERCOIN_INDEX_TXINDEX_H
+#define HYPERCOIN_INDEX_TXINDEX_H
 
 #include <index/base.h>
-#include <primitives/transaction.h>
-
-#include <cstddef>
-#include <memory>
-
-class uint256;
-namespace interfaces {
-class Chain;
-}
 
 static constexpr bool DEFAULT_TXINDEX{false};
 
@@ -57,4 +48,4 @@ public:
 /// The global transaction index, used in GetTransaction. May be null.
 extern std::unique_ptr<TxIndex> g_txindex;
 
-#endif // BITCOIN_INDEX_TXINDEX_H
+#endif // HYPERCOIN_INDEX_TXINDEX_H

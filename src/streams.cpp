@@ -1,4 +1,4 @@
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://opensource.org/license/mit/.
 
@@ -55,20 +55,6 @@ int64_t AutoFile::tell()
 {
     if (!m_position.has_value()) throw std::ios_base::failure("AutoFile::tell: position unknown");
     return *m_position;
-}
-
-int64_t AutoFile::size()
-{
-    if (IsNull()) {
-        throw std::ios_base::failure("AutoFile::size: file handle is nullptr");
-    }
-    // Temporarily save the current position
-    int64_t current_pos = tell();
-    seek(0, SEEK_END);
-    int64_t file_size = tell();
-    // Restore the original position
-    seek(current_pos, SEEK_SET);
-    return file_size;
 }
 
 void AutoFile::read(std::span<std::byte> dst)

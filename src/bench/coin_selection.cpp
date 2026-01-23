@@ -1,4 +1,4 @@
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -55,7 +55,7 @@ static void addCoin(const CAmount& nValue, const CWallet& wallet, std::vector<st
 // the hardest, as you need a wider selection of scenarios, just testing the
 // same one over and over isn't too useful. Generating random isn't useful
 // either for measurements."
-// (https://github.com/bitcoin/bitcoin/issues/7883#issuecomment-224807484)
+// (https://github.com/hypercoin/hypercoin/issues/7883#issuecomment-224807484)
 static void CoinSelection(benchmark::Bench& bench)
 {
     NodeContext node;
@@ -130,12 +130,12 @@ static void BnBExhaustion(benchmark::Bench& bench)
     bench.run([&] {
         // Benchmark
         CAmount target = make_hard_case(17, utxo_pool);
-        [[maybe_unused]] auto _{SelectCoinsBnB(utxo_pool, target, /*cost_of_change=*/0, MAX_STANDARD_TX_WEIGHT)}; // Should exhaust
+        SelectCoinsBnB(utxo_pool, target, 0, MAX_STANDARD_TX_WEIGHT); // Should exhaust
 
         // Cleanup
         utxo_pool.clear();
     });
 }
 
-BENCHMARK(CoinSelection);
-BENCHMARK(BnBExhaustion);
+BENCHMARK(CoinSelection, benchmark::PriorityLevel::HIGH);
+BENCHMARK(BnBExhaustion, benchmark::PriorityLevel::HIGH);

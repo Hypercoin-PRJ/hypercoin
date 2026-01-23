@@ -1,4 +1,4 @@
-// Copyright (c) 2020-present The Bitcoin Core developers
+// Copyright (c) 2020-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -9,9 +9,9 @@
 #include <crypto/common.h>
 
 #include <algorithm>
+#include <array>
 #include <bit>
-#include <cassert>
-#include <iterator>
+#include <cstdint>
 #include <span>
 
 void KeccakF(uint64_t (&st)[25])

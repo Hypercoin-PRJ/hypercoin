@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) The Bitcoin Core developers
+# Copyright (c) The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit/.
 
@@ -21,12 +21,11 @@ def main():
     run(["git", "log", "-1"])
 
     num_procs = int(run(["nproc"], stdout=subprocess.PIPE).stdout)
-    build_dir = "ci_build"
 
     run([
         "cmake",
         "-B",
-        build_dir,
+        "build",
         "-Werror=dev",
         # Use clang++, because it is a bit faster and uses less memory than g++
         "-DCMAKE_C_COMPILER=clang",
@@ -38,23 +37,26 @@ def main():
         "-DAPPEND_CFLAGS='-O3 -g2'",
         "-DCMAKE_BUILD_TYPE=Debug",
         "-DWERROR=ON",
-        "--preset=dev-mode",
-        # Tolerate unused member functions in intermediate commits in a pull request
+        "-DWITH_ZMQ=ON",
+        "-DBUILD_GUI=ON",
+        "-DBUILD_BENCH=ON",
+        "-DBUILD_FUZZ_BINARY=ON",
+        "-DWITH_USDT=ON",
         "-DCMAKE_CXX_FLAGS=-Wno-error=unused-member-function",
     ])
-    run(["cmake", "--build", build_dir, "-j", str(num_procs)])
+    run(["cmake", "--build", "build", "-j", str(num_procs)])
     run([
         "ctest",
         "--output-on-failure",
         "--stop-on-failure",
         "--test-dir",
-        build_dir,
+        "build",
         "-j",
         str(num_procs),
     ])
     run([
         sys.executable,
-        f"./{build_dir}/test/functional/test_runner.py",
+        "./build/test/functional/test_runner.py",
         "-j",
         str(num_procs * 2),
         "--combinedlogslen=99999999",

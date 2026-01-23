@@ -1,11 +1,11 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Copyright (c) 2017 The Zcash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_PUBKEY_H
-#define BITCOIN_PUBKEY_H
+#ifndef HYPERCOIN_PUBKEY_H
+#define HYPERCOIN_PUBKEY_H
 
 #include <hash.h>
 #include <serialize.h>
@@ -121,6 +121,10 @@ public:
         return a.vch[0] == b.vch[0] &&
                memcmp(a.vch, b.vch, a.size()) == 0;
     }
+    friend bool operator!=(const CPubKey& a, const CPubKey& b)
+    {
+        return !(a == b);
+    }
     friend bool operator<(const CPubKey& a, const CPubKey& b)
     {
         return a.vch[0] < b.vch[0] ||
@@ -220,7 +224,7 @@ public:
     bool Decompress();
 
     //! Derive BIP32 child pubkey.
-    [[nodiscard]] bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc, uint256* bip32_tweak_out = nullptr) const;
+    [[nodiscard]] bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc) const;
 };
 
 class XOnlyPubKey
@@ -298,6 +302,7 @@ public:
     unsigned char* begin() { return m_keydata.begin(); }
     unsigned char* end() { return m_keydata.end(); }
     bool operator==(const XOnlyPubKey& other) const { return m_keydata == other.m_keydata; }
+    bool operator!=(const XOnlyPubKey& other) const { return m_keydata != other.m_keydata; }
     bool operator<(const XOnlyPubKey& other) const { return m_keydata < other.m_keydata; }
 
     //! Implement serialization without length prefixes since it is a fixed length
@@ -331,6 +336,11 @@ public:
     {
         return a.m_pubkey == b.m_pubkey;
     }
+
+    bool friend operator!=(const EllSwiftPubKey& a, const EllSwiftPubKey& b)
+    {
+        return a.m_pubkey != b.m_pubkey;
+    }
 };
 
 struct CExtPubKey {
@@ -350,6 +360,11 @@ struct CExtPubKey {
             a.pubkey == b.pubkey;
     }
 
+    friend bool operator!=(const CExtPubKey &a, const CExtPubKey &b)
+    {
+        return !(a == b);
+    }
+
     friend bool operator<(const CExtPubKey &a, const CExtPubKey &b)
     {
         if (a.pubkey < b.pubkey) {
@@ -364,7 +379,7 @@ struct CExtPubKey {
     void Decode(const unsigned char code[BIP32_EXTKEY_SIZE]);
     void EncodeWithVersion(unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE]) const;
     void DecodeWithVersion(const unsigned char code[BIP32_EXTKEY_WITH_VERSION_SIZE]);
-    [[nodiscard]] bool Derive(CExtPubKey& out, unsigned int nChild, uint256* bip32_tweak_out = nullptr) const;
+    [[nodiscard]] bool Derive(CExtPubKey& out, unsigned int nChild) const;
 };
 
-#endif // BITCOIN_PUBKEY_H
+#endif // HYPERCOIN_PUBKEY_H

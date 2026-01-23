@@ -1,9 +1,9 @@
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_TEST_FUZZ_UTIL_H
-#define BITCOIN_TEST_FUZZ_UTIL_H
+#ifndef HYPERCOIN_TEST_FUZZ_UTIL_H
+#define HYPERCOIN_TEST_FUZZ_UTIL_H
 
 #include <addresstype.h>
 #include <arith_uint256.h>
@@ -146,11 +146,11 @@ template <typename WeakEnumType, size_t size>
 
 [[nodiscard]] int64_t ConsumeTime(FuzzedDataProvider& fuzzed_data_provider, const std::optional<int64_t>& min = std::nullopt, const std::optional<int64_t>& max = std::nullopt) noexcept;
 
-[[nodiscard]] CMutableTransaction ConsumeTransaction(FuzzedDataProvider& fuzzed_data_provider, const std::optional<std::vector<Txid>>& prevout_txids, int max_num_in = 10, int max_num_out = 10) noexcept;
+[[nodiscard]] CMutableTransaction ConsumeTransaction(FuzzedDataProvider& fuzzed_data_provider, const std::optional<std::vector<Txid>>& prevout_txids, const int max_num_in = 10, const int max_num_out = 10) noexcept;
 
-[[nodiscard]] CScriptWitness ConsumeScriptWitness(FuzzedDataProvider& fuzzed_data_provider, size_t max_stack_elem_size = 32) noexcept;
+[[nodiscard]] CScriptWitness ConsumeScriptWitness(FuzzedDataProvider& fuzzed_data_provider, const size_t max_stack_elem_size = 32) noexcept;
 
-[[nodiscard]] CScript ConsumeScript(FuzzedDataProvider& fuzzed_data_provider, bool maybe_p2wsh = false) noexcept;
+[[nodiscard]] CScript ConsumeScript(FuzzedDataProvider& fuzzed_data_provider, const bool maybe_p2wsh = false) noexcept;
 
 [[nodiscard]] uint32_t ConsumeSequence(FuzzedDataProvider& fuzzed_data_provider) noexcept;
 
@@ -340,4 +340,4 @@ void ReadFromStream(FuzzedDataProvider& fuzzed_data_provider, Stream& stream) no
     }
 }
 
-#endif // BITCOIN_TEST_FUZZ_UTIL_H
+#endif // HYPERCOIN_TEST_FUZZ_UTIL_H

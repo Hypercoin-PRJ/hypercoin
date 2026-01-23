@@ -1,9 +1,9 @@
-// Copyright (c) 2015-present The Bitcoin Core developers
+// Copyright (c) 2015-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
-#define BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
+#ifndef HYPERCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
+#define HYPERCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
 
 #include <primitives/transaction.h>
 #include <validationinterface.h>
@@ -35,7 +35,7 @@ protected:
     // CValidationInterface
     void TransactionAddedToMempool(const NewMempoolTransactionInfo& tx, uint64_t mempool_sequence) override;
     void TransactionRemovedFromMempool(const CTransactionRef& tx, MemPoolRemovalReason reason, uint64_t mempool_sequence) override;
-    void BlockConnected(const kernel::ChainstateRole& role, const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindexConnected) override;
+    void BlockConnected(ChainstateRole role, const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindexConnected) override;
     void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindexDisconnected) override;
     void UpdatedBlockTip(const CBlockIndex *pindexNew, const CBlockIndex *pindexFork, bool fInitialDownload) override;
 
@@ -48,4 +48,4 @@ private:
 
 extern std::unique_ptr<CZMQNotificationInterface> g_zmq_notification_interface;
 
-#endif // BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
+#endif // HYPERCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H

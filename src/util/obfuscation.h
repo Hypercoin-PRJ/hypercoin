@@ -1,9 +1,9 @@
-// Copyright (c) 2025-present The Bitcoin Core developers
+// Copyright (c) 2025-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UTIL_OBFUSCATION_H
-#define BITCOIN_UTIL_OBFUSCATION_H
+#ifndef HYPERCOIN_UTIL_OBFUSCATION_H
+#define HYPERCOIN_UTIL_OBFUSCATION_H
 
 #include <cstdint>
 #include <span.h>
@@ -112,4 +112,4 @@ private:
     }
 };
 
-#endif // BITCOIN_UTIL_OBFUSCATION_H
+#endif // HYPERCOIN_UTIL_OBFUSCATION_H

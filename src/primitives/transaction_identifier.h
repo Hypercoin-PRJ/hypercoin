@@ -1,9 +1,9 @@
-// Copyright (c) 2023-present The Bitcoin Core developers
+// Copyright (c) 2023-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://opensource.org/license/mit.
 
-#ifndef BITCOIN_PRIMITIVES_TRANSACTION_IDENTIFIER_H
-#define BITCOIN_PRIMITIVES_TRANSACTION_IDENTIFIER_H
+#ifndef HYPERCOIN_PRIMITIVES_TRANSACTION_IDENTIFIER_H
+#define HYPERCOIN_PRIMITIVES_TRANSACTION_IDENTIFIER_H
 
 #include <attributes.h>
 #include <uint256.h>
@@ -34,10 +34,11 @@ class transaction_identifier
 
 public:
     transaction_identifier() : m_wrapped{} {}
-    consteval explicit transaction_identifier(std::string_view hex_str) : m_wrapped{uint256{hex_str}} {}
 
     template <typename Other>
     bool operator==(const Other& other) const { return Compare(other) == 0; }
+    template <typename Other>
+    bool operator!=(const Other& other) const { return Compare(other) != 0; }
     template <typename Other>
     bool operator<(const Other& other) const { return Compare(other) < 0; }
 
@@ -90,4 +91,4 @@ public:
     }
 };
 
-#endif // BITCOIN_PRIMITIVES_TRANSACTION_IDENTIFIER_H
+#endif // HYPERCOIN_PRIMITIVES_TRANSACTION_IDENTIFIER_H

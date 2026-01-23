@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2020-present The Bitcoin Core developers
+# Copyright (c) 2020-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -20,12 +20,12 @@ export DEP_OPTS="DEBUG=1 NO_QT=1 CC=clang CXX=clang++ CFLAGS='${MSAN_FLAGS}' CXX
 export GOAL="all"
 # Setting CMAKE_{C,CXX}_FLAGS_DEBUG flags to an empty string ensures that the flags set in MSAN_FLAGS remain unaltered.
 # _FORTIFY_SOURCE is not compatible with MSAN.
-export BITCOIN_CONFIG="\
+export HYPERCOIN_CONFIG="\
  -DCMAKE_BUILD_TYPE=Debug \
  -DCMAKE_C_FLAGS_DEBUG='' \
  -DCMAKE_CXX_FLAGS_DEBUG='' \
  -DBUILD_FOR_FUZZING=ON \
- -DSANITIZERS=memory \
+ -DSANITIZERS=fuzzer,memory \
  -DAPPEND_CPPFLAGS='-DBOOST_MULTI_INDEX_ENABLE_SAFE_MODE -U_FORTIFY_SOURCE' \
 "
 export USE_INSTRUMENTED_LIBCPP="MemoryWithOrigins"

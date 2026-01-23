@@ -1,4 +1,4 @@
-# Copyright (c) 2023-present The Bitcoin Core developers
+# Copyright (c) 2023-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit/.
 
@@ -26,12 +26,12 @@ get_directory_property(precious_variables CACHE_VARIABLES)
 #=============================
 # Project / Package metadata
 #=============================
-set(CLIENT_NAME "Bitcoin Core")
+set(CLIENT_NAME "Hypercoin Core")
 set(CLIENT_VERSION_MAJOR 30)
-set(CLIENT_VERSION_MINOR 99)
+set(CLIENT_VERSION_MINOR 2)
 set(CLIENT_VERSION_BUILD 0)
 set(CLIENT_VERSION_RC 0)
-set(CLIENT_VERSION_IS_RELEASE "false")
+set(CLIENT_VERSION_IS_RELEASE "true")
 set(COPYRIGHT_YEAR "2026")
 
 # During the enabling of the CXX and CXXOBJ languages, we modify
@@ -50,10 +50,10 @@ set(CMAKE_TRY_COMPILE_PLATFORM_VARIABLES
   CMAKE_CXX_LINK_EXECUTABLE
 )
 
-project(BitcoinCore
+project(HypercoinCore
   VERSION ${CLIENT_VERSION_MAJOR}.${CLIENT_VERSION_MINOR}.${CLIENT_VERSION_BUILD}
-  DESCRIPTION "Bitcoin client software"
-  HOMEPAGE_URL "https://bitcoincore.org/"
+  DESCRIPTION "Hypercoin client software"
+  HOMEPAGE_URL "https://hypercoincore.org/"
   LANGUAGES NONE
 )
 
@@ -64,7 +64,7 @@ endif()
 
 set(COPYRIGHT_HOLDERS "The %s developers")
 set(COPYRIGHT_HOLDERS_FINAL "The ${CLIENT_NAME} developers")
-set(CLIENT_BUGREPORT "https://github.com/bitcoin/bitcoin/issues")
+set(CLIENT_BUGREPORT "https://github.com/hypercoin/hypercoin/issues")
 
 #=============================
 # Language setup
@@ -94,18 +94,17 @@ endif()
 #=============================
 include(CMakeDependentOption)
 # When adding a new option, end the <help_text> with a full stop for consistency.
-option(BUILD_BITCOIN_BIN "Build bitcoin executable." ON)
-option(BUILD_DAEMON "Build bitcoind executable." ON)
-option(BUILD_GUI "Build bitcoin-qt executable." OFF)
-option(BUILD_CLI "Build bitcoin-cli executable." ON)
+option(BUILD_HYPERCOIN_BIN "Build hypercoin executable." ON)
+option(BUILD_DAEMON "Build hypercoind executable." ON)
+option(BUILD_GUI "Build hypercoin-qt executable." OFF)
+option(BUILD_CLI "Build hypercoin-cli executable." ON)
 
-option(BUILD_TESTS "Build test_bitcoin and other unit test executables." ON)
-option(BUILD_TX "Build bitcoin-tx executable." ${BUILD_TESTS})
-option(BUILD_UTIL "Build bitcoin-util executable." ${BUILD_TESTS})
+option(BUILD_TESTS "Build test_hypercoin and other unit test executables." ON)
+option(BUILD_TX "Build hypercoin-tx executable." ${BUILD_TESTS})
+option(BUILD_UTIL "Build hypercoin-util executable." ${BUILD_TESTS})
 
-option(BUILD_UTIL_CHAINSTATE "Build experimental bitcoin-chainstate executable." OFF)
-option(BUILD_KERNEL_LIB "Build experimental bitcoinkernel library." ${BUILD_UTIL_CHAINSTATE})
-cmake_dependent_option(BUILD_KERNEL_TEST "Build tests for the experimental bitcoinkernel library." ON "BUILD_KERNEL_LIB" OFF)
+option(BUILD_UTIL_CHAINSTATE "Build experimental hypercoin-chainstate executable." OFF)
+option(BUILD_KERNEL_LIB "Build experimental hypercoinkernel library." ${BUILD_UTIL_CHAINSTATE})
 
 option(ENABLE_WALLET "Enable wallet." ON)
 if(ENABLE_WALLET)
@@ -116,7 +115,7 @@ if(ENABLE_WALLET)
     find_package(SQLite3 3.7.17 REQUIRED)
   endif()
 endif()
-cmake_dependent_option(BUILD_WALLET_TOOL "Build bitcoin-wallet tool." ${BUILD_TESTS} "ENABLE_WALLET" OFF)
+cmake_dependent_option(BUILD_WALLET_TOOL "Build hypercoin-wallet tool." ${BUILD_TESTS} "ENABLE_WALLET" OFF)
 
 option(REDUCE_EXPORTS "Attempt to reduce exported symbols in the resulting executables." OFF)
 option(WERROR "Treat compiler warnings as errors." OFF)
@@ -142,7 +141,7 @@ endif()
 
 cmake_dependent_option(WITH_DBUS "Enable DBus support." ON "NOT CMAKE_SYSTEM_NAME MATCHES \"(Windows|Darwin)\" AND BUILD_GUI" OFF)
 
-cmake_dependent_option(ENABLE_IPC "Build multiprocess bitcoin-node and bitcoin-gui executables in addition to monolithic bitcoind and bitcoin-qt executables." ON "NOT WIN32" OFF)
+cmake_dependent_option(ENABLE_IPC "Build multiprocess hypercoin-node and hypercoin-gui executables in addition to monolithic hypercoind and hypercoin-qt executables." ON "NOT WIN32" OFF)
 cmake_dependent_option(WITH_EXTERNAL_LIBMULTIPROCESS "Build with external libmultiprocess library instead of with local git subtree when ENABLE_IPC is enabled. This is not normally recommended, but can be useful for developing libmultiprocess itself." OFF "ENABLE_IPC" OFF)
 if(ENABLE_IPC AND WITH_EXTERNAL_LIBMULTIPROCESS)
   find_package(Libmultiprocess REQUIRED COMPONENTS Lib)
@@ -151,7 +150,7 @@ if(ENABLE_IPC AND WITH_EXTERNAL_LIBMULTIPROCESS)
   )
 endif()
 
-cmake_dependent_option(BUILD_GUI_TESTS "Build test_bitcoin-qt executable." ON "BUILD_GUI;BUILD_TESTS" OFF)
+cmake_dependent_option(BUILD_GUI_TESTS "Build test_hypercoin-qt executable." ON "BUILD_GUI;BUILD_TESTS" OFF)
 if(BUILD_GUI)
   set(qt_components Core Gui Widgets LinguistTools)
   if(ENABLE_WALLET)
@@ -170,7 +169,7 @@ if(BUILD_GUI)
   unset(qt_components)
 endif()
 
-option(BUILD_BENCH "Build bench_bitcoin executable." OFF)
+option(BUILD_BENCH "Build bench_hypercoin executable." OFF)
 option(BUILD_FUZZ_BINARY "Build fuzz binary." OFF)
 option(BUILD_FOR_FUZZING "Build for fuzzing. Enabling this will disable all other targets and override BUILD_FUZZ_BINARY." OFF)
 
@@ -204,14 +203,13 @@ target_link_libraries(core_interface INTERFACE
 
 if(BUILD_FOR_FUZZING)
   message(WARNING "BUILD_FOR_FUZZING=ON will disable all other targets and force BUILD_FUZZ_BINARY=ON.")
-  set(BUILD_BITCOIN_BIN OFF)
+  set(BUILD_HYPERCOIN_BIN OFF)
   set(BUILD_DAEMON OFF)
   set(BUILD_CLI OFF)
   set(BUILD_TX OFF)
   set(BUILD_UTIL OFF)
   set(BUILD_UTIL_CHAINSTATE OFF)
   set(BUILD_KERNEL_LIB OFF)
-  set(BUILD_KERNEL_TEST OFF)
   set(BUILD_WALLET_TOOL OFF)
   set(BUILD_GUI OFF)
   set(ENABLE_EXTERNAL_SIGNER OFF)
@@ -309,7 +307,7 @@ if(WIN32)
 
   # Workaround producing large object files, which cannot be handled by the assembler.
   # More likely to happen with no, or lower levels of optimisation.
-  # See discussion in https://github.com/bitcoin/bitcoin/issues/28109.
+  # See discussion in https://github.com/hypercoin/hypercoin/issues/28109.
   if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     try_append_cxx_flags("/bigobj" TARGET core_interface_debug SKIP_LINK)
   else()
@@ -463,8 +461,6 @@ else()
   try_append_cxx_flags("-Wself-assign" TARGET warn_interface SKIP_LINK)
   try_append_cxx_flags("-Wbidi-chars=any" TARGET warn_interface SKIP_LINK)
   try_append_cxx_flags("-Wundef" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wleading-whitespace=spaces" TARGET warn_interface SKIP_LINK)
-  try_append_cxx_flags("-Wtrailing-whitespace=any" TARGET warn_interface SKIP_LINK)
 
   # Some compilers (gcc) ignore unknown -Wno-* options, but warn about all
   # unknown options if any other warning is produced. Test the -Wfoo case, and
@@ -495,8 +491,8 @@ try_append_cxx_flags("-fmacro-prefix-map=A=B" TARGET core_interface SKIP_LINK
   IF_CHECK_PASSED "-fmacro-prefix-map=${PROJECT_SOURCE_DIR}/src=."
 )
 
-# GCC versions 13.2 (and earlier) are subject to a class of bugs, see
-# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=90348 and the meta bug
+# Currently all versions of gcc are subject to a class of bugs, see the
+# gccbug_90348 test case (only reproduces on GCC 11 and earlier) and
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111843. To work around that, set
 # -fstack-reuse=none for all gcc builds. (Only gcc understands this flag).
 try_append_cxx_flags("-fstack-reuse=none" TARGET core_interface)
@@ -550,13 +546,13 @@ else()
   try_append_linker_flag("-Wl,--high-entropy-va" TARGET core_interface)
   try_append_linker_flag("-Wl,-z,relro" TARGET core_interface)
   try_append_linker_flag("-Wl,-z,now" TARGET core_interface)
-  # TODO: This can be dropped once Bitcoin Core no longer supports
+  # TODO: This can be dropped once Hypercoin Core no longer supports
   #       NetBSD 10.0 or if upstream fix is backported.
   # NetBSD's dynamic linker ld.elf_so < 11.0 supports exactly 2
   # `PT_LOAD` segments and binaries linked with `-z separate-code`
   # have 4 `PT_LOAD` segments.
   # Relevant discussions:
-  # - https://github.com/bitcoin/bitcoin/pull/28724#issuecomment-2589347934
+  # - https://github.com/hypercoin/hypercoin/pull/28724#issuecomment-2589347934
   # - https://mail-index.netbsd.org/tech-userlevel/2023/01/05/msg013666.html
   if(CMAKE_SYSTEM_NAME STREQUAL "NetBSD" AND CMAKE_SYSTEM_VERSION VERSION_LESS 11.0)
     try_append_linker_flag("-Wl,-z,noseparate-code" TARGET core_interface)
@@ -623,6 +619,19 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
   set(CMAKE_SKIP_TEST_ALL_DEPENDENCY FALSE)
 endif()
 
+# TODO: The `CMAKE_SKIP_BUILD_RPATH` variable setting can be deleted
+#       in the future after reordering Guix script commands to
+#       perform binary checks after the installation step.
+# Relevant discussions:
+# - https://github.com/hebasto/hypercoin/pull/236#issuecomment-2183120953
+# - https://github.com/hypercoin/hypercoin/pull/30312#issuecomment-2191235833
+# NetBSD always requires runtime paths to be set for executables.
+if(CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+else()
+  set(CMAKE_SKIP_BUILD_RPATH TRUE)
+  set(CMAKE_SKIP_INSTALL_RPATH TRUE)
+endif()
 add_subdirectory(test)
 add_subdirectory(doc)
 
@@ -630,6 +639,7 @@ add_subdirectory(src)
 
 include(Maintenance)
 setup_split_debug_script()
+add_maintenance_targets()
 add_windows_deploy_target()
 add_macos_deploy_target()
 
@@ -637,28 +647,27 @@ message("\n")
 message("Configure summary")
 message("=================")
 message("Executables:")
-message("  bitcoin ............................. ${BUILD_BITCOIN_BIN}")
-message("  bitcoind ............................ ${BUILD_DAEMON}")
+message("  hypercoin ............................. ${BUILD_HYPERCOIN_BIN}")
+message("  hypercoind ............................ ${BUILD_DAEMON}")
 if(BUILD_DAEMON AND ENABLE_IPC)
-  set(bitcoin_daemon_status ON)
+  set(hypercoin_daemon_status ON)
 else()
-  set(bitcoin_daemon_status OFF)
+  set(hypercoin_daemon_status OFF)
 endif()
-message("  bitcoin-node (multiprocess) ......... ${bitcoin_daemon_status}")
-message("  bitcoin-qt (GUI) .................... ${BUILD_GUI}")
+message("  hypercoin-node (multiprocess) ......... ${hypercoin_daemon_status}")
+message("  hypercoin-qt (GUI) .................... ${BUILD_GUI}")
 if(BUILD_GUI AND ENABLE_IPC)
-  set(bitcoin_gui_status ON)
+  set(hypercoin_gui_status ON)
 else()
-  set(bitcoin_gui_status OFF)
+  set(hypercoin_gui_status OFF)
 endif()
-message("  bitcoin-gui (GUI, multiprocess) ..... ${bitcoin_gui_status}")
-message("  bitcoin-cli ......................... ${BUILD_CLI}")
-message("  bitcoin-tx .......................... ${BUILD_TX}")
-message("  bitcoin-util ........................ ${BUILD_UTIL}")
-message("  bitcoin-wallet ...................... ${BUILD_WALLET_TOOL}")
-message("  bitcoin-chainstate (experimental) ... ${BUILD_UTIL_CHAINSTATE}")
-message("  libbitcoinkernel (experimental) ..... ${BUILD_KERNEL_LIB}")
-message("  kernel-test (experimental) .......... ${BUILD_KERNEL_TEST}")
+message("  hypercoin-gui (GUI, multiprocess) ..... ${hypercoin_gui_status}")
+message("  hypercoin-cli ......................... ${BUILD_CLI}")
+message("  hypercoin-tx .......................... ${BUILD_TX}")
+message("  hypercoin-util ........................ ${BUILD_UTIL}")
+message("  hypercoin-wallet ...................... ${BUILD_WALLET_TOOL}")
+message("  hypercoin-chainstate (experimental) ... ${BUILD_UTIL_CHAINSTATE}")
+message("  libhypercoinkernel (experimental) ..... ${BUILD_KERNEL_LIB}")
 message("Optional features:")
 message("  wallet support ...................... ${ENABLE_WALLET}")
 message("  external signer ..................... ${ENABLE_EXTERNAL_SIGNER}")
@@ -677,9 +686,9 @@ message("  USDT tracing ........................ ${WITH_USDT}")
 message("  QR code (GUI) ....................... ${WITH_QRENCODE}")
 message("  DBus (GUI) .......................... ${WITH_DBUS}")
 message("Tests:")
-message("  test_bitcoin ........................ ${BUILD_TESTS}")
-message("  test_bitcoin-qt ..................... ${BUILD_GUI_TESTS}")
-message("  bench_bitcoin ....................... ${BUILD_BENCH}")
+message("  test_hypercoin ........................ ${BUILD_TESTS}")
+message("  test_hypercoin-qt ..................... ${BUILD_GUI_TESTS}")
+message("  bench_hypercoin ....................... ${BUILD_BENCH}")
 message("  fuzz binary ......................... ${BUILD_FUZZ_BINARY}")
 message("")
 if(CMAKE_CROSSCOMPILING)

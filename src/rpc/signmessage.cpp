@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -19,7 +19,7 @@ static RPCHelpMan verifymessage()
     return RPCHelpMan{"verifymessage",
         "Verify a signed message.",
         {
-            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address to use for the signature."},
+            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The hypercoin address to use for the signature."},
             {"signature", RPCArg::Type::STR, RPCArg::Optional::NO, "The signature provided by the signer in base 64 encoding (see signmessage)."},
             {"message", RPCArg::Type::STR, RPCArg::Optional::NO, "The message that was signed."},
         },
@@ -38,9 +38,11 @@ static RPCHelpMan verifymessage()
         },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
         {
-            switch (MessageVerify(std::string{self.Arg<std::string_view>("address")},
-                                  std::string{self.Arg<std::string_view>("signature")},
-                                  std::string{self.Arg<std::string_view>("message")})) {
+            std::string strAddress = self.Arg<std::string>("address");
+            std::string strSign = self.Arg<std::string>("signature");
+            std::string strMessage = self.Arg<std::string>("message");
+
+            switch (MessageVerify(strAddress, strSign, strMessage)) {
             case MessageVerificationResult::ERR_INVALID_ADDRESS:
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
             case MessageVerificationResult::ERR_ADDRESS_NO_KEY:

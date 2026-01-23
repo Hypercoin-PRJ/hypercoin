@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_FLATFILE_H
-#define BITCOIN_FLATFILE_H
+#ifndef HYPERCOIN_FLATFILE_H
+#define HYPERCOIN_FLATFILE_H
 
 #include <string>
 
@@ -13,20 +13,24 @@
 
 struct FlatFilePos
 {
-    int32_t nFile{-1};
-    uint32_t nPos{0};
+    int nFile{-1};
+    unsigned int nPos{0};
 
     SERIALIZE_METHODS(FlatFilePos, obj) { READWRITE(VARINT_MODE(obj.nFile, VarIntMode::NONNEGATIVE_SIGNED), VARINT(obj.nPos)); }
 
     FlatFilePos() = default;
 
-    FlatFilePos(int32_t nFileIn, uint32_t nPosIn)
-        : nFile{nFileIn},
-          nPos{nPosIn}
+    FlatFilePos(int nFileIn, unsigned int nPosIn) :
+        nFile(nFileIn),
+        nPos(nPosIn)
     {}
 
     friend bool operator==(const FlatFilePos &a, const FlatFilePos &b) {
         return (a.nFile == b.nFile && a.nPos == b.nPos);
+    }
+
+    friend bool operator!=(const FlatFilePos &a, const FlatFilePos &b) {
+        return !(a == b);
     }
 
     bool IsNull() const { return (nFile == -1); }
@@ -82,4 +86,4 @@ public:
     bool Flush(const FlatFilePos& pos, bool finalize = false) const;
 };
 
-#endif // BITCOIN_FLATFILE_H
+#endif // HYPERCOIN_FLATFILE_H

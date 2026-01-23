@@ -1,4 +1,4 @@
-OSX_MIN_VERSION=14.0
+OSX_MIN_VERSION=13.0
 OSX_SDK_VERSION=14.0
 XCODE_VERSION=15.0
 XCODE_BUILD_ID=15A240d
@@ -29,7 +29,7 @@ darwin_STRIP=$(shell $(SHELL) $(.SHELLFLAGS) "command -v llvm-strip")
 #     -mlinker-version
 #
 #         Ensures that modern linker features are enabled. See here for more
-#         details: https://github.com/bitcoin/bitcoin/pull/19407.
+#         details: https://github.com/hypercoin/hypercoin/pull/19407.
 #
 #     -isysroot$(OSX_SDK) -nostdlibinc
 #

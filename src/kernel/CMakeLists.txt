@@ -1,15 +1,15 @@
-# Copyright (c) 2024-present The Bitcoin Core developers
+# Copyright (c) 2024-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit/.
 
 include(GNUInstallDirs)
 
-# TODO: libbitcoinkernel is a work in progress consensus engine
+# TODO: libhypercoinkernel is a work in progress consensus engine
 #       library, as more and more modules are decoupled from the
 #       consensus engine, this list will shrink to only those
 #       which are absolutely necessary.
-add_library(bitcoinkernel
-  bitcoinkernel.cpp
+add_library(hypercoinkernel
+  hypercoinkernel.cpp
   chain.cpp
   checks.cpp
   chainparams.cpp
@@ -25,6 +25,7 @@ add_library(bitcoinkernel
   ../consensus/merkle.cpp
   ../consensus/tx_check.cpp
   ../consensus/tx_verify.cpp
+  ../core_read.cpp
   ../dbwrapper.cpp
   ../deploymentinfo.cpp
   ../deploymentstatus.cpp
@@ -57,12 +58,10 @@ add_library(bitcoinkernel
   ../support/lockedpool.cpp
   ../sync.cpp
   ../txdb.cpp
-  ../txgraph.cpp
   ../txmempool.cpp
   ../uint256.cpp
   ../util/chaintype.cpp
   ../util/check.cpp
-  ../util/expected.cpp
   ../util/feefrac.cpp
   ../util/fs.cpp
   ../util/fs_helpers.cpp
@@ -71,6 +70,8 @@ add_library(bitcoinkernel
   ../util/rbf.cpp
   ../util/serfloat.cpp
   ../util/signalinterrupt.cpp
+  ../util/strencodings.cpp
+  ../util/string.cpp
   ../util/syserror.cpp
   ../util/threadnames.cpp
   ../util/time.cpp
@@ -78,12 +79,12 @@ add_library(bitcoinkernel
   ../validation.cpp
   ../validationinterface.cpp
   ../versionbits.cpp
-  $<TARGET_OBJECTS:bitcoin_clientversion>
-  $<TARGET_OBJECTS:bitcoin_crypto>
+  $<TARGET_OBJECTS:hypercoin_clientversion>
+  $<TARGET_OBJECTS:hypercoin_crypto>
   $<TARGET_OBJECTS:leveldb>
   $<TARGET_OBJECTS:crc32c>
 )
-target_link_libraries(bitcoinkernel
+target_link_libraries(hypercoinkernel
   PRIVATE
     core_interface
     secp256k1_objs
@@ -93,30 +94,33 @@ target_link_libraries(bitcoinkernel
     Boost::headers
 )
 
-target_include_directories(bitcoinkernel PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>)
+target_include_directories(hypercoinkernel PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>)
 
-# Add a convenience libbitcoinkernel target as a synonym for bitcoinkernel.
-add_custom_target(libbitcoinkernel)
-add_dependencies(libbitcoinkernel bitcoinkernel)
-
-get_target_property(bitcoinkernel_type bitcoinkernel TYPE)
-if(bitcoinkernel_type STREQUAL "STATIC_LIBRARY")
-  target_compile_definitions(bitcoinkernel PUBLIC BITCOINKERNEL_STATIC)
-endif()
-
-configure_file(${PROJECT_SOURCE_DIR}/libbitcoinkernel.pc.in ${PROJECT_BINARY_DIR}/libbitcoinkernel.pc @ONLY)
-install(FILES ${PROJECT_BINARY_DIR}/libbitcoinkernel.pc DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig" COMPONENT libbitcoinkernel)
-
-install(TARGETS bitcoinkernel
-  RUNTIME
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-    COMPONENT libbitcoinkernel
-  LIBRARY
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    COMPONENT libbitcoinkernel
-  ARCHIVE
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    COMPONENT libbitcoinkernel
+# libhypercoinkernel requires default symbol visibility, explicitly
+# specify that here so that things still work even when user
+# configures with -DREDUCE_EXPORTS=ON
+#
+# Note this is a quick hack that will be removed as we
+# incrementally define what to export from the library.
+set_target_properties(hypercoinkernel PROPERTIES
+  CXX_VISIBILITY_PRESET default
 )
 
-install(FILES bitcoinkernel.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT libbitcoinkernel)
+# Add a convenience libhypercoinkernel target as a synonym for hypercoinkernel.
+add_custom_target(libhypercoinkernel)
+add_dependencies(libhypercoinkernel hypercoinkernel)
+
+configure_file(${PROJECT_SOURCE_DIR}/libhypercoinkernel.pc.in ${PROJECT_BINARY_DIR}/libhypercoinkernel.pc @ONLY)
+install(FILES ${PROJECT_BINARY_DIR}/libhypercoinkernel.pc DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig" COMPONENT libhypercoinkernel)
+
+install(TARGETS hypercoinkernel
+  RUNTIME
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+    COMPONENT libhypercoinkernel
+  LIBRARY
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    COMPONENT libhypercoinkernel
+  ARCHIVE
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    COMPONENT libhypercoinkernel
+)

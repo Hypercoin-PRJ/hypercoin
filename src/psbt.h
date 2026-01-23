@@ -1,9 +1,9 @@
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_PSBT_H
-#define BITCOIN_PSBT_H
+#ifndef HYPERCOIN_PSBT_H
+#define HYPERCOIN_PSBT_H
 
 #include <common/types.h>
 #include <node/transaction.h>
@@ -158,7 +158,7 @@ void DeserializeHDKeypaths(Stream& s, const std::vector<unsigned char>& key, std
     if (!pubkey.IsFullyValid()) {
        throw std::ios_base::failure("Invalid pubkey");
     }
-    if (hd_keypaths.contains(pubkey)) {
+    if (hd_keypaths.count(pubkey) > 0) {
         throw std::ios_base::failure("Duplicate Key, pubkey derivation path already provided");
     }
 
@@ -207,9 +207,6 @@ void DeserializeMuSig2ParticipantPubkeys(Stream& s, SpanReader& skey, std::map<C
     std::array<unsigned char, CPubKey::COMPRESSED_SIZE> agg_pubkey_bytes;
     skey >> std::as_writable_bytes(std::span{agg_pubkey_bytes});
     CPubKey agg_pubkey(agg_pubkey_bytes);
-    if (!agg_pubkey.IsFullyValid()) {
-        throw std::ios_base::failure(context + " musig2 aggregate pubkey is invalid");
-    }
 
     std::vector<CPubKey> participants;
     std::vector<unsigned char> val;
@@ -218,11 +215,7 @@ void DeserializeMuSig2ParticipantPubkeys(Stream& s, SpanReader& skey, std::map<C
     while (s_val.size() >= CPubKey::COMPRESSED_SIZE) {
         std::array<unsigned char, CPubKey::COMPRESSED_SIZE> part_pubkey_bytes;
         s_val >> std::as_writable_bytes(std::span{part_pubkey_bytes});
-        CPubKey participant(part_pubkey_bytes);
-        if (!participant.IsFullyValid()) {
-            throw std::ios_base::failure(context + " musig2 participant pubkey is invalid");
-        }
-        participants.push_back(participant);
+        participants.emplace_back(std::span{part_pubkey_bytes});
     }
     if (!s_val.empty()) {
         throw std::ios_base::failure(context + " musig2 participants pubkeys value size is not a multiple of 33");
@@ -475,8 +468,7 @@ struct PSBTInput
         // Read loop
         bool found_sep = false;
         while(!s.empty()) {
-            // Read the key of format "<keylen><keytype><keydata>" after which
-            // "key" will contain "<keytype><keydata>"
+            // Read
             std::vector<unsigned char> key;
             s >> key;
 
@@ -487,13 +479,11 @@ struct PSBTInput
                 break;
             }
 
-            // "skey" is used so that "key" is unchanged after reading keytype below
+            // Type is compact size uint at beginning of key
             SpanReader skey{key};
-            // keytype is of the format compact size uint at the beginning of "key"
             uint64_t type = ReadCompactSize(skey);
 
-            // Do stuff based on keytype "type", i.e., key checks, reading values of the
-            // format "<valuelen><valuedata>" from the stream "s", and value checks
+            // Do stuff based on type
             switch(type) {
                 case PSBT_IN_NON_WITNESS_UTXO:
                 {
@@ -525,7 +515,7 @@ struct PSBTInput
                     if (!pubkey.IsFullyValid()) {
                        throw std::ios_base::failure("Invalid pubkey");
                     }
-                    if (partial_sigs.contains(pubkey.GetID())) {
+                    if (partial_sigs.count(pubkey.GetID()) > 0) {
                         throw std::ios_base::failure("Duplicate Key, input partial signature for pubkey already provided");
                     }
 
@@ -606,7 +596,7 @@ struct PSBTInput
                     // Read in the hash from key
                     std::vector<unsigned char> hash_vec(key.begin() + 1, key.end());
                     uint160 hash(hash_vec);
-                    if (ripemd160_preimages.contains(hash)) {
+                    if (ripemd160_preimages.count(hash) > 0) {
                         throw std::ios_base::failure("Duplicate Key, input ripemd160 preimage already provided");
                     }
 
@@ -627,7 +617,7 @@ struct PSBTInput
                     // Read in the hash from key
                     std::vector<unsigned char> hash_vec(key.begin() + 1, key.end());
                     uint256 hash(hash_vec);
-                    if (sha256_preimages.contains(hash)) {
+                    if (sha256_preimages.count(hash) > 0) {
                         throw std::ios_base::failure("Duplicate Key, input sha256 preimage already provided");
                     }
 
@@ -648,7 +638,7 @@ struct PSBTInput
                     // Read in the hash from key
                     std::vector<unsigned char> hash_vec(key.begin() + 1, key.end());
                     uint160 hash(hash_vec);
-                    if (hash160_preimages.contains(hash)) {
+                    if (hash160_preimages.count(hash) > 0) {
                         throw std::ios_base::failure("Duplicate Key, input hash160 preimage already provided");
                     }
 
@@ -669,7 +659,7 @@ struct PSBTInput
                     // Read in the hash from key
                     std::vector<unsigned char> hash_vec(key.begin() + 1, key.end());
                     uint256 hash(hash_vec);
-                    if (hash256_preimages.contains(hash)) {
+                    if (hash256_preimages.count(hash) > 0) {
                         throw std::ios_base::failure("Duplicate Key, input hash256 preimage already provided");
                     }
 
@@ -804,7 +794,7 @@ struct PSBTInput
 
                     std::vector<uint8_t> pubnonce;
                     s >> pubnonce;
-                    if (pubnonce.size() != MUSIG2_PUBNONCE_SIZE) {
+                    if (pubnonce.size() != 66) {
                         throw std::ios_base::failure("Input musig2 pubnonce value is not 66 bytes");
                     }
 
@@ -835,7 +825,7 @@ struct PSBTInput
                     this_prop.subtype = ReadCompactSize(skey);
                     this_prop.key = key;
 
-                    if (m_proprietary.contains(this_prop)) {
+                    if (m_proprietary.count(this_prop) > 0) {
                         throw std::ios_base::failure("Duplicate Key, proprietary key already found");
                     }
                     s >> this_prop.value;
@@ -844,7 +834,7 @@ struct PSBTInput
                 }
                 // Unknown stuff
                 default:
-                    if (unknown.contains(key)) {
+                    if (unknown.count(key) > 0) {
                         throw std::ios_base::failure("Duplicate Key, key for unknown value already provided");
                     }
                     // Read in the value
@@ -967,8 +957,7 @@ struct PSBTOutput
         // Read loop
         bool found_sep = false;
         while(!s.empty()) {
-            // Read the key of format "<keylen><keytype><keydata>" after which
-            // "key" will contain "<keytype><keydata>"
+            // Read
             std::vector<unsigned char> key;
             s >> key;
 
@@ -979,13 +968,11 @@ struct PSBTOutput
                 break;
             }
 
-            // "skey" is used so that "key" is unchanged after reading keytype below
+            // Type is compact size uint at beginning of key
             SpanReader skey{key};
-            // keytype is of the format compact size uint at the beginning of "key"
             uint64_t type = ReadCompactSize(skey);
 
-            // Do stuff based on keytype "type", i.e., key checks, reading values of the
-            // format "<valuelen><valuedata>" from the stream "s", and value checks
+            // Do stuff based on type
             switch(type) {
                 case PSBT_OUT_REDEEMSCRIPT:
                 {
@@ -1095,7 +1082,7 @@ struct PSBTOutput
                     this_prop.subtype = ReadCompactSize(skey);
                     this_prop.key = key;
 
-                    if (m_proprietary.contains(this_prop)) {
+                    if (m_proprietary.count(this_prop) > 0) {
                         throw std::ios_base::failure("Duplicate Key, proprietary key already found");
                     }
                     s >> this_prop.value;
@@ -1104,7 +1091,7 @@ struct PSBTOutput
                 }
                 // Unknown stuff
                 default: {
-                    if (unknown.contains(key)) {
+                    if (unknown.count(key) > 0) {
                         throw std::ios_base::failure("Duplicate Key, key for unknown value already provided");
                     }
                     // Read in the value
@@ -1144,7 +1131,7 @@ struct PartiallySignedTransaction
     uint32_t GetVersion() const;
 
     /** Merge psbt into this. The two psbts must have the same underlying CTransaction (i.e. the
-      * same actual Bitcoin transaction.) Returns true if the merge succeeded, false otherwise. */
+      * same actual Hypercoin transaction.) Returns true if the merge succeeded, false otherwise. */
     [[nodiscard]] bool Merge(const PartiallySignedTransaction& psbt);
     bool AddInput(const CTxIn& txin, PSBTInput& psbtin);
     bool AddOutput(const CTxOut& txout, const PSBTOutput& psbtout);
@@ -1233,8 +1220,7 @@ struct PartiallySignedTransaction
         // Read global data
         bool found_sep = false;
         while(!s.empty()) {
-            // Read the key of format "<keylen><keytype><keydata>" after which
-            // "key" will contain "<keytype><keydata>"
+            // Read
             std::vector<unsigned char> key;
             s >> key;
 
@@ -1245,13 +1231,11 @@ struct PartiallySignedTransaction
                 break;
             }
 
-            // "skey" is used so that "key" is unchanged after reading keytype below
+            // Type is compact size uint at beginning of key
             SpanReader skey{key};
-            // keytype is of the format compact size uint at the beginning of "key"
             uint64_t type = ReadCompactSize(skey);
 
-            // Do stuff based on keytype "type", i.e., key checks, reading values of the
-            // format "<valuelen><valuedata>" from the stream "s", and value checks
+            // Do stuff based on type
             switch(type) {
                 case PSBT_GLOBAL_UNSIGNED_TX:
                 {
@@ -1283,7 +1267,7 @@ struct PartiallySignedTransaction
                     if (!xpub.pubkey.IsFullyValid()) {
                        throw std::ios_base::failure("Invalid pubkey");
                     }
-                    if (global_xpubs.contains(xpub)) {
+                    if (global_xpubs.count(xpub) > 0) {
                        throw std::ios_base::failure("Duplicate key, global xpub already provided");
                     }
                     global_xpubs.insert(xpub);
@@ -1293,7 +1277,7 @@ struct PartiallySignedTransaction
 
                     // Note that we store these swapped to make searches faster.
                     // Serialization uses xpub -> keypath to enqure key uniqueness
-                    if (!m_xpubs.contains(keypath)) {
+                    if (m_xpubs.count(keypath) == 0) {
                         // Make a new set to put the xpub in
                         m_xpubs[keypath] = {xpub};
                     } else {
@@ -1324,7 +1308,7 @@ struct PartiallySignedTransaction
                     this_prop.subtype = ReadCompactSize(skey);
                     this_prop.key = key;
 
-                    if (m_proprietary.contains(this_prop)) {
+                    if (m_proprietary.count(this_prop) > 0) {
                         throw std::ios_base::failure("Duplicate Key, proprietary key already found");
                     }
                     s >> this_prop.value;
@@ -1333,7 +1317,7 @@ struct PartiallySignedTransaction
                 }
                 // Unknown stuff
                 default: {
-                    if (unknown.contains(key)) {
+                    if (unknown.count(key) > 0) {
                         throw std::ios_base::failure("Duplicate Key, key for unknown value already provided");
                     }
                     // Read in the value
@@ -1413,7 +1397,7 @@ PrecomputedTransactionData PrecomputePSBTData(const PartiallySignedTransaction& 
 bool PSBTInputSigned(const PSBTInput& input);
 
 /** Checks whether a PSBTInput is already signed by doing script verification using final fields. */
-bool PSBTInputSignedAndVerified(const PartiallySignedTransaction& psbt, unsigned int input_index, const PrecomputedTransactionData* txdata);
+bool PSBTInputSignedAndVerified(const PartiallySignedTransaction psbt, unsigned int input_index, const PrecomputedTransactionData* txdata);
 
 /** Signs a PSBTInput, verifying that all provided data matches what is being signed.
  *
@@ -1465,4 +1449,4 @@ bool FinalizeAndExtractPSBT(PartiallySignedTransaction& psbtx, CMutableTransacti
 //! Decode a raw (binary blob) PSBT into a PartiallySignedTransaction
 [[nodiscard]] bool DecodeRawPSBT(PartiallySignedTransaction& decoded_psbt, std::span<const std::byte> raw_psbt, std::string& error);
 
-#endif // BITCOIN_PSBT_H
+#endif // HYPERCOIN_PSBT_H

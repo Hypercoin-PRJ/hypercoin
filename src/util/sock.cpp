@@ -1,4 +1,4 @@
-// Copyright (c) 2020-present The Bitcoin Core developers
+// Copyright (c) 2020-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -409,7 +409,7 @@ void Sock::Close()
     int ret = close(m_socket);
 #endif
     if (ret) {
-        LogWarning("Error closing socket %d: %s", m_socket, NetworkErrorString(WSAGetLastError()));
+        LogPrintf("Error closing socket %d: %s\n", m_socket, NetworkErrorString(WSAGetLastError()));
     }
     m_socket = INVALID_SOCKET;
 }

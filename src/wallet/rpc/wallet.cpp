@@ -1,9 +1,9 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <core_io.h>
 #include <key_io.h>
@@ -19,7 +19,6 @@
 #include <wallet/walletutil.h>
 
 #include <optional>
-#include <string_view>
 
 
 namespace wallet {
@@ -89,11 +88,11 @@ static RPCHelpMan getwalletinfo()
     obj.pushKV("walletname", pwallet->GetName());
     obj.pushKV("walletversion", latest_legacy_wallet_minversion);
     obj.pushKV("format", pwallet->GetDatabase().Format());
-    obj.pushKV("txcount", pwallet->mapWallet.size());
-    obj.pushKV("keypoolsize", kpExternalSize);
+    obj.pushKV("txcount",       (int)pwallet->mapWallet.size());
+    obj.pushKV("keypoolsize", (int64_t)kpExternalSize);
     obj.pushKV("keypoolsize_hd_internal", pwallet->GetKeyPoolSize() - kpExternalSize);
 
-    if (pwallet->HasEncryptionKeys()) {
+    if (pwallet->IsCrypted()) {
         obj.pushKV("unlocked_until", pwallet->nRelockTime);
     }
     obj.pushKV("paytxfee", ValueFromAmount(pwallet->m_pay_tx_fee.GetFeePerK()));
@@ -217,7 +216,7 @@ static RPCHelpMan loadwallet()
     return RPCHelpMan{
         "loadwallet",
         "Loads a wallet from a wallet file or directory."
-                "\nNote that all wallet command-line options used when starting bitcoind will be"
+                "\nNote that all wallet command-line options used when starting hypercoind will be"
                 "\napplied to the new wallet.\n",
                 {
                     {"filename", RPCArg::Type::STR, RPCArg::Optional::NO, "The path to the directory of the wallet to be loaded, either absolute or relative to the \"wallets\" directory. The \"wallets\" directory is set by the -walletdir option and defaults to the \"wallets\" folder within the data directory."},
@@ -311,7 +310,7 @@ static RPCHelpMan setwalletflag()
     std::string flag_str = request.params[0].get_str();
     bool value = request.params[1].isNull() || request.params[1].get_bool();
 
-    if (!STRING_TO_WALLET_FLAG.contains(flag_str)) {
+    if (!STRING_TO_WALLET_FLAG.count(flag_str)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Unknown wallet flag: %s", flag_str));
     }
 
@@ -336,7 +335,7 @@ static RPCHelpMan setwalletflag()
         pwallet->UnsetWalletFlag(flag);
     }
 
-    if (flag && value && WALLET_FLAG_CAVEATS.contains(flag)) {
+    if (flag && value && WALLET_FLAG_CAVEATS.count(flag)) {
         res.pushKV("warnings", WALLET_FLAG_CAVEATS.at(flag));
     }
 
@@ -457,7 +456,7 @@ static RPCHelpMan unloadwallet()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    const std::string wallet_name{EnsureUniqueWalletName(request, self.MaybeArg<std::string_view>("wallet_name"))};
+    const std::string wallet_name{EnsureUniqueWalletName(request, self.MaybeArg<std::string>("wallet_name"))};
 
     WalletContext& context = EnsureWalletContext(request.context);
     std::shared_ptr<CWallet> wallet = GetWallet(context, wallet_name);
@@ -548,10 +547,10 @@ RPCHelpMan simulaterawtransaction()
         // broadcast, we will lose everything in these
         for (const auto& txin : mtx.vin) {
             const auto& outpoint = txin.prevout;
-            if (spent.contains(outpoint)) {
+            if (spent.count(outpoint)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction(s) are spending the same output more than once");
             }
-            if (new_utxos.contains(outpoint)) {
+            if (new_utxos.count(outpoint)) {
                 changes -= new_utxos.at(outpoint);
                 new_utxos.erase(outpoint);
             } else {
@@ -614,7 +613,7 @@ static RPCHelpMan migratewallet()
         },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
         {
-            const std::string wallet_name{EnsureUniqueWalletName(request, self.MaybeArg<std::string_view>("wallet_name"))};
+            const std::string wallet_name{EnsureUniqueWalletName(request, self.MaybeArg<std::string>("wallet_name"))};
 
             SecureString wallet_pass;
             wallet_pass.reserve(100);

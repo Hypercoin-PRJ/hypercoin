@@ -1,4 +1,4 @@
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -47,12 +47,12 @@ static void HandleError(const leveldb::Status& status)
     if (status.ok())
         return;
     const std::string errmsg = "Fatal LevelDB error: " + status.ToString();
-    LogError("%s", errmsg);
-    LogInfo("You can use -debug=leveldb to get more complete diagnostic messages");
+    LogPrintf("%s\n", errmsg);
+    LogPrintf("You can use -debug=leveldb to get more complete diagnostic messages\n");
     throw dbwrapper_error(errmsg);
 }
 
-class CBitcoinLevelDBLogger : public leveldb::Logger {
+class CHypercoinLevelDBLogger : public leveldb::Logger {
 public:
     // This code is adapted from posix_logger.h, which is why it is using vsprintf.
     // Please do not do this in normal code
@@ -79,7 +79,7 @@ public:
                 if (p < limit) {
                     va_list backup_ap;
                     va_copy(backup_ap, ap);
-                    // Do not use vsnprintf elsewhere in bitcoin source code, see above.
+                    // Do not use vsnprintf elsewhere in hypercoin source code, see above.
                     p += vsnprintf(p, limit - p, format, backup_ap);
                     va_end(backup_ap);
                 }
@@ -142,7 +142,7 @@ static leveldb::Options GetOptions(size_t nCacheSize)
     options.write_buffer_size = nCacheSize / 4; // up to two write buffers may be held in memory simultaneously
     options.filter_policy = leveldb::NewBloomFilterPolicy(10);
     options.compression = leveldb::kNoCompression;
-    options.info_log = new CBitcoinLevelDBLogger();
+    options.info_log = new CHypercoinLevelDBLogger();
     if (leveldb::kMajorVersion > 1 || (leveldb::kMajorVersion == 1 && leveldb::kMinorVersion >= 16)) {
         // LevelDB versions before 1.16 consider short writes to be corruption. Only trigger error
         // on corruption in later versions.
@@ -214,7 +214,7 @@ struct LevelDBContext {
 };
 
 CDBWrapper::CDBWrapper(const DBParams& params)
-    : m_db_context{std::make_unique<LevelDBContext>()}, m_name{fs::PathToString(params.path.stem())}
+    : m_db_context{std::make_unique<LevelDBContext>()}, m_name{fs::PathToString(params.path.stem())}, m_path{params.path}, m_is_memory{params.memory_only}
 {
     DBContext().penv = nullptr;
     DBContext().readoptions.verify_checksums = true;
@@ -274,7 +274,7 @@ CDBWrapper::~CDBWrapper()
     DBContext().options.env = nullptr;
 }
 
-void CDBWrapper::WriteBatch(CDBBatch& batch, bool fSync)
+bool CDBWrapper::WriteBatch(CDBBatch& batch, bool fSync)
 {
     const bool log_memory = LogAcceptCategory(BCLog::LEVELDB, BCLog::Level::Debug);
     double mem_before = 0;
@@ -288,6 +288,7 @@ void CDBWrapper::WriteBatch(CDBBatch& batch, bool fSync)
         LogDebug(BCLog::LEVELDB, "WriteBatch memory usage: db=%s, before=%.1fMiB, after=%.1fMiB\n",
                  m_name, mem_before, mem_after);
     }
+    return true;
 }
 
 size_t CDBWrapper::DynamicMemoryUsage() const
@@ -309,7 +310,7 @@ std::optional<std::string> CDBWrapper::ReadImpl(std::span<const std::byte> key) 
     if (!status.ok()) {
         if (status.IsNotFound())
             return std::nullopt;
-        LogError("LevelDB read failure: %s", status.ToString());
+        LogPrintf("LevelDB read failure: %s\n", status.ToString());
         HandleError(status);
     }
     return strValue;
@@ -324,7 +325,7 @@ bool CDBWrapper::ExistsImpl(std::span<const std::byte> key) const
     if (!status.ok()) {
         if (status.IsNotFound())
             return false;
-        LogError("LevelDB read failure: %s", status.ToString());
+        LogPrintf("LevelDB read failure: %s\n", status.ToString());
         HandleError(status);
     }
     return true;

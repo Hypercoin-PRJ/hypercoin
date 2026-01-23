@@ -1,16 +1,15 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CRYPTO_POLY1305_H
-#define BITCOIN_CRYPTO_POLY1305_H
+#ifndef HYPERCOIN_CRYPTO_POLY1305_H
+#define HYPERCOIN_CRYPTO_POLY1305_H
 
 #include <span.h>
 
 #include <cassert>
-#include <cstddef>
 #include <cstdint>
-#include <span>
+#include <cstdlib>
 
 #define POLY1305_BLOCK_SIZE 16
 
@@ -68,4 +67,4 @@ public:
     }
 };
 
-#endif // BITCOIN_CRYPTO_POLY1305_H
+#endif // HYPERCOIN_CRYPTO_POLY1305_H

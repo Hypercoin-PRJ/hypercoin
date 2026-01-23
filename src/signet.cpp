@@ -1,33 +1,32 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <signet.h>
 
+#include <common/system.h>
 #include <consensus/merkle.h>
 #include <consensus/params.h>
 #include <consensus/validation.h>
+#include <core_io.h>
+#include <hash.h>
 #include <logging.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
-#include <script/script.h>
+#include <span.h>
 #include <streams.h>
 #include <uint256.h>
-#include <util/check.h>
+#include <util/strencodings.h>
 
 #include <algorithm>
-#include <cstddef>
+#include <array>
 #include <cstdint>
-#include <exception>
-#include <memory>
-#include <span>
-#include <utility>
 #include <vector>
 
 static constexpr uint8_t SIGNET_HEADER[4] = {0xec, 0xc7, 0xda, 0xa2};
 
-static constexpr script_verify_flags BLOCK_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_NULLDUMMY;
+static constexpr unsigned int BLOCK_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_NULLDUMMY;
 
 static bool FetchAndClearCommitmentSection(const std::span<const uint8_t> header, CScript& witness_commitment, std::vector<uint8_t>& result)
 {
@@ -59,10 +58,10 @@ static bool FetchAndClearCommitmentSection(const std::span<const uint8_t> header
 static uint256 ComputeModifiedMerkleRoot(const CMutableTransaction& cb, const CBlock& block)
 {
     std::vector<uint256> leaves;
-    leaves.reserve((block.vtx.size() + 1) & ~1ULL); // capacity rounded up to even
-    leaves.push_back(cb.GetHash().ToUint256());
+    leaves.resize(block.vtx.size());
+    leaves[0] = cb.GetHash().ToUint256();
     for (size_t s = 1; s < block.vtx.size(); ++s) {
-        leaves.push_back(block.vtx[s]->GetHash().ToUint256());
+        leaves[s] = block.vtx[s]->GetHash().ToUint256();
     }
     return ComputeMerkleRoot(std::move(leaves));
 }

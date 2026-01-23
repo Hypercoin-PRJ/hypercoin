@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NODE_WARNINGS_H
-#define BITCOIN_NODE_WARNINGS_H
+#ifndef HYPERCOIN_NODE_WARNINGS_H
+#define HYPERCOIN_NODE_WARNINGS_H
 
 #include <sync.h>
 #include <util/translation.h>
@@ -87,4 +87,4 @@ public:
 UniValue GetWarningsForRpc(const Warnings& warnings, bool use_deprecated);
 } // namespace node
 
-#endif // BITCOIN_NODE_WARNINGS_H
+#endif // HYPERCOIN_NODE_WARNINGS_H

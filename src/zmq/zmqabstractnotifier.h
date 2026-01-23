@@ -1,9 +1,9 @@
-// Copyright (c) 2015-present The Bitcoin Core developers
+// Copyright (c) 2015-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_ZMQ_ZMQABSTRACTNOTIFIER_H
-#define BITCOIN_ZMQ_ZMQABSTRACTNOTIFIER_H
+#ifndef HYPERCOIN_ZMQ_ZMQABSTRACTNOTIFIER_H
+#define HYPERCOIN_ZMQ_ZMQABSTRACTNOTIFIER_H
 
 #include <cstdint>
 #include <functional>
@@ -21,6 +21,7 @@ class CZMQAbstractNotifier
 public:
     static const int DEFAULT_ZMQ_SNDHWM {1000};
 
+    CZMQAbstractNotifier() : outbound_message_high_water_mark(DEFAULT_ZMQ_SNDHWM) {}
     virtual ~CZMQAbstractNotifier();
 
     template <typename T>
@@ -60,7 +61,7 @@ protected:
     void* psocket{nullptr};
     std::string type;
     std::string address;
-    int outbound_message_high_water_mark{DEFAULT_ZMQ_SNDHWM}; // aka SNDHWM
+    int outbound_message_high_water_mark; // aka SNDHWM
 };
 
-#endif // BITCOIN_ZMQ_ZMQABSTRACTNOTIFIER_H
+#endif // HYPERCOIN_ZMQ_ZMQABSTRACTNOTIFIER_H

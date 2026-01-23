@@ -1,4 +1,4 @@
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -9,7 +9,6 @@
 #include <interfaces/chain.h>
 #include <key_io.h>
 #include <merkleblock.h>
-#include <node/types.h>
 #include <rpc/util.h>
 #include <script/descriptor.h>
 #include <script/script.h>
@@ -17,7 +16,6 @@
 #include <sync.h>
 #include <uint256.h>
 #include <util/bip32.h>
-#include <util/check.h>
 #include <util/fs.h>
 #include <util/time.h>
 #include <util/translation.h>
@@ -169,7 +167,6 @@ static UniValue ProcessDescriptorImport(CWallet& wallet, const UniValue& data, c
         }
 
         // Range check
-        std::optional<bool> is_ranged;
         int64_t range_start = 0, range_end = 1, next_index = 0;
         if (!parsed_descs.at(0)->IsRange() && data.exists("range")) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Range should not be specified for an un-ranged descriptor");
@@ -184,7 +181,6 @@ static UniValue ProcessDescriptorImport(CWallet& wallet, const UniValue& data, c
                 range_end = wallet.m_keypool_size;
             }
             next_index = range_start;
-            is_ranged = true;
 
             if (data.exists("next_index")) {
                 next_index = data["next_index"].getInt<int64_t>();
@@ -206,13 +202,12 @@ static UniValue ProcessDescriptorImport(CWallet& wallet, const UniValue& data, c
         }
 
         // Ranged descriptors should not have a label
-        if (is_ranged.has_value() && is_ranged.value() && data.exists("label")) {
+        if (data.exists("range") && data.exists("label")) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Ranged descriptors should not have a label");
         }
 
-        bool desc_internal = internal.has_value() && internal.value();
         // Internal addresses should not have a label either
-        if (desc_internal && data.exists("label")) {
+        if (internal && data.exists("label")) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Internal addresses should not have a label");
         }
 
@@ -228,6 +223,7 @@ static UniValue ProcessDescriptorImport(CWallet& wallet, const UniValue& data, c
 
         for (size_t j = 0; j < parsed_descs.size(); ++j) {
             auto parsed_desc = std::move(parsed_descs[j]);
+            bool desc_internal = internal.has_value() && internal.value();
             if (parsed_descs.size() == 2) {
                 desc_internal = j == 1;
             } else if (parsed_descs.size() > 2) {
@@ -240,10 +236,6 @@ static UniValue ProcessDescriptorImport(CWallet& wallet, const UniValue& data, c
                 throw JSONRPCError(RPC_WALLET_ERROR, "Cannot expand descriptor. Probably because of hardened derivations without private keys provided");
             }
             parsed_desc->ExpandPrivate(0, keys, expand_keys);
-
-            for (const auto& w : parsed_desc->Warnings()) {
-               warnings.push_back(w);
-            }
 
             // Check if all private keys are provided
             bool have_all_privkeys = !expand_keys.keys.empty();
@@ -408,7 +400,7 @@ RPCHelpMan importdescriptors()
     // Rescan the blockchain using the lowest timestamp
     if (rescan) {
         int64_t scanned_time = pwallet->RescanFromTime(lowest_timestamp, reserver, /*update=*/true);
-        pwallet->ResubmitWalletTransactions(node::TxBroadcast::MEMPOOL_NO_BROADCAST, /*force=*/true);
+        pwallet->ResubmitWalletTransactions(/*relay=*/false, /*force=*/true);
 
         if (pwallet->IsAbortingRescan()) {
             throw JSONRPCError(RPC_MISC_ERROR, "Rescan aborted by user.");
@@ -437,7 +429,7 @@ RPCHelpMan importdescriptors()
                             GetImportTimestamp(request, now), scanned_time - TIMESTAMP_WINDOW - 1, TIMESTAMP_WINDOW)};
                     if (pwallet->chain().havePruned()) {
                         error_msg += strprintf(" This error could be caused by pruning or data corruption "
-                                "(see bitcoind log for details) and could be dealt with by downloading and "
+                                "(see hypercoind log for details) and could be dealt with by downloading and "
                                 "rescanning the relevant blocks (see -reindex option and rescanblockchain RPC).");
                     } else if (pwallet->chain().hasAssumedValidChain()) {
                         error_msg += strprintf(" This error is likely caused by an in-progress assumeutxo "
@@ -498,9 +490,6 @@ RPCHelpMan listdescriptors()
     if (!wallet) return UniValue::VNULL;
 
     const bool priv = !request.params[0].isNull() && request.params[0].get_bool();
-    if (wallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS) && priv) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Can't get private descriptor string for watch-only wallets");
-    }
     if (priv) {
         EnsureWalletIsUnlocked(*wallet);
     }
@@ -527,12 +516,14 @@ RPCHelpMan listdescriptors()
         LOCK(desc_spk_man->cs_desc_man);
         const auto& wallet_descriptor = desc_spk_man->GetWalletDescriptor();
         std::string descriptor;
-        CHECK_NONFATAL(desc_spk_man->GetDescriptorString(descriptor, priv));
+        if (!desc_spk_man->GetDescriptorString(descriptor, priv)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Can't get descriptor string.");
+        }
         const bool is_range = wallet_descriptor.descriptor->IsRange();
         wallet_descriptors.push_back({
             descriptor,
             wallet_descriptor.creation_time,
-            active_spk_mans.contains(desc_spk_man),
+            active_spk_mans.count(desc_spk_man) != 0,
             wallet->IsInternalScriptPubKeyMan(desc_spk_man),
             is_range ? std::optional(std::make_pair(wallet_descriptor.range_start, wallet_descriptor.range_end)) : std::nullopt,
             wallet_descriptor.next_index

@@ -1,9 +1,9 @@
-// Copyright (c) 2010-present The Bitcoin Core developers
+// Copyright (c) 2010-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UTIL_SYSERROR_H
-#define BITCOIN_UTIL_SYSERROR_H
+#ifndef HYPERCOIN_UTIL_SYSERROR_H
+#define HYPERCOIN_UTIL_SYSERROR_H
 
 #include <string>
 
@@ -17,4 +17,4 @@ std::string SysErrorString(int err);
 std::string Win32ErrorString(int err);
 #endif
 
-#endif // BITCOIN_UTIL_SYSERROR_H
+#endif // HYPERCOIN_UTIL_SYSERROR_H

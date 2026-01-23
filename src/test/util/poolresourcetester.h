@@ -1,9 +1,9 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_TEST_UTIL_POOLRESOURCETESTER_H
-#define BITCOIN_TEST_UTIL_POOLRESOURCETESTER_H
+#ifndef HYPERCOIN_TEST_UTIL_POOLRESOURCETESTER_H
+#define HYPERCOIN_TEST_UTIL_POOLRESOURCETESTER_H
 
 #include <support/allocators/pool.h>
 #include <util/check.h>
@@ -133,4 +133,4 @@ public:
     }
 };
 
-#endif // BITCOIN_TEST_UTIL_POOLRESOURCETESTER_H
+#endif // HYPERCOIN_TEST_UTIL_POOLRESOURCETESTER_H

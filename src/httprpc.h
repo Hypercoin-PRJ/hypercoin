@@ -1,9 +1,9 @@
-// Copyright (c) 2015-present The Bitcoin Core developers
+// Copyright (c) 2015-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_HTTPRPC_H
-#define BITCOIN_HTTPRPC_H
+#ifndef HYPERCOIN_HTTPRPC_H
+#define HYPERCOIN_HTTPRPC_H
 
 #include <any>
 
@@ -31,4 +31,4 @@ void InterruptREST();
  */
 void StopREST();
 
-#endif // BITCOIN_HTTPRPC_H
+#endif // HYPERCOIN_HTTPRPC_H

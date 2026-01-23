@@ -33,8 +33,8 @@ Documentation for C++ subprocessing library.
 @version 1.0.0
 */
 
-#ifndef BITCOIN_UTIL_SUBPROCESS_H
-#define BITCOIN_UTIL_SUBPROCESS_H
+#ifndef HYPERCOIN_UTIL_SUBPROCESS_H
+#define HYPERCOIN_UTIL_SUBPROCESS_H
 
 #include <util/syserror.h>
 
@@ -1146,7 +1146,7 @@ inline void Popen::execute_process() noexcept(false)
                             NULL,         // process security attributes
                             NULL,         // primary thread security attributes
                             TRUE,         // handles are inherited
-                            creation_flags, // creation flags
+                            creation_flags,	// creation flags
                             NULL,         // use parent's environment
                             NULL,         // use parent's current directory
                             &siStartInfo, // STARTUPINFOW pointer
@@ -1500,4 +1500,4 @@ namespace detail {
 
 }
 
-#endif // BITCOIN_UTIL_SUBPROCESS_H
+#endif // HYPERCOIN_UTIL_SUBPROCESS_H

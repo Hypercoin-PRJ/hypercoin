@@ -1,4 +1,4 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -11,7 +11,6 @@
 #include <wallet/context.h>
 #include <wallet/wallet.h>
 
-#include <optional>
 #include <string_view>
 #include <univalue.h>
 
@@ -30,7 +29,7 @@ bool GetAvoidReuseFlag(const CWallet& wallet, const UniValue& param) {
     return avoid_reuse;
 }
 
-std::string EnsureUniqueWalletName(const JSONRPCRequest& request, std::optional<std::string_view> wallet_name)
+std::string EnsureUniqueWalletName(const JSONRPCRequest& request, const std::string* wallet_name)
 {
     std::string endpoint_wallet;
     if (GetWalletNameFromJSONRPCRequest(request, endpoint_wallet)) {
@@ -48,7 +47,7 @@ std::string EnsureUniqueWalletName(const JSONRPCRequest& request, std::optional<
             "Either the RPC endpoint wallet or the wallet name parameter must be provided");
     }
 
-    return std::string{*wallet_name};
+    return *wallet_name;
 }
 
 bool GetWalletNameFromJSONRPCRequest(const JSONRPCRequest& request, std::string& wallet_name)
@@ -124,7 +123,7 @@ void PushParentDescriptors(const CWallet& wallet, const CScript& script_pubkey, 
     entry.pushKV("parent_descs", std::move(parent_descs));
 }
 
-void HandleWalletError(const std::shared_ptr<CWallet>& wallet, DatabaseStatus& status, bilingual_str& error)
+void HandleWalletError(const std::shared_ptr<CWallet> wallet, DatabaseStatus& status, bilingual_str& error)
 {
     if (!wallet) {
         // Map bad format to not found, since bad format is returned when the

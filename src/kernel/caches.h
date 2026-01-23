@@ -1,9 +1,9 @@
-// Copyright (c) 2024-present The Bitcoin Core developers
+// Copyright (c) 2024-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_KERNEL_CACHES_H
-#define BITCOIN_KERNEL_CACHES_H
+#ifndef HYPERCOIN_KERNEL_CACHES_H
+#define HYPERCOIN_KERNEL_CACHES_H
 
 #include <util/byte_units.h>
 
@@ -11,9 +11,6 @@
 
 //! Suggested default amount of cache reserved for the kernel (bytes)
 static constexpr size_t DEFAULT_KERNEL_CACHE{450_MiB};
-//! Default LevelDB write batch size
-static constexpr size_t DEFAULT_DB_CACHE_BATCH{32_MiB};
-
 //! Max memory allocated to block tree DB specific cache (bytes)
 static constexpr size_t MAX_BLOCK_DB_CACHE{2_MiB};
 //! Max memory allocated to coin DB specific cache (bytes)
@@ -36,4 +33,4 @@ struct CacheSizes {
 };
 } // namespace kernel
 
-#endif // BITCOIN_KERNEL_CACHES_H
+#endif // HYPERCOIN_KERNEL_CACHES_H

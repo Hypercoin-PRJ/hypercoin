@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # Copyright (c) 2010 ArtForz -- public domain half-a-node
 # Copyright (c) 2012 Jeff Garzik
-# Copyright (c) 2010-present The Bitcoin Core developers
+# Copyright (c) 2010-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Test objects for interacting with a bitcoind node over the p2p protocol.
+"""Test objects for interacting with a hypercoind node over the p2p protocol.
 
-The P2PInterface objects interact with the bitcoind nodes under test using the
+The P2PInterface objects interact with the hypercoind nodes under test using the
 node's p2p interface. They can be used to send messages to the node, and
 callbacks can be registered that execute when messages are received from the
 node. Messages are sent to/received from the node on an asyncio event loop.
@@ -197,7 +197,7 @@ class P2PConnection(asyncio.Protocol):
             self.v2_state = EncryptedP2PState(initiating=True, net=net)
 
         loop = NetworkThread.network_event_loop
-        logger.debug('Connecting to Bitcoin Node: %s:%d' % (self.dstaddr, self.dstport))
+        logger.debug('Connecting to Hypercoin Node: %s:%d' % (self.dstaddr, self.dstport))
         coroutine = loop.create_connection(lambda: self, host=self.dstaddr, port=self.dstport)
         return lambda: loop.call_soon_threadsafe(loop.create_task, coroutine)
 
@@ -207,7 +207,7 @@ class P2PConnection(asyncio.Protocol):
         if supports_v2_p2p:
             self.v2_state = EncryptedP2PState(initiating=False, net=net)
 
-        logger.debug('Listening for Bitcoin Node with id: {}'.format(connect_id))
+        logger.debug('Listening for Hypercoin Node with id: {}'.format(connect_id))
         return lambda: NetworkThread.listen(self, connect_cb, idx=connect_id)
 
     def peer_disconnect(self):
@@ -446,7 +446,7 @@ class P2PConnection(asyncio.Protocol):
 
 
 class P2PInterface(P2PConnection):
-    """A high-level P2P interface class for communicating with a Bitcoin node.
+    """A high-level P2P interface class for communicating with a Hypercoin node.
 
     This class provides high-level callbacks for processing P2P message
     payloads, as well as convenience methods for interacting with the
@@ -787,14 +787,13 @@ class NetworkThread(threading.Thread):
                 cls.protos[(addr, port)] = None
             return response
 
-        if port == 0 or (addr, port) not in cls.listeners:
+        if (addr, port) not in cls.listeners:
             # When creating a listener on a given (addr, port) we only need to
             # do it once. If we want different behaviors for different
             # connections, we can accomplish this by providing different
             # `proto` functions
 
             listener = await cls.network_event_loop.create_server(peer_protocol, addr, port)
-            port = listener.sockets[0].getsockname()[1]
             logger.debug("Listening server on %s:%d should be started" % (addr, port))
             cls.listeners[(addr, port)] = listener
 
@@ -867,8 +866,8 @@ class P2PDataStore(P2PInterface):
          - the on_getheaders handler will ensure that any getheaders are responded to
          - if force_send is False: wait for getdata for each of the blocks. The on_getdata handler will
            ensure that any getdata messages are responded to. Otherwise send the full block unsolicited.
-         - if success is True: assert that the node's tip is the last block in blocks at the end of the operation.
-         - if success is False: assert that the node's tip isn't the last block in blocks at the end of the operation
+         - if success is True: assert that the node's tip advances to the most recent block
+         - if success is False: assert that the node's tip doesn't advance
          - if reject_reason is set: assert that the correct reject message is logged"""
 
         with p2p_lock:

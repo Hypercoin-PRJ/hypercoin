@@ -1,9 +1,9 @@
-// Copyright (c) 2018-present The Bitcoin Core developers
+// Copyright (c) 2018-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SPAN_H
-#define BITCOIN_SPAN_H
+#ifndef HYPERCOIN_SPAN_H
+#define HYPERCOIN_SPAN_H
 
 #include <cassert>
 #include <cstddef>
@@ -111,4 +111,4 @@ template <typename T, size_t N> constexpr auto UCharSpanCast(std::span<T, N> s) 
 template <typename V> constexpr auto MakeUCharSpan(const V& v) -> decltype(UCharSpanCast(std::span{v})) { return UCharSpanCast(std::span{v}); }
 template <typename V> constexpr auto MakeWritableUCharSpan(V&& v) -> decltype(UCharSpanCast(std::span{std::forward<V>(v)})) { return UCharSpanCast(std::span{std::forward<V>(v)}); }
 
-#endif // BITCOIN_SPAN_H
+#endif // HYPERCOIN_SPAN_H

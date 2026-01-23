@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020-present The Bitcoin Core developers
+# Copyright (c) 2020-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test indices in conjunction with prune."""
 import concurrent.futures
 import os
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -13,7 +13,7 @@ from test_framework.util import (
 )
 
 
-class FeatureIndexPruneTest(BitcoinTestFramework):
+class FeatureIndexPruneTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.extra_args = [
@@ -67,7 +67,7 @@ class FeatureIndexPruneTest(BitcoinTestFramework):
         for node in filter_nodes:
             assert_greater_than(len(node.getblockfilter(tip)['filter']), 0)
         for node in stats_nodes:
-            assert node.gettxoutsetinfo(hash_type="muhash", hash_or_height=tip)['muhash']
+            assert node.gettxoutsetinfo(hash_type="muhash", hash_or_height=self.convert_to_json_for_cli(tip))['muhash']
 
         self.generate(self.nodes[0], 500)
         self.sync_index(height=700)
@@ -85,14 +85,14 @@ class FeatureIndexPruneTest(BitcoinTestFramework):
         for node in filter_nodes:
             assert_greater_than(len(node.getblockfilter(tip)['filter']), 0)
         for node in stats_nodes:
-            assert node.gettxoutsetinfo(hash_type="muhash", hash_or_height=tip)['muhash']
+            assert node.gettxoutsetinfo(hash_type="muhash", hash_or_height=self.convert_to_json_for_cli(tip))['muhash']
 
         self.log.info("check if we can access the blockfilter and coinstats of a pruned block")
         height_hash = self.nodes[0].getblockhash(2)
         for node in filter_nodes:
             assert_greater_than(len(node.getblockfilter(height_hash)['filter']), 0)
         for node in stats_nodes:
-            assert node.gettxoutsetinfo(hash_type="muhash", hash_or_height=height_hash)['muhash']
+            assert node.gettxoutsetinfo(hash_type="muhash", hash_or_height=self.convert_to_json_for_cli(height_hash))['muhash']
 
         # mine and sync index up to a height that will later be the pruneheight
         self.generate(self.nodes[0], 51)
@@ -106,7 +106,7 @@ class FeatureIndexPruneTest(BitcoinTestFramework):
             assert_raises_rpc_error(-1, msg, node.getblockfilter, height_hash)
         for node in stats_nodes:
             msg = "Querying specific block heights requires coinstatsindex"
-            assert_raises_rpc_error(-8, msg, node.gettxoutsetinfo, "muhash", height_hash)
+            assert_raises_rpc_error(-8, msg, node.gettxoutsetinfo, "muhash", self.convert_to_json_for_cli(height_hash))
 
         self.generate(self.nodes[0], 749)
 

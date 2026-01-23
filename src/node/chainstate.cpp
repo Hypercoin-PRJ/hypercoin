@@ -1,4 +1,4 @@
-// Copyright (c) 2021-present The Bitcoin Core developers
+// Copyright (c) 2021-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -66,8 +66,8 @@ static ChainstateLoadResult CompleteChainstateInitialization(
         return {ChainstateLoadStatus::FAILURE, _("Error initializing block database")};
     }
 
-    auto is_coinsview_empty = [&](Chainstate& chainstate) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
-        return options.wipe_chainstate_db || chainstate.CoinsTip().GetBestBlock().IsNull();
+    auto is_coinsview_empty = [&](Chainstate* chainstate) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
+        return options.wipe_chainstate_db || chainstate->CoinsTip().GetBestBlock().IsNull();
     };
 
     assert(chainman.m_total_coinstip_cache > 0);
@@ -78,12 +78,12 @@ static ChainstateLoadResult CompleteChainstateInitialization(
     // recalculated by `chainman.MaybeRebalanceCaches()`. The discount factor
     // is conservatively chosen such that the sum of the caches does not exceed
     // the allowable amount during this temporary initialization state.
-    double init_cache_fraction = chainman.HistoricalChainstate() ? 0.2 : 1.0;
+    double init_cache_fraction = chainman.GetAll().size() > 1 ? 0.2 : 1.0;
 
     // At this point we're either in reindex or we've loaded a useful
     // block tree into BlockIndex()!
 
-    for (const auto& chainstate : chainman.m_chainstates) {
+    for (Chainstate* chainstate : chainman.GetAll()) {
         LogInfo("Initializing chainstate %s", chainstate->ToString());
 
         try {
@@ -117,7 +117,7 @@ static ChainstateLoadResult CompleteChainstateInitialization(
         chainstate->InitCoinsCache(chainman.m_total_coinstip_cache * init_cache_fraction);
         assert(chainstate->CanFlushToDisk());
 
-        if (!is_coinsview_empty(*chainstate)) {
+        if (!is_coinsview_empty(chainstate)) {
             // LoadChainTip initializes the chain based on CoinsTip()'s best block
             if (!chainstate->LoadChainTip()) {
                 return {ChainstateLoadStatus::FAILURE, _("Error initializing block database")};
@@ -126,9 +126,9 @@ static ChainstateLoadResult CompleteChainstateInitialization(
         }
     }
 
-    const auto& chainstates{chainman.m_chainstates};
+    auto chainstates{chainman.GetAll()};
     if (std::any_of(chainstates.begin(), chainstates.end(),
-                    [](const auto& cs) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return cs->NeedsRedownload(); })) {
+                    [](const Chainstate* cs) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return cs->NeedsRedownload(); })) {
         return {ChainstateLoadStatus::FAILURE, strprintf(_("Witness data for blocks after height %d requires validation. Please restart with -reindex."),
                                                          chainman.GetConsensus().SegwitHeight)};
     };
@@ -151,7 +151,7 @@ ChainstateLoadResult LoadChainstate(ChainstateManager& chainman, const CacheSize
     }
     LogInfo("Setting nMinimumChainWork=%s", chainman.MinimumChainWork().GetHex());
     if (chainman.MinimumChainWork() < UintToArith256(chainman.GetConsensus().nMinimumChainWork)) {
-        LogWarning("nMinimumChainWork set below default value of %s", chainman.GetConsensus().nMinimumChainWork.GetHex());
+        LogPrintf("Warning: nMinimumChainWork set below default value of %s\n", chainman.GetConsensus().nMinimumChainWork.GetHex());
     }
     if (chainman.m_blockman.GetPruneTarget() == BlockManager::PRUNE_TARGET_MANUAL) {
         LogInfo("Block pruning enabled. Use RPC call pruneblockchain(height) to manually prune block and undo files.");
@@ -166,19 +166,16 @@ ChainstateLoadResult LoadChainstate(ChainstateManager& chainman, const CacheSize
     chainman.m_total_coinsdb_cache = cache_sizes.coins_db;
 
     // Load the fully validated chainstate.
-    Chainstate& validated_cs{chainman.InitializeChainstate(options.mempool)};
+    chainman.InitializeChainstate(options.mempool);
 
     // Load a chain created from a UTXO snapshot, if any exist.
-    Chainstate* assumeutxo_cs{chainman.LoadAssumeutxoChainstate()};
+    bool has_snapshot = chainman.DetectSnapshotChainstate();
 
-    if (assumeutxo_cs && options.wipe_chainstate_db) {
-        // Reset chainstate target to network tip instead of snapshot block.
-        validated_cs.SetTargetBlock(nullptr);
+    if (has_snapshot && options.wipe_chainstate_db) {
         LogInfo("[snapshot] deleting snapshot chainstate due to reindexing");
-        if (!chainman.DeleteChainstate(*assumeutxo_cs)) {
+        if (!chainman.DeleteSnapshotChainstate()) {
             return {ChainstateLoadStatus::FAILURE_FATAL, Untranslated("Couldn't remove snapshot chainstate.")};
         }
-        assumeutxo_cs = nullptr;
     }
 
     auto [init_status, init_error] = CompleteChainstateInitialization(chainman, options);
@@ -194,22 +191,22 @@ ChainstateLoadResult LoadChainstate(ChainstateManager& chainman, const CacheSize
     // snapshot is actually validated? Because this entails unusual
     // filesystem operations to move leveldb data directories around, and that seems
     // too risky to do in the middle of normal runtime.
-    auto snapshot_completion{assumeutxo_cs
-                             ? chainman.MaybeValidateSnapshot(validated_cs, *assumeutxo_cs)
-                             : SnapshotCompletionResult::SKIPPED};
+    auto snapshot_completion = chainman.MaybeCompleteSnapshotValidation();
 
     if (snapshot_completion == SnapshotCompletionResult::SKIPPED) {
         // do nothing; expected case
     } else if (snapshot_completion == SnapshotCompletionResult::SUCCESS) {
         LogInfo("[snapshot] cleaning up unneeded background chainstate, then reinitializing");
-        if (!chainman.ValidatedSnapshotCleanup(validated_cs, *assumeutxo_cs)) {
+        if (!chainman.ValidatedSnapshotCleanup()) {
             return {ChainstateLoadStatus::FAILURE_FATAL, Untranslated("Background chainstate cleanup failed unexpectedly.")};
         }
 
         // Because ValidatedSnapshotCleanup() has torn down chainstates with
         // ChainstateManager::ResetChainstates(), reinitialize them here without
         // duplicating the blockindex work above.
-        assert(chainman.m_chainstates.empty());
+        assert(chainman.GetAll().empty());
+        assert(!chainman.IsSnapshotActive());
+        assert(!chainman.IsSnapshotValidated());
 
         chainman.InitializeChainstate(options.mempool);
 
@@ -232,14 +229,14 @@ ChainstateLoadResult LoadChainstate(ChainstateManager& chainman, const CacheSize
 
 ChainstateLoadResult VerifyLoadedChainstate(ChainstateManager& chainman, const ChainstateLoadOptions& options)
 {
-    auto is_coinsview_empty = [&](Chainstate& chainstate) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
-        return options.wipe_chainstate_db || chainstate.CoinsTip().GetBestBlock().IsNull();
+    auto is_coinsview_empty = [&](Chainstate* chainstate) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
+        return options.wipe_chainstate_db || chainstate->CoinsTip().GetBestBlock().IsNull();
     };
 
     LOCK(cs_main);
 
-    for (auto& chainstate : chainman.m_chainstates) {
-        if (!is_coinsview_empty(*chainstate)) {
+    for (Chainstate* chainstate : chainman.GetAll()) {
+        if (!is_coinsview_empty(chainstate)) {
             const CBlockIndex* tip = chainstate->m_chain.Tip();
             if (tip && tip->nTime > GetTime() + MAX_FUTURE_BLOCK_TIME) {
                 return {ChainstateLoadStatus::FAILURE, _("The block database contains a block which appears to be from the future. "

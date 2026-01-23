@@ -1,9 +1,9 @@
-// Copyright (c) 2016-present The Bitcoin Core developers
+// Copyright (c) 2016-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_INDIRECTMAP_H
-#define BITCOIN_INDIRECTMAP_H
+#ifndef HYPERCOIN_INDIRECTMAP_H
+#define HYPERCOIN_INDIRECTMAP_H
 
 #include <map>
 
@@ -55,4 +55,4 @@ public:
     const_iterator cend() const     { return m.cend(); }
 };
 
-#endif // BITCOIN_INDIRECTMAP_H
+#endif // HYPERCOIN_INDIRECTMAP_H

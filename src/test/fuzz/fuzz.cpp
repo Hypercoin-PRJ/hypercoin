@@ -1,4 +1,4 @@
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -75,7 +75,7 @@ auto& FuzzTargets()
 
 void FuzzFrameworkRegisterTarget(std::string_view name, TypeTestOneInput target, FuzzTargetOptions opts)
 {
-    const auto [it, ins]{FuzzTargets().try_emplace(name, std::move(target), std::move(opts))};
+    const auto [it, ins]{FuzzTargets().try_emplace(name, FuzzTarget /* temporary can be dropped after Apple-Clang-16 ? */ {std::move(target), std::move(opts)})};
     Assert(ins);
 }
 

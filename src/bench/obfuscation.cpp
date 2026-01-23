@@ -1,4 +1,4 @@
-// Copyright (c) The Bitcoin Core developers
+// Copyright (c) The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://opensource.org/license/mit/.
 
@@ -22,4 +22,4 @@ static void ObfuscationBench(benchmark::Bench& bench)
     });
 }
 
-BENCHMARK(ObfuscationBench);
+BENCHMARK(ObfuscationBench, benchmark::PriorityLevel::HIGH);

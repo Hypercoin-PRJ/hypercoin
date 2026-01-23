@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2023-present The Bitcoin Core developers
+# Copyright (c) 2023 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test sigop limit mempool policy (`-bytespersigop` parameter)"""
@@ -36,7 +36,7 @@ from test_framework.script_util import (
     MAX_STD_LEGACY_SIGOPS,
     MAX_STD_P2SH_SIGOPS,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -49,7 +49,7 @@ from test_framework.wallet_util import generate_keypair
 DEFAULT_BYTES_PER_SIGOP = 20  # default setting
 MAX_PUBKEYS_PER_MULTISIG = 20
 
-class BytesPerSigOpTest(BitcoinTestFramework):
+class BytesPerSigOpTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
 
@@ -169,14 +169,14 @@ class BytesPerSigOpTest(BitcoinTestFramework):
         assert_equal(parent_individual_testres["vsize"], max_multisig_vsize)
 
         # But together, it's exceeding limits in the *package* context. If sigops adjusted vsize wasn't being checked
-        # here, it would get further in validation and give too-large-cluster error instead.
+        # here, it would get further in validation and give too-long-mempool-chain error instead.
         packet_test = self.nodes[0].testmempoolaccept([tx_parent.serialize().hex(), tx_child.serialize().hex()])
-        expected_package_error = "too-large-cluster"
+        expected_package_error = f"package-mempool-limits, package size {2*max_multisig_vsize} exceeds ancestor size limit [limit: 101000]"
         assert_equal([x["package-error"] for x in packet_test], [expected_package_error] * 2)
 
-        # When we actually try to submit, the parent makes it into the mempool, but the child would exceed cluster vsize limits
+        # When we actually try to submit, the parent makes it into the mempool, but the child would exceed ancestor vsize limits
         res = self.nodes[0].submitpackage([tx_parent.serialize().hex(), tx_child.serialize().hex()])
-        assert "too-large-cluster" in res["tx-results"][tx_child.wtxid_hex]["error"]
+        assert "too-long-mempool-chain" in res["tx-results"][tx_child.wtxid_hex]["error"]
         assert tx_parent.txid_hex in self.nodes[0].getrawmempool()
 
         # Transactions are tiny in weight

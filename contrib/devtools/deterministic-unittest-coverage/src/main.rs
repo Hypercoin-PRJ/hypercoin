@@ -1,4 +1,4 @@
-// Copyright (c) The Bitcoin Core developers
+// Copyright (c) The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://opensource.org/license/mit/.
 
@@ -32,7 +32,7 @@ fn sanity_check(test_exe: &Path) -> AppResult {
         let output = Command::new(tool).arg("--help").output();
         match output {
             Ok(output) if output.status.success() => {}
-            _ => Err(exit_help(&format!("The tool {tool} is not installed")))?,
+            _ => Err(exit_help(&format!("The tool {} is not installed", tool)))?,
         }
     }
     if !test_exe.exists() {
@@ -61,7 +61,7 @@ fn app() -> AppResult {
     }
 
     let build_dir = Path::new(build_dir);
-    let test_exe = build_dir.join("bin/test_bitcoin");
+    let test_exe = build_dir.join("bin/test_hypercoin");
 
     sanity_check(&test_exe)?;
 
@@ -142,7 +142,7 @@ fn main() -> ExitCode {
     match app() {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("⚠️\n{err}");
+            eprintln!("⚠️\n{}", err);
             ExitCode::FAILURE
         }
     }

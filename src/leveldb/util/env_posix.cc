@@ -218,7 +218,7 @@ class PosixMmapReadableFile final : public RandomAccessFile {
   // over the ownership of the region.
   //
   // |mmap_limiter| must outlive this instance. The caller must have already
-  // acquired the right to use one mmap region, which will be released when this
+  // aquired the right to use one mmap region, which will be released when this
   // instance is destroyed.
   PosixMmapReadableFile(std::string filename, char* mmap_base, size_t length,
                         Limiter* mmap_limiter)
@@ -393,7 +393,7 @@ class PosixWritableFile final : public WritableFile {
       return Status::OK();
     }
     // Do not crash if filesystem can't fsync directories
-    // (see https://github.com/bitcoin/bitcoin/pull/10000)
+    // (see https://github.com/hypercoin/hypercoin/pull/10000)
     if (syncing_dir && errno == EINVAL) {
       return Status::OK();
     }
@@ -741,7 +741,7 @@ class PosixEnv : public Env {
   // Instances are constructed on the thread calling Schedule() and used on the
   // background thread.
   //
-  // This structure is thread-safe because it is immutable.
+  // This structure is thread-safe beacuse it is immutable.
   struct BackgroundWorkItem {
     explicit BackgroundWorkItem(void (*function)(void* arg), void* arg)
         : function(function), arg(arg) {}

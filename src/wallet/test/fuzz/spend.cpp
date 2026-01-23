@@ -1,4 +1,4 @@
-// Copyright (c) 2024-present The Bitcoin Core developers
+// Copyright (c) 2024-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -98,7 +98,7 @@ FUZZ_TARGET(wallet_create_transaction, .init = initialize_setup)
 
     std::optional<unsigned int> change_pos;
     if (fuzzed_data_provider.ConsumeBool()) change_pos = fuzzed_data_provider.ConsumeIntegral<unsigned int>();
-    [[maybe_unused]] auto _{CreateTransaction(*fuzzed_wallet.wallet, recipients, change_pos, coin_control)};
+    (void)CreateTransaction(*fuzzed_wallet.wallet, recipients, change_pos, coin_control);
 }
 } // namespace
 } // namespace wallet

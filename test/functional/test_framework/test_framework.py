@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-present The Bitcoin Core developers
+# Copyright (c) 2014-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Base class for RPC testing."""
@@ -8,17 +8,20 @@ import configparser
 from enum import Enum
 import argparse
 from datetime import datetime, timezone
+import json
 import logging
 import os
 import platform
 import pdb
 import random
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import types
 
 from .address import create_deterministic_address_bcrt1_p2tr_op_true
 from .authproxy import JSONRPCException
@@ -26,14 +29,11 @@ from . import coverage
 from .p2p import NetworkThread
 from .test_node import TestNode
 from .util import (
-    Binaries,
     MAX_NODES,
     PortSeed,
     assert_equal,
     check_json_precision,
-    export_env_build_path,
     find_vout_for_address,
-    get_binary_paths,
     get_datadir_path,
     initialize_datadir,
     p2p_port,
@@ -51,7 +51,7 @@ TEST_EXIT_PASSED = 0
 TEST_EXIT_FAILED = 1
 TEST_EXIT_SKIPPED = 77
 
-TMPDIR_PREFIX = "bitcoin_func_test_"
+TMPDIR_PREFIX = "hypercoin_func_test_"
 
 
 class SkipTest(Exception):
@@ -61,30 +61,87 @@ class SkipTest(Exception):
         self.message = message
 
 
-class BitcoinTestMetaClass(type):
-    """Metaclass for BitcoinTestFramework.
+class Binaries:
+    """Helper class to provide information about hypercoin binaries
 
-    Ensures that any attempt to register a subclass of `BitcoinTestFramework`
+    Attributes:
+        paths: Object returned from get_binary_paths() containing information
+            which binaries and command lines to use from environment variables and
+            the config file.
+        bin_dir: An optional string containing a directory path to look for
+            binaries, which takes precedence over the paths above, if specified.
+            This is used by tests calling binaries from previous releases.
+    """
+    def __init__(self, paths, bin_dir):
+        self.paths = paths
+        self.bin_dir = bin_dir
+
+    def node_argv(self, **kwargs):
+        "Return argv array that should be used to invoke hypercoind"
+        return self._argv("node", self.paths.hypercoind, **kwargs)
+
+    def rpc_argv(self):
+        "Return argv array that should be used to invoke hypercoin-cli"
+        # Add -nonamed because "hypercoin rpc" enables -named by default, but hypercoin-cli doesn't
+        return self._argv("rpc", self.paths.hypercoincli) + ["-nonamed"]
+
+    def tx_argv(self):
+        "Return argv array that should be used to invoke hypercoin-tx"
+        return self._argv("tx", self.paths.hypercointx)
+
+    def util_argv(self):
+        "Return argv array that should be used to invoke hypercoin-util"
+        return self._argv("util", self.paths.hypercoinutil)
+
+    def wallet_argv(self):
+        "Return argv array that should be used to invoke hypercoin-wallet"
+        return self._argv("wallet", self.paths.hypercoinwallet)
+
+    def chainstate_argv(self):
+        "Return argv array that should be used to invoke hypercoin-chainstate"
+        return self._argv("chainstate", self.paths.hypercoinchainstate)
+
+    def _argv(self, command, bin_path, need_ipc=False):
+        """Return argv array that should be used to invoke the command. It
+        either uses the hypercoin wrapper executable (if HYPERCOIN_CMD is set or
+        need_ipc is True), or the direct binary path (hypercoind, etc). When
+        bin_dir is set (by tests calling binaries from previous releases) it
+        always uses the direct path."""
+        if self.bin_dir is not None:
+            return [os.path.join(self.bin_dir, os.path.basename(bin_path))]
+        elif self.paths.hypercoin_cmd is not None or need_ipc:
+            # If the current test needs IPC functionality, use the hypercoin
+            # wrapper binary and append -m so it calls multiprocess binaries.
+            hypercoin_cmd = self.paths.hypercoin_cmd or [self.paths.hypercoin_bin]
+            return hypercoin_cmd + (["-m"] if need_ipc else []) + [command]
+        else:
+            return [bin_path]
+
+
+class HypercoinTestMetaClass(type):
+    """Metaclass for HypercoinTestFramework.
+
+    Ensures that any attempt to register a subclass of `HypercoinTestFramework`
     adheres to a standard whereby the subclass overrides `set_test_params` and
     `run_test` but DOES NOT override either `__init__` or `main`. If any of
     those standards are violated, a ``TypeError`` is raised."""
 
     def __new__(cls, clsname, bases, dct):
-        if not clsname == 'BitcoinTestFramework':
+        if not clsname == 'HypercoinTestFramework':
             if not ('run_test' in dct and 'set_test_params' in dct):
-                raise TypeError("BitcoinTestFramework subclasses must override "
+                raise TypeError("HypercoinTestFramework subclasses must override "
                                 "'run_test' and 'set_test_params'")
             if '__init__' in dct or 'main' in dct:
-                raise TypeError("BitcoinTestFramework subclasses may not override "
+                raise TypeError("HypercoinTestFramework subclasses may not override "
                                 "'__init__' or 'main'")
 
         return super().__new__(cls, clsname, bases, dct)
 
 
-class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
-    """Base class for a bitcoin test script.
+class HypercoinTestFramework(metaclass=HypercoinTestMetaClass):
+    """Base class for a hypercoin test script.
 
-    Individual bitcoin test scripts should subclass this class and override the set_test_params() and run_test() methods.
+    Individual hypercoin test scripts should subclass this class and override the set_test_params() and run_test() methods.
 
     Individual tests can also override the following methods to customize the test setup:
 
@@ -165,7 +222,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         previous_releases_path = os.getenv("PREVIOUS_RELEASES_DIR") or os.getcwd() + "/releases"
         parser = argparse.ArgumentParser(usage="%(prog)s [options]")
         parser.add_argument("--nocleanup", dest="nocleanup", default=False, action="store_true",
-                            help="Leave bitcoinds and test.* datadir on exit or error")
+                            help="Leave hypercoinds and test.* datadir on exit or error")
         parser.add_argument("--cachedir", dest="cachedir", default=os.path.abspath(os.path.dirname(test_file) + "/../cache"),
                             help="Directory for caching pregenerated datadirs (default: %(default)s)")
         parser.add_argument("--tmpdir", dest="tmpdir", help="Root directory for datadirs (must not exist)")
@@ -186,7 +243,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         parser.add_argument("--pdbonfailure", dest="pdbonfailure", default=False, action="store_true",
                             help="Attach a python debugger if test fails")
         parser.add_argument("--usecli", dest="usecli", default=False, action="store_true",
-                            help="use bitcoin-cli instead of RPC for all commands")
+                            help="use hypercoin-cli instead of RPC for all commands")
         parser.add_argument("--perf", dest="perf", default=False, action="store_true",
                             help="profile running nodes with perf for the duration of the test")
         parser.add_argument("--valgrind", dest="valgrind", default=False, action="store_true",
@@ -214,11 +271,38 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
         self.config = configparser.ConfigParser()
         self.config.read_file(open(self.options.configfile))
-        self.binary_paths = get_binary_paths(self.config)
+        self.binary_paths = self.get_binary_paths()
         if self.options.v1transport:
             self.options.v2transport=False
 
         PortSeed.n = self.options.port_seed
+
+    def get_binary_paths(self):
+        """Get paths of all binaries from environment variables or their default values"""
+
+        paths = types.SimpleNamespace()
+        binaries = {
+            "hypercoin": "HYPERCOIN_BIN",
+            "hypercoind": "HYPERCOIND",
+            "hypercoin-cli": "HYPERCOINCLI",
+            "hypercoin-util": "HYPERCOINUTIL",
+            "hypercoin-tx": "HYPERCOINTX",
+            "hypercoin-chainstate": "HYPERCOINCHAINSTATE",
+            "hypercoin-wallet": "HYPERCOINWALLET",
+        }
+        # Set paths to hypercoin core binaries allowing overrides with environment
+        # variables.
+        for binary, env_variable_name in binaries.items():
+            default_filename = os.path.join(
+                self.config["environment"]["BUILDDIR"],
+                "bin",
+                binary + self.config["environment"]["EXEEXT"],
+            )
+            setattr(paths, env_variable_name.lower(), os.getenv(env_variable_name, default=default_filename))
+        # HYPERCOIN_CMD environment variable can be specified to invoke hypercoin
+        # wrapper binary instead of other executables.
+        paths.hypercoin_cmd = shlex.split(os.getenv("HYPERCOIN_CMD", "")) or None
+        return paths
 
     def get_binaries(self, bin_dir=None):
         return Binaries(self.binary_paths, bin_dir)
@@ -227,9 +311,13 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         """Call this method to start up the test framework object with options set."""
 
         check_json_precision()
-        export_env_build_path(self.config)
 
         self.options.cachedir = os.path.abspath(self.options.cachedir)
+
+        os.environ['PATH'] = os.pathsep.join([
+            os.path.join(self.config["environment"]["BUILDDIR"], "bin"),
+            os.environ['PATH']
+        ])
 
         # Set up temp directory and start logging
         if self.options.tmpdir:
@@ -258,7 +346,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.log.debug('Setting up network thread')
         self.network_thread = NetworkThread()
         self.network_thread.start()
-        self.wait_until(lambda: self.network_thread.network_event_loop.is_running())
 
         if self.options.usecli:
             if not self.supports_cli:
@@ -324,7 +411,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             h.flush()
             h.close()
             self.log.removeHandler(h)
-        rpc_logger = logging.getLogger("BitcoinRPC")
+        rpc_logger = logging.getLogger("HypercoinRPC")
         for h in list(rpc_logger.handlers):
             h.flush()
             rpc_logger.removeHandler(h)
@@ -506,7 +593,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 test_node_i.replace_in_config([('[regtest]', '')])
 
     def start_node(self, i, *args, **kwargs):
-        """Start a bitcoind"""
+        """Start a hypercoind"""
 
         node = self.nodes[i]
 
@@ -517,7 +604,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             coverage.write_all_rpc_commands(self.options.coveragedir, node._rpc)
 
     def start_nodes(self, extra_args=None, *args, **kwargs):
-        """Start multiple bitcoinds"""
+        """Start multiple hypercoinds"""
 
         if extra_args is None:
             extra_args = [None] * self.num_nodes
@@ -532,11 +619,11 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 coverage.write_all_rpc_commands(self.options.coveragedir, node._rpc)
 
     def stop_node(self, i, expected_stderr='', wait=0):
-        """Stop a bitcoind test node"""
+        """Stop a hypercoind test node"""
         self.nodes[i].stop_node(expected_stderr, wait=wait)
 
     def stop_nodes(self, wait=0):
-        """Stop multiple bitcoind test nodes"""
+        """Stop multiple hypercoind test nodes"""
         for node in self.nodes:
             # Issue RPC to stop nodes
             node.stop_node(wait=wait, wait_until_stopped=False)
@@ -678,7 +765,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         return blocks
 
     def create_outpoints(self, node, *, outputs):
-        """Send funds to a given list of `{address: amount}` targets using the bitcoind
+        """Send funds to a given list of `{address: amount}` targets using the hypercoind
         wallet and return the corresponding outpoints as a list of dictionaries
         `[{"txid": txid, "vout": vout1}, {"txid": txid, "vout": vout2}, ...]`.
         The result can be used to specify inputs for RPCs like `createrawtransaction`,
@@ -752,7 +839,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.log = logging.getLogger('TestFramework')
         self.log.setLevel(logging.DEBUG)
         # Create file handler to log all messages
-        fh = logging.FileHandler(self.options.tmpdir + '/test_framework.log')
+        fh = logging.FileHandler(self.options.tmpdir + '/test_framework.log', encoding='utf-8')
         fh.setLevel(logging.DEBUG)
         # Create console handler to log messages to stderr. By default this logs only error messages, but can be configured with --loglevel.
         ch = logging.StreamHandler(sys.stdout)
@@ -760,7 +847,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         ll = int(self.options.loglevel) if self.options.loglevel.isdigit() else self.options.loglevel.upper()
         ch.setLevel(ll)
 
-        # Format logs the same as bitcoind's debug.log with microprecision (so log files can be concatenated and sorted)
+        # Format logs the same as hypercoind's debug.log with microprecision (so log files can be concatenated and sorted)
         class MicrosecondFormatter(logging.Formatter):
             def formatTime(self, record, _=None):
                 dt = datetime.fromtimestamp(record.created, timezone.utc)
@@ -776,7 +863,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.log.addHandler(ch)
 
         if self.options.trace_rpc:
-            rpc_logger = logging.getLogger("BitcoinRPC")
+            rpc_logger = logging.getLogger("HypercoinRPC")
             rpc_logger.setLevel(logging.DEBUG)
             rpc_handler = logging.StreamHandler(sys.stdout)
             rpc_handler.setLevel(logging.DEBUG)
@@ -853,7 +940,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.log.debug("Copy cache directory {} to node {}".format(cache_node_dir, i))
             to_dir = get_datadir_path(self.options.tmpdir, i)
             shutil.copytree(cache_node_dir, to_dir)
-            initialize_datadir(self.options.tmpdir, i, self.chain, self.disable_autoconnect)  # Overwrite port/rpcport in bitcoin.conf
+            initialize_datadir(self.options.tmpdir, i, self.chain, self.disable_autoconnect)  # Overwrite port/rpcport in hypercoin.conf
 
     def _initialize_chain_clean(self):
         """Initialize empty blockchain for use by the test.
@@ -891,10 +978,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         except ImportError:
             raise SkipTest("bcc python module not available")
 
-    def skip_if_no_bitcoind_tracepoints(self):
-        """Skip the running test if bitcoind has not been compiled with USDT tracepoint support."""
+    def skip_if_no_hypercoind_tracepoints(self):
+        """Skip the running test if hypercoind has not been compiled with USDT tracepoint support."""
         if not self.is_usdt_compiled():
-            raise SkipTest("bitcoind has not been built with USDT tracepoints enabled.")
+            raise SkipTest("hypercoind has not been built with USDT tracepoints enabled.")
 
     def skip_if_no_bpf_permissions(self):
         """Skip the running test if we don't have permissions to do BPF syscalls and load BPF maps."""
@@ -912,10 +999,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         if os.name != 'posix':
             raise SkipTest("not on a POSIX system")
 
-    def skip_if_no_bitcoind_zmq(self):
-        """Skip the running test if bitcoind has not been compiled with zmq support."""
+    def skip_if_no_hypercoind_zmq(self):
+        """Skip the running test if hypercoind has not been compiled with zmq support."""
         if not self.is_zmq_compiled():
-            raise SkipTest("bitcoind has not been built with zmq enabled.")
+            raise SkipTest("hypercoind has not been built with zmq enabled.")
 
     def skip_if_no_wallet(self):
         """Skip the running test if wallet has not been compiled."""
@@ -924,34 +1011,29 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             raise SkipTest("wallet has not been compiled.")
 
     def skip_if_no_wallet_tool(self):
-        """Skip the running test if bitcoin-wallet has not been compiled."""
+        """Skip the running test if hypercoin-wallet has not been compiled."""
         if not self.is_wallet_tool_compiled():
-            raise SkipTest("bitcoin-wallet has not been compiled")
+            raise SkipTest("hypercoin-wallet has not been compiled")
 
-    def skip_if_no_bitcoin_tx(self):
-        """Skip the running test if bitcoin-tx has not been compiled."""
-        if not self.is_bitcoin_tx_compiled():
-            raise SkipTest("bitcoin-tx has not been compiled")
+    def skip_if_no_hypercoin_tx(self):
+        """Skip the running test if hypercoin-tx has not been compiled."""
+        if not self.is_hypercoin_tx_compiled():
+            raise SkipTest("hypercoin-tx has not been compiled")
 
-    def skip_if_no_bitcoin_util(self):
-        """Skip the running test if bitcoin-util has not been compiled."""
-        if not self.is_bitcoin_util_compiled():
-            raise SkipTest("bitcoin-util has not been compiled")
+    def skip_if_no_hypercoin_util(self):
+        """Skip the running test if hypercoin-util has not been compiled."""
+        if not self.is_hypercoin_util_compiled():
+            raise SkipTest("hypercoin-util has not been compiled")
 
-    def skip_if_no_bitcoin_chainstate(self):
-        """Skip the running test if bitcoin-chainstate has not been compiled."""
-        if not self.is_bitcoin_chainstate_compiled():
-            raise SkipTest("bitcoin-chainstate has not been compiled")
-
-    def skip_if_no_bitcoin_bench(self):
-        """Skip the running test if bench_bitcoin has not been compiled."""
-        if not self.is_bench_compiled():
-            raise SkipTest("bench_bitcoin has not been compiled")
+    def skip_if_no_hypercoin_chainstate(self):
+        """Skip the running test if hypercoin-chainstate has not been compiled."""
+        if not self.is_hypercoin_chainstate_compiled():
+            raise SkipTest("hypercoin-chainstate has not been compiled")
 
     def skip_if_no_cli(self):
-        """Skip the running test if bitcoin-cli has not been compiled."""
+        """Skip the running test if hypercoin-cli has not been compiled."""
         if not self.is_cli_compiled():
-            raise SkipTest("bitcoin-cli has not been compiled.")
+            raise SkipTest("hypercoin-cli has not been compiled.")
 
     def skip_if_no_ipc(self):
         """Skip the running test if ipc is not compiled."""
@@ -981,12 +1063,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         if self.options.valgrind:
             raise SkipTest("This test is not compatible with Valgrind.")
 
-    def is_bench_compiled(self):
-        """Checks whether bench_bitcoin was compiled."""
-        return self.config["components"].getboolean("BUILD_BENCH")
-
     def is_cli_compiled(self):
-        """Checks whether bitcoin-cli was compiled."""
+        """Checks whether hypercoin-cli was compiled."""
         return self.config["components"].getboolean("ENABLE_CLI")
 
     def is_external_signer_compiled(self):
@@ -998,20 +1076,20 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         return self.config["components"].getboolean("ENABLE_WALLET")
 
     def is_wallet_tool_compiled(self):
-        """Checks whether bitcoin-wallet was compiled."""
+        """Checks whether hypercoin-wallet was compiled."""
         return self.config["components"].getboolean("ENABLE_WALLET_TOOL")
 
-    def is_bitcoin_tx_compiled(self):
-        """Checks whether bitcoin-tx was compiled."""
-        return self.config["components"].getboolean("BUILD_BITCOIN_TX")
+    def is_hypercoin_tx_compiled(self):
+        """Checks whether hypercoin-tx was compiled."""
+        return self.config["components"].getboolean("BUILD_HYPERCOIN_TX")
 
-    def is_bitcoin_util_compiled(self):
-        """Checks whether bitcoin-util was compiled."""
-        return self.config["components"].getboolean("ENABLE_BITCOIN_UTIL")
+    def is_hypercoin_util_compiled(self):
+        """Checks whether hypercoin-util was compiled."""
+        return self.config["components"].getboolean("ENABLE_HYPERCOIN_UTIL")
 
-    def is_bitcoin_chainstate_compiled(self):
-        """Checks whether bitcoin-chainstate was compiled."""
-        return self.config["components"].getboolean("ENABLE_BITCOIN_CHAINSTATE")
+    def is_hypercoin_chainstate_compiled(self):
+        """Checks whether hypercoin-chainstate was compiled."""
+        return self.config["components"].getboolean("ENABLE_HYPERCOIN_CHAINSTATE")
 
     def is_zmq_compiled(self):
         """Checks whether the zmq module was compiled."""
@@ -1028,13 +1106,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
     def has_blockfile(self, node, filenum: str):
         return (node.blocks_path/ f"blk{filenum}.dat").is_file()
 
-    def inspect_sqlite_db(self, path, fn, *args, **kwargs):
-        try:
-            import sqlite3 # type: ignore[import]
-            conn = sqlite3.connect(path)
-            with conn:
-                result = fn(conn, *args, **kwargs)
-            conn.close()
-            return result
-        except ImportError:
-            self.log.warning("sqlite3 module not available, skipping tests that inspect the database")
+    def convert_to_json_for_cli(self, text):
+        if self.options.usecli:
+            return json.dumps(text)
+        return text

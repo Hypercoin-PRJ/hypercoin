@@ -1,4 +1,4 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
@@ -71,4 +71,4 @@ static void LoadExternalBlockFile(benchmark::Bench& bench)
     fs::remove(blkfile);
 }
 
-BENCHMARK(LoadExternalBlockFile);
+BENCHMARK(LoadExternalBlockFile, benchmark::PriorityLevel::HIGH);

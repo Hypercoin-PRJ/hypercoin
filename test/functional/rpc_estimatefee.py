@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2018-present The Bitcoin Core developers
+# Copyright (c) 2018-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the estimatefee RPCs.
@@ -9,10 +9,10 @@ Test the following RPCs:
    - estimaterawfee
 """
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import assert_raises_rpc_error
 
-class EstimateFeeTest(BitcoinTestFramework):
+class EstimateFeeTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
 
@@ -36,7 +36,7 @@ class EstimateFeeTest(BitcoinTestFramework):
         assert_raises_rpc_error(-1, "estimatesmartfee", self.nodes[0].estimatesmartfee, 1, 'ECONOMICAL', 1)
         assert_raises_rpc_error(-1, "estimaterawfee", self.nodes[0].estimaterawfee, 1, 1, 1)
 
-        # max value of 1008 per src/policy/fees/block_policy_estimator.h
+        # max value of 1008 per src/policy/fees.h
         assert_raises_rpc_error(-8, "Invalid conf_target, must be between 1 and 1008", self.nodes[0].estimaterawfee, 1009)
 
         # valid calls

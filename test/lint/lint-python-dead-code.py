@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2022-present The Bitcoin Core developers
+# Copyright (c) 2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -24,15 +24,15 @@ def check_vulture_install():
 def main():
     check_vulture_install()
 
-    files = check_output(FILES_ARGS, text=True).splitlines()
+    files = check_output(FILES_ARGS).decode("utf-8").splitlines()
     # --min-confidence 100 will only report code that is guaranteed to be unused within the analyzed files.
     # Any value below 100 introduces the risk of false positives, which would create an unacceptable maintenance burden.
     vulture_args = ['vulture', '--min-confidence=100'] + files
 
     try:
-        check_output(vulture_args, stderr=STDOUT, text=True)
+        check_output(vulture_args, stderr=STDOUT)
     except CalledProcessError as e:
-        print(e.output, end="")
+        print(e.output.decode("utf-8"), end="")
         print("Python dead code detection found some issues")
         exit(1)
 

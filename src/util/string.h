@@ -1,9 +1,9 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UTIL_STRING_H
-#define BITCOIN_UTIL_STRING_H
+#ifndef HYPERCOIN_UTIL_STRING_H
+#define HYPERCOIN_UTIL_STRING_H
 
 #include <span.h>
 
@@ -12,8 +12,8 @@
 #include <cstring>
 #include <locale>
 #include <sstream>
-#include <string>
-#include <string_view>
+#include <string>      // IWYU pragma: export
+#include <string_view> // IWYU pragma: export
 #include <vector>
 
 namespace util {
@@ -262,4 +262,4 @@ template <typename T1, size_t PREFIX_LEN>
 }
 } // namespace util
 
-#endif // BITCOIN_UTIL_STRING_H
+#endif // HYPERCOIN_UTIL_STRING_H

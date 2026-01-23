@@ -1,9 +1,9 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UTIL_HASHER_H
-#define BITCOIN_UTIL_HASHER_H
+#ifndef HYPERCOIN_UTIL_HASHER_H
+#define HYPERCOIN_UTIL_HASHER_H
 
 #include <crypto/common.h>
 #include <crypto/siphash.h>
@@ -17,46 +17,52 @@
 
 class SaltedUint256Hasher
 {
-    const PresaltedSipHasher m_hasher;
+private:
+    /** Salt */
+    const uint64_t k0, k1;
 
 public:
     SaltedUint256Hasher();
 
-    size_t operator()(const uint256& hash) const
-    {
-        return m_hasher(hash);
+    size_t operator()(const uint256& hash) const {
+        return SipHashUint256(k0, k1, hash);
     }
 };
 
 class SaltedTxidHasher
 {
-    const PresaltedSipHasher m_hasher;
+private:
+    /** Salt */
+    const uint64_t k0, k1;
 
 public:
     SaltedTxidHasher();
 
-    size_t operator()(const Txid& txid) const
-    {
-        return m_hasher(txid.ToUint256());
+    size_t operator()(const Txid& txid) const {
+        return SipHashUint256(k0, k1, txid.ToUint256());
     }
 };
 
 class SaltedWtxidHasher
 {
-    const PresaltedSipHasher m_hasher;
+private:
+    /** Salt */
+    const uint64_t k0, k1;
 
 public:
     SaltedWtxidHasher();
 
-    size_t operator()(const Wtxid& wtxid) const
-    {
-        return m_hasher(wtxid.ToUint256());
+    size_t operator()(const Wtxid& wtxid) const {
+        return SipHashUint256(k0, k1, wtxid.ToUint256());
     }
 };
 
+
 class SaltedOutpointHasher
 {
-    const PresaltedSipHasher m_hasher;
+private:
+    /** Salt */
+    const uint64_t k0, k1;
 
 public:
     SaltedOutpointHasher(bool deterministic = false);
@@ -70,13 +76,13 @@ public:
      *
      * @see https://gcc.gnu.org/onlinedocs/gcc-13.2.0/libstdc++/manual/manual/unordered_associative.html
      */
-    size_t operator()(const COutPoint& id) const noexcept
-    {
-        return m_hasher(id.hash.ToUint256(), id.n);
+    size_t operator()(const COutPoint& id) const noexcept {
+        return SipHashUint256Extra(k0, k1, id.hash.ToUint256(), id.n);
     }
 };
 
-struct FilterHeaderHasher {
+struct FilterHeaderHasher
+{
     size_t operator()(const uint256& hash) const { return ReadLE64(hash.begin()); }
 };
 
@@ -121,4 +127,4 @@ public:
     size_t operator()(const std::span<const unsigned char>& script) const;
 };
 
-#endif // BITCOIN_UTIL_HASHER_H
+#endif // HYPERCOIN_UTIL_HASHER_H

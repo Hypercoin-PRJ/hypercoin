@@ -1,27 +1,23 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NODE_UTXO_SNAPSHOT_H
-#define BITCOIN_NODE_UTXO_SNAPSHOT_H
+#ifndef HYPERCOIN_NODE_UTXO_SNAPSHOT_H
+#define HYPERCOIN_NODE_UTXO_SNAPSHOT_H
 
+#include <chainparams.h>
 #include <kernel/chainparams.h>
 #include <kernel/cs_main.h>
-#include <kernel/messagestartchars.h>
+#include <serialize.h>
 #include <sync.h>
-#include <tinyformat.h>
 #include <uint256.h>
 #include <util/chaintype.h>
+#include <util/check.h>
 #include <util/fs.h>
 
-#include <algorithm>
-#include <array>
 #include <cstdint>
-#include <ios>
 #include <optional>
-#include <set>
-#include <string>
 #include <string_view>
 
 // UTXO set snapshot magic bytes
@@ -81,7 +77,7 @@ public:
         // Read the version
         uint16_t version;
         s >> version;
-        if (!m_supported_versions.contains(version)) {
+        if (m_supported_versions.find(version) == m_supported_versions.end()) {
             throw std::ios_base::failure(strprintf("Version of snapshot %s does not match any of the supported versions.", version));
         }
 
@@ -129,8 +125,8 @@ constexpr std::string_view SNAPSHOT_CHAINSTATE_SUFFIX = "_snapshot";
 
 
 //! Return a path to the snapshot-based chainstate dir, if one exists.
-std::optional<fs::path> FindAssumeutxoChainstateDir(const fs::path& data_dir);
+std::optional<fs::path> FindSnapshotChainstateDir(const fs::path& data_dir);
 
 } // namespace node
 
-#endif // BITCOIN_NODE_UTXO_SNAPSHOT_H
+#endif // HYPERCOIN_NODE_UTXO_SNAPSHOT_H

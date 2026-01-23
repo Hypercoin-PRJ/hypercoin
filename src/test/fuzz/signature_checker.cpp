@@ -1,4 +1,4 @@
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -51,7 +51,7 @@ public:
 FUZZ_TARGET(signature_checker)
 {
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
-    const auto flags = script_verify_flags::from_int(fuzzed_data_provider.ConsumeIntegral<script_verify_flags::value_type>());
+    const unsigned int flags = fuzzed_data_provider.ConsumeIntegral<unsigned int>();
     const SigVersion sig_version = fuzzed_data_provider.PickValueInArray({SigVersion::BASE, SigVersion::WITNESS_V0});
     const auto script_1{ConsumeScript(fuzzed_data_provider)};
     const auto script_2{ConsumeScript(fuzzed_data_provider)};

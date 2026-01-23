@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SCRIPT_SIGCACHE_H
-#define BITCOIN_SCRIPT_SIGCACHE_H
+#ifndef HYPERCOIN_SCRIPT_SIGCACHE_H
+#define HYPERCOIN_SCRIPT_SIGCACHE_H
 
 #include <consensus/amount.h>
 #include <crypto/sha256.h>
@@ -55,7 +55,7 @@ public:
 
     void ComputeEntrySchnorr(uint256& entry, const uint256 &hash, std::span<const unsigned char> sig, const XOnlyPubKey& pubkey) const;
 
-    bool Get(const uint256& entry, bool erase);
+    bool Get(const uint256& entry, const bool erase);
 
     void Set(const uint256& entry);
 };
@@ -73,4 +73,4 @@ public:
     bool VerifySchnorrSignature(std::span<const unsigned char> sig, const XOnlyPubKey& pubkey, const uint256& sighash) const override;
 };
 
-#endif // BITCOIN_SCRIPT_SIGCACHE_H
+#endif // HYPERCOIN_SCRIPT_SIGCACHE_H

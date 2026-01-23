@@ -1,9 +1,9 @@
-// Copyright (c) 2013-present The Bitcoin Core developers
+// Copyright (c) 2013-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NOUI_H
-#define BITCOIN_NOUI_H
+#ifndef HYPERCOIN_NOUI_H
+#define HYPERCOIN_NOUI_H
 
 #include <string>
 
@@ -16,13 +16,13 @@ bool noui_ThreadSafeQuestion(const bilingual_str& /* ignored interactive message
 /** Non-GUI handler, which only logs a message. */
 void noui_InitMessage(const std::string& message);
 
-/** Connect all bitcoind signal handlers */
+/** Connect all hypercoind signal handlers */
 void noui_connect();
 
-/** Redirect all bitcoind signal handlers to LogInfo. Used to check or suppress output during test runs that produce expected errors */
+/** Redirect all hypercoind signal handlers to LogInfo. Used to check or suppress output during test runs that produce expected errors */
 void noui_test_redirect();
 
 /** Reconnects the regular Non-GUI handlers after having used noui_test_redirect */
 void noui_reconnect();
 
-#endif // BITCOIN_NOUI_H
+#endif // HYPERCOIN_NOUI_H

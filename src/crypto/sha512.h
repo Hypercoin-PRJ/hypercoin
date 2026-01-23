@@ -1,9 +1,9 @@
-// Copyright (c) 2014-present The Bitcoin Core developers
+// Copyright (c) 2014-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CRYPTO_SHA512_H
-#define BITCOIN_CRYPTO_SHA512_H
+#ifndef HYPERCOIN_CRYPTO_SHA512_H
+#define HYPERCOIN_CRYPTO_SHA512_H
 
 #include <cstdint>
 #include <cstdlib>
@@ -26,4 +26,4 @@ public:
     uint64_t Size() const { return bytes; }
 };
 
-#endif // BITCOIN_CRYPTO_SHA512_H
+#endif // HYPERCOIN_CRYPTO_SHA512_H

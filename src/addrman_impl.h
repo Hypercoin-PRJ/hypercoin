@@ -1,9 +1,9 @@
-// Copyright (c) 2021-present The Bitcoin Core developers
+// Copyright (c) 2021-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_ADDRMAN_IMPL_H
-#define BITCOIN_ADDRMAN_IMPL_H
+#ifndef HYPERCOIN_ADDRMAN_IMPL_H
+#define HYPERCOIN_ADDRMAN_IMPL_H
 
 #include <logging.h>
 #include <logging/timer.h>
@@ -35,7 +35,7 @@ static constexpr int ADDRMAN_BUCKET_SIZE{1 << ADDRMAN_BUCKET_SIZE_LOG2};
 /**
  * User-defined type for the internally used nIds
  * This used to be int, making it feasible for attackers to cause an overflow,
- * see https://bitcoincore.org/en/2024/07/31/disclose-addrman-int-overflow/
+ * see https://hypercoincore.org/en/2024/07/31/disclose-addrman-int-overflow/
  */
 using nid_type = int64_t;
 
@@ -135,7 +135,7 @@ public:
     std::pair<CAddress, NodeSeconds> Select(bool new_only, const std::unordered_set<Network>& networks) const
         EXCLUSIVE_LOCKS_REQUIRED(!cs);
 
-    std::vector<CAddress> GetAddr(size_t max_addresses, size_t max_pct, std::optional<Network> network, bool filtered = true) const
+    std::vector<CAddress> GetAddr(size_t max_addresses, size_t max_pct, std::optional<Network> network, const bool filtered = true) const
         EXCLUSIVE_LOCKS_REQUIRED(!cs);
 
     std::vector<std::pair<AddrInfo, AddressPosition>> GetEntries(bool from_tried) const
@@ -267,7 +267,7 @@ private:
      * */
     nid_type GetEntry(bool use_tried, size_t bucket, size_t position) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
-    std::vector<CAddress> GetAddr_(size_t max_addresses, size_t max_pct, std::optional<Network> network, bool filtered = true) const EXCLUSIVE_LOCKS_REQUIRED(cs);
+    std::vector<CAddress> GetAddr_(size_t max_addresses, size_t max_pct, std::optional<Network> network, const bool filtered = true) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     std::vector<std::pair<AddrInfo, AddressPosition>> GetEntries_(bool from_tried) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
@@ -292,4 +292,4 @@ private:
     int CheckAddrman() const EXCLUSIVE_LOCKS_REQUIRED(cs);
 };
 
-#endif // BITCOIN_ADDRMAN_IMPL_H
+#endif // HYPERCOIN_ADDRMAN_IMPL_H

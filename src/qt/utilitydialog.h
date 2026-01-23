@@ -1,9 +1,9 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_UTILITYDIALOG_H
-#define BITCOIN_QT_UTILITYDIALOG_H
+#ifndef HYPERCOIN_QT_UTILITYDIALOG_H
+#define HYPERCOIN_QT_UTILITYDIALOG_H
 
 #include <QDialog>
 #include <QWidget>
@@ -50,4 +50,4 @@ protected:
     void closeEvent(QCloseEvent *event) override;
 };
 
-#endif // BITCOIN_QT_UTILITYDIALOG_H
+#endif // HYPERCOIN_QT_UTILITYDIALOG_H

@@ -1,4 +1,4 @@
-// Copyright (c) 2020-present The Bitcoin Core developers
+// Copyright (c) 2020-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -75,14 +75,14 @@ FUZZ_TARGET(rbf, .init = initialize_rbf)
         }
         LOCK2(cs_main, pool.cs);
         if (!pool.GetIter(another_tx.GetHash())) {
-            TryAddToMempool(pool, ConsumeTxMemPoolEntry(fuzzed_data_provider, another_tx));
+            AddToMempool(pool, ConsumeTxMemPoolEntry(fuzzed_data_provider, another_tx));
         }
     }
     const CTransaction tx{*mtx};
     if (fuzzed_data_provider.ConsumeBool()) {
         LOCK2(cs_main, pool.cs);
         if (!pool.GetIter(tx.GetHash())) {
-            TryAddToMempool(pool, ConsumeTxMemPoolEntry(fuzzed_data_provider, tx));
+            AddToMempool(pool, ConsumeTxMemPoolEntry(fuzzed_data_provider, tx));
         }
     }
     {
@@ -120,9 +120,8 @@ FUZZ_TARGET(package_rbf, .init = initialize_package_rbf)
     replacement_tx->vin[0].prevout = g_outpoints.at(iter++);
     CTransaction replacement_tx_final{*replacement_tx};
     auto replacement_entry = ConsumeTxMemPoolEntry(fuzzed_data_provider, replacement_tx_final);
-    int32_t replacement_weight = replacement_entry.GetAdjustedWeight();
-    // Ensure that we don't hit FeeFrac limits, as we store TxGraph entries in terms of FeePerWeight
-    int64_t running_vsize_total{replacement_entry.GetTxSize()};
+    int32_t replacement_vsize = replacement_entry.GetTxSize();
+    int64_t running_vsize_total{replacement_vsize};
 
     LOCK2(cs_main, pool.cs);
 
@@ -138,38 +137,26 @@ FUZZ_TARGET(package_rbf, .init = initialize_package_rbf)
         mempool_txs.emplace_back(parent);
         const auto parent_entry = ConsumeTxMemPoolEntry(fuzzed_data_provider, mempool_txs.back());
         running_vsize_total += parent_entry.GetTxSize();
-        if (running_vsize_total * WITNESS_SCALE_FACTOR > std::numeric_limits<int32_t>::max()) {
+        if (running_vsize_total > std::numeric_limits<int32_t>::max()) {
             // We aren't adding this final tx to mempool, so we don't want to conflict with it
             mempool_txs.pop_back();
             break;
         }
         assert(!pool.GetIter(parent_entry.GetTx().GetHash()));
-        TryAddToMempool(pool, parent_entry);
-
-        // It's possible that adding this to the mempool failed due to cluster
-        // size limits; if so bail out.
-        if(!pool.GetIter(parent_entry.GetTx().GetHash())) {
-            mempool_txs.pop_back();
-            continue;
+        AddToMempool(pool, parent_entry);
+        if (fuzzed_data_provider.ConsumeBool()) {
+            child.vin[0].prevout = COutPoint{mempool_txs.back().GetHash(), 0};
         }
-
-        child.vin[0].prevout = COutPoint{mempool_txs.back().GetHash(), 0};
         mempool_txs.emplace_back(child);
         const auto child_entry = ConsumeTxMemPoolEntry(fuzzed_data_provider, mempool_txs.back());
         running_vsize_total += child_entry.GetTxSize();
-        if (running_vsize_total * WITNESS_SCALE_FACTOR > std::numeric_limits<int32_t>::max()) {
+        if (running_vsize_total > std::numeric_limits<int32_t>::max()) {
             // We aren't adding this final tx to mempool, so we don't want to conflict with it
             mempool_txs.pop_back();
             break;
         }
         if (!pool.GetIter(child_entry.GetTx().GetHash())) {
-            TryAddToMempool(pool, child_entry);
-            // Adding this transaction to the mempool may fail due to cluster
-            // size limits; if so bail out.
-            if(!pool.GetIter(child_entry.GetTx().GetHash())) {
-                mempool_txs.pop_back();
-                continue;
-            }
+            AddToMempool(pool, child_entry);
         }
 
         if (fuzzed_data_provider.ConsumeBool()) {
@@ -180,7 +167,7 @@ FUZZ_TARGET(package_rbf, .init = initialize_package_rbf)
     // Pick some transactions at random to be the direct conflicts
     CTxMemPool::setEntries direct_conflicts;
     for (auto& tx : mempool_txs) {
-        if (fuzzed_data_provider.ConsumeBool() && pool.GetIter(tx.GetHash())) {
+        if (fuzzed_data_provider.ConsumeBool()) {
             direct_conflicts.insert(*pool.GetIter(tx.GetHash()));
         }
     }
@@ -221,11 +208,11 @@ FUZZ_TARGET(package_rbf, .init = initialize_package_rbf)
         FeeFrac replaced;
         for (auto txiter : all_conflicts) {
             replaced.fee += txiter->GetModifiedFee();
-            replaced.size += txiter->GetAdjustedWeight();
+            replaced.size += txiter->GetTxSize();
         }
         // The total fee & size of the new diagram minus replaced fee & size should be the total
         // fee & size of the old diagram minus replacement fee & size.
-        assert((first_sum - replaced) == (second_sum - FeeFrac{replacement_fees, replacement_weight}));
+        assert((first_sum - replaced) == (second_sum - FeeFrac{replacement_fees, replacement_vsize}));
     }
 
     // If internals report error, wrapper should too

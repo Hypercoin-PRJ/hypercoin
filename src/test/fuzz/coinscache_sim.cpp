@@ -1,4 +1,4 @@
-// Copyright (c) 2023-present The Bitcoin Core developers
+// Copyright (c) 2023-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -155,7 +155,7 @@ public:
 
     bool HaveCoin(const COutPoint& outpoint) const final
     {
-        return m_data.contains(outpoint);
+        return m_data.count(outpoint);
     }
 
     uint256 GetBestBlock() const final { return {}; }
@@ -163,7 +163,7 @@ public:
     std::unique_ptr<CCoinsViewCursor> Cursor() const final { return {}; }
     size_t EstimateSize() const final { return m_data.size(); }
 
-    void BatchWrite(CoinsViewCacheCursor& cursor, const uint256&) final
+    bool BatchWrite(CoinsViewCacheCursor& cursor, const uint256&) final
     {
         for (auto it{cursor.Begin()}; it != cursor.End(); it = cursor.NextAndMaybeErase(*it)) {
             if (it->second.IsDirty()) {
@@ -187,6 +187,7 @@ public:
                 }
             }
         }
+        return true;
     }
 };
 
@@ -391,7 +392,7 @@ FUZZ_TARGET(coinscache_sim)
                 // Apply to simulation data.
                 flush();
                 // Apply to real caches.
-                caches.back()->Flush(/*will_reuse_cache=*/provider.ConsumeBool());
+                caches.back()->Flush();
             },
 
             [&]() { // Sync.
@@ -399,6 +400,14 @@ FUZZ_TARGET(coinscache_sim)
                 flush();
                 // Apply to real caches.
                 caches.back()->Sync();
+            },
+
+            [&]() { // Flush + ReallocateCache.
+                // Apply to simulation data.
+                flush();
+                // Apply to real caches.
+                caches.back()->Flush();
+                caches.back()->ReallocateCache();
             },
 
             [&]() { // GetCacheSize
