@@ -90,7 +90,7 @@ std::string LicenseInfo()
 {
     const std::string URL_SOURCE_CODE = "<https://github.com/hypercoin-prj/hypercoin>";
     const std::string URL_WEBSITE = "<https://hypercoin.network>";
-    return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2023, COPYRIGHT_YEAR).translated + " ") + "\n" +
+    return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2025, COPYRIGHT_YEAR).translated + " ") + "\n" +
            "\n" +
            strprintf(_("Please contribute if you find %s useful. "
                         "Visit %s for further information about the software."),
