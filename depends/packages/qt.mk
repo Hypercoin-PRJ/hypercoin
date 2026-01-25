@@ -163,10 +163,6 @@ $(package)_config_env_darwin += OBJCXX="$$($(package)_cxx)"
 $(package)_cmake_opts := -DCMAKE_PREFIX_PATH=$(host_prefix)
 $(package)_cmake_opts += -DQT_FEATURE_cxx20=ON
 $(package)_cmake_opts += -DQT_ENABLE_CXX_EXTENSIONS=OFF
-$(package)_cmake_opts += -DQT_FEATURE_rhi=ON
-$(package)_cmake_opts += -DQT_FEATURE_rhi_d3d12=OFF
-$(package)_cmake_opts += -DQT_FEATURE_rhi_vulkan=OFF
-$(package)_cmake_opts += -DQT_FEATURE_rhi_opengl=OFF
 ifneq ($(V),)
 $(package)_cmake_opts += --log-level=STATUS
 endif
