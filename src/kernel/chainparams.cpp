@@ -87,10 +87,10 @@ public:
         consensus.signet_blocks = false;
         consensus.signet_challenge.clear();
         consensus.nSubsidyHalvingInterval = 2102400;
-        // consensus.script_flag_exceptions.emplace( 
-        //     uint256{"00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22"}, SCRIPT_VERIFY_NONE);
-        // consensus.script_flag_exceptions.emplace( 
-        //     uint256{"0000000000000000000f14c35b2d841e986ab5441de8c585d5ffe55ea1e395ad"}, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS);
+        consensus.script_flag_exceptions.emplace( 
+            uint256{"00000fd27173f747f0c3ecef47f696c5ab9fd25d274fad590a069d54d66235be"}, SCRIPT_VERIFY_NONE);
+        consensus.script_flag_exceptions.emplace( 
+            uint256{"00000fd27173f747f0c3ecef47f696c5ab9fd25d274fad590a069d54d66235be"}, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS);
         consensus.BIP34Height = 15;
         consensus.BIP34Hash = uint256{"00000fd27173f747f0c3ecef47f696c5ab9fd25d274fad590a069d54d66235be"};
         consensus.BIP65Height = 15; 
