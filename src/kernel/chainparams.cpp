@@ -97,7 +97,7 @@ public:
         consensus.BIP66Height = 15; 
         consensus.CSVHeight = 15; 
         consensus.SegwitHeight = 0;
-        consensus.MinBIP9WarningHeight = 120; // segwit activation height + miner confirmation window
+        consensus.MinBIP9WarningHeight = 60; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256{"00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"};
         consensus.nPowTargetTimespan = 1 * 60 * 60; // 1 hour
         consensus.nPowTargetSpacing = 1 * 60;
@@ -193,7 +193,7 @@ public:
         consensus.BIP66Height = 0; 
         consensus.CSVHeight = 0;
         consensus.SegwitHeight = 0; 
-        consensus.MinBIP9WarningHeight = 120; // segwit activation height + miner confirmation window
+        consensus.MinBIP9WarningHeight = 60; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256{"00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"};
         consensus.nPowTargetTimespan = 1 * 60 * 60; // 1 hour
         consensus.nPowTargetSpacing = 1 * 60;
@@ -280,7 +280,7 @@ public:
         consensus.BIP66Height = 1;
         consensus.CSVHeight = 1;
         consensus.SegwitHeight = 1;
-        consensus.MinBIP9WarningHeight = 120;
+        consensus.MinBIP9WarningHeight = 60;
         consensus.powLimit = uint256{"00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"};
         consensus.nPowTargetTimespan = 1 * 60 * 60; // 1 hour
         consensus.nPowTargetSpacing = 1 * 60;
