@@ -1,0 +1,6 @@
+usr/local/bin/hypercoin-qt usr/bin
+share/pixmaps/hypercoin32.xpm usr/share/pixmaps
+share/pixmaps/hypercoin16.xpm usr/share/pixmaps
+share/pixmaps/hypercoin128.png usr/share/pixmaps
+debian/hypercoin-qt.desktop usr/share/applications
+debian/hypercoin-qt.protocol usr/share/kde4/services/

@@ -1,29 +1,118 @@
-# Patterns that are specific to a text editor, IDE, operating system, or user
-# environment are not added here. They should be added to your local gitignore
-# file instead:
-# https://docs.github.com/en/get-started/git-basics/ignoring-files#configuring-ignored-files-for-all-repositories-on-your-computer
+*.tar.gz
 
-# Build subdirectories.
-/*build*
-!/build-aux
-!/build_msvc
+*.exe
+src/hypercoin
+src/hypercoind
+src/hypercoin-cli
+src/hypercoin-tx
+src/test/test_hypercoin
+src/test/test_hypercoin_fuzzy
+src/qt/test/test_hypercoin-qt
 
+# autoreconf
+Makefile.in
+aclocal.m4
+autom4te.cache/
+build-aux/config.guess
+build-aux/config.sub
+build-aux/depcomp
+build-aux/install-sh
+build-aux/ltmain.sh
+build-aux/m4/libtool.m4
+build-aux/m4/lt~obsolete.m4
+build-aux/m4/ltoptions.m4
+build-aux/m4/ltsugar.m4
+build-aux/m4/ltversion.m4
+build-aux/missing
+build-aux/compile
+build-aux/test-driver
+config.log
+config.status
+configure
+libtool
+src/config/hypercoin-config.h
+src/config/hypercoin-config.h.in
+src/config/stamp-h1
+share/setup.nsi
+share/qt/Info.plist
+
+src/univalue/gen
+
+src/qt/*.moc
+src/qt/moc_*.cpp
+src/qt/forms/ui_*.h
+
+src/qt/test/moc*.cpp
+
+src/qt/hypercoin-qt.config
+src/qt/hypercoin-qt.creator
+src/qt/hypercoin-qt.creator.user
+src/qt/hypercoin-qt.files
+src/qt/hypercoin-qt.includes
+
+.deps
+.dirstamp
+.libs
+.*.swp
+*.*~*
+*.bak
+*.rej
+*.orig
 *.pyc
-
-# Only ignore unexpected patches
+*.o
+*.o-*
 *.patch
-!ci/test/*.patch
-!contrib/guix/patches/*.patch
-!depends/patches/**/*.patch
+*.a
+*.pb.cc
+*.pb.h
 
-/CMakeUserPresets.json
+*.log
+*.trs
+*.dmg
 
-# Previous releases
-/releases
+*.json.h
+*.raw.h
 
-# cargo default target dir
-target/
+#libtool object files
+*.lo
+*.la
 
-/guix-build-*
+# Compilation and Qt preprocessor part
+*.qm
+Makefile
+hypercoin-qt
+Hypercoin-Qt.app
+background.tiff*
 
-/ci/scratch/
+# Unit-tests
+Makefile.test
+hypercoin-qt_test
+
+# Resources cpp
+qrc_*.cpp
+
+# Mac specific
+.DS_Store
+build
+
+#lcov
+*.gcno
+*.gcda
+/*.info
+test_hypercoin.coverage/
+total.coverage/
+coverage_percent.txt
+
+#build tests
+linux-coverage-build
+linux-build
+win32-build
+test/config.ini
+test/cache/*
+
+!src/leveldb*/Makefile
+
+/doc/doxygen/
+
+libhypercoinconsensus.pc
+contrib/devtools/split-debug.sh

@@ -1,23 +1,17 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2017 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_MERKLEBLOCK_H
-#define BITCOIN_MERKLEBLOCK_H
+#ifndef HYPERCOIN_MERKLEBLOCK_H
+#define HYPERCOIN_MERKLEBLOCK_H
 
-#include <common/bloom.h>
-#include <primitives/block.h>
-#include <primitives/transaction_identifier.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <primitives/block.h>
+#include <bloom.h>
 
-#include <set>
 #include <vector>
-
-// Helper functions for serialization.
-std::vector<unsigned char> BitsToBytes(const std::vector<bool>& bits);
-std::vector<bool> BytesToBits(const std::vector<unsigned char>& bytes);
 
 /** Data structure that represents a partial merkle tree.
  *
@@ -74,31 +68,44 @@ protected:
     }
 
     /** calculate the hash of a node in the merkle tree (at leaf level: the txid's themselves) */
-    uint256 CalcHash(int height, unsigned int pos, const std::vector<Txid> &vTxid);
+    uint256 CalcHash(int height, unsigned int pos, const std::vector<uint256> &vTxid);
 
     /** recursive function that traverses tree nodes, storing the data as bits and hashes */
-    void TraverseAndBuild(int height, unsigned int pos, const std::vector<Txid> &vTxid, const std::vector<bool> &vMatch);
+    void TraverseAndBuild(int height, unsigned int pos, const std::vector<uint256> &vTxid, const std::vector<bool> &vMatch);
 
     /**
      * recursive function that traverses tree nodes, consuming the bits and hashes produced by TraverseAndBuild.
      * it returns the hash of the respective node and its respective index.
      */
-    uint256 TraverseAndExtract(int height, unsigned int pos, unsigned int &nBitsUsed, unsigned int &nHashUsed, std::vector<Txid> &vMatch, std::vector<unsigned int> &vnIndex);
+    uint256 TraverseAndExtract(int height, unsigned int pos, unsigned int &nBitsUsed, unsigned int &nHashUsed, std::vector<uint256> &vMatch, std::vector<unsigned int> &vnIndex);
 
 public:
 
-    SERIALIZE_METHODS(CPartialMerkleTree, obj)
-    {
-        READWRITE(obj.nTransactions, obj.vHash);
-        std::vector<unsigned char> bytes;
-        SER_WRITE(obj, bytes = BitsToBytes(obj.vBits));
-        READWRITE(bytes);
-        SER_READ(obj, obj.vBits = BytesToBits(bytes));
-        SER_READ(obj, obj.fBad = false);
+    /** serialization implementation */
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(nTransactions);
+        READWRITE(vHash);
+        std::vector<unsigned char> vBytes;
+        if (ser_action.ForRead()) {
+            READWRITE(vBytes);
+            CPartialMerkleTree &us = *(const_cast<CPartialMerkleTree*>(this));
+            us.vBits.resize(vBytes.size() * 8);
+            for (unsigned int p = 0; p < us.vBits.size(); p++)
+                us.vBits[p] = (vBytes[p / 8] & (1 << (p % 8))) != 0;
+            us.fBad = false;
+        } else {
+            vBytes.resize((vBits.size()+7)/8);
+            for (unsigned int p = 0; p < vBits.size(); p++)
+                vBytes[p / 8] |= vBits[p] << (p % 8);
+            READWRITE(vBytes);
+        }
     }
 
     /** Construct a partial merkle tree from a list of transaction ids, and a mask that selects a subset of them */
-    CPartialMerkleTree(const std::vector<Txid> &vTxid, const std::vector<bool> &vMatch);
+    CPartialMerkleTree(const std::vector<uint256> &vTxid, const std::vector<bool> &vMatch);
 
     CPartialMerkleTree();
 
@@ -107,13 +114,7 @@ public:
      * and their respective indices within the partial tree.
      * returns the merkle root, or 0 in case of failure
      */
-    uint256 ExtractMatches(std::vector<Txid> &vMatch, std::vector<unsigned int> &vnIndex);
-
-    /** Get number of transactions the merkle proof is indicating for cross-reference with
-     * local blockchain knowledge.
-     */
-    unsigned int GetNumTransactions() const { return nTransactions; };
-
+    uint256 ExtractMatches(std::vector<uint256> &vMatch, std::vector<unsigned int> &vnIndex);
 };
 
 
@@ -136,7 +137,7 @@ public:
      * Used only when a bloom filter is specified to allow
      * testing the transactions which matched the bloom filter.
      */
-    std::vector<std::pair<unsigned int, Txid> > vMatchedTxn;
+    std::vector<std::pair<unsigned int, uint256> > vMatchedTxn;
 
     /**
      * Create from a CBlock, filtering transactions according to filter
@@ -146,15 +147,21 @@ public:
     CMerkleBlock(const CBlock& block, CBloomFilter& filter) : CMerkleBlock(block, &filter, nullptr) { }
 
     // Create from a CBlock, matching the txids in the set
-    CMerkleBlock(const CBlock& block, const std::set<Txid>& txids) : CMerkleBlock{block, nullptr, &txids} {}
+    CMerkleBlock(const CBlock& block, const std::set<uint256>& txids) : CMerkleBlock(block, nullptr, &txids) { }
 
-    CMerkleBlock() = default;
+    CMerkleBlock() {}
 
-    SERIALIZE_METHODS(CMerkleBlock, obj) { READWRITE(obj.header, obj.txn); }
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(header);
+        READWRITE(txn);
+    }
 
 private:
     // Combined constructor to consolidate code
-    CMerkleBlock(const CBlock& block, CBloomFilter* filter, const std::set<Txid>* txids);
+    CMerkleBlock(const CBlock& block, CBloomFilter* filter, const std::set<uint256>* txids);
 };
 
-#endif // BITCOIN_MERKLEBLOCK_H
+#endif // HYPERCOIN_MERKLEBLOCK_H

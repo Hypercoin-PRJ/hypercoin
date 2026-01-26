@@ -1,9 +1,9 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2015 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_SIGNVERIFYMESSAGEDIALOG_H
-#define BITCOIN_QT_SIGNVERIFYMESSAGEDIALOG_H
+#ifndef HYPERCOIN_QT_SIGNVERIFYMESSAGEDIALOG_H
+#define HYPERCOIN_QT_SIGNVERIFYMESSAGEDIALOG_H
 
 #include <QDialog>
 
@@ -30,12 +30,11 @@ public:
     void showTab_VM(bool fShow);
 
 protected:
-    bool eventFilter(QObject *object, QEvent *event) override;
-    void changeEvent(QEvent* e) override;
+    bool eventFilter(QObject *object, QEvent *event);
 
 private:
     Ui::SignVerifyMessageDialog *ui;
-    WalletModel* model{nullptr};
+    WalletModel *model;
     const PlatformStyle *platformStyle;
 
 private Q_SLOTS:
@@ -51,4 +50,4 @@ private Q_SLOTS:
     void on_clearButton_VM_clicked();
 };
 
-#endif // BITCOIN_QT_SIGNVERIFYMESSAGEDIALOG_H
+#endif // HYPERCOIN_QT_SIGNVERIFYMESSAGEDIALOG_H

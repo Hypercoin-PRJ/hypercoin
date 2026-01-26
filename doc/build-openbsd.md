@@ -1,120 +1,100 @@
-# OpenBSD Build Guide
+OpenBSD build guide
+======================
+(updated for OpenBSD 6.2)
 
-**Updated for OpenBSD [7.8](https://www.openbsd.org/78.html)**
+This guide describes how to build hypercoind and command-line utilities on OpenBSD.
 
-This guide describes how to build bitcoind, command-line utilities, and GUI on OpenBSD.
+OpenBSD is most commonly used as a server OS, so this guide does not contain instructions for building the GUI.
 
-## Preparation
+Preparation
+-------------
 
-### 1. Install Required Dependencies
-Run the following as root to install the base dependencies for building.
-
-```bash
-pkg_add git cmake boost libevent
-```
-
-SQLite is required for the wallet:
+Run the following as root to install the base dependencies for building:
 
 ```bash
-pkg_add sqlite3
+pkg_add git gmake libevent libtool
+pkg_add autoconf # (select highest version, e.g. 2.69)
+pkg_add automake # (select highest version, e.g. 1.15)
+pkg_add python # (select highest version, e.g. 3.6)
+pkg_add boost
+
+git clone https://github.com/hypercoin/hypercoin.git
 ```
-
-To build Bitcoin Core without the wallet, use `-DENABLE_WALLET=OFF`.
-
-Cap'n Proto is needed for IPC functionality (see [multiprocess.md](multiprocess.md)):
-
-```bash
-pkg_add capnproto
-```
-
-Compile with `-DENABLE_IPC=OFF` if you do not need IPC functionality.
 
 See [dependencies.md](dependencies.md) for a complete overview.
 
-### 2. Clone Bitcoin Repo
-Clone the Bitcoin Core repository to a directory. All build scripts and commands will run from this directory.
-``` bash
-git clone https://github.com/bitcoin/bitcoin.git
+**Important**: From OpenBSD 6.2 onwards a C++11-supporting clang compiler is
+part of the base image, and while building it is necessary to make sure that this
+compiler is used and not ancient g++ 4.2.1. This is done by appending
+`CC=cc CXX=c++` to configuration commands. Mixing different compilers
+within the same executable will result in linker errors.
+
+### Building BerkeleyDB
+
+BerkeleyDB is only necessary for the wallet functionality. To skip this, pass
+`--disable-wallet` to `./configure` and skip to the next section.
+
+It is recommended to use Berkeley DB 4.8. You cannot use the BerkeleyDB library
+from ports, for the same reason as boost above (g++/libstd++ incompatibility).
+If you have to build it yourself, you can use [the installation script included
+in contrib/](/contrib/install_db4.sh) like so
+
+```shell
+./contrib/install_db4.sh `pwd` CC=cc CXX=c++
 ```
 
-### 3. Install Optional Dependencies
+from the root of the repository. Then set `BDB_PREFIX` for the next section:
 
-#### GUI Dependencies
-###### Qt6
+```shell
+export BDB_PREFIX="$PWD/db4"
+```
 
-Bitcoin Core includes a GUI built with the cross-platform Qt Framework. To compile the GUI, we need to install
-the necessary parts of Qt, the libqrencode and pass `-DBUILD_GUI=ON`. Skip if you don't intend to use the GUI.
+### Building Hypercoin Core
 
+**Important**: use `gmake`, not `make`. The non-GNU `make` will exit with a horrible error.
+
+Preparation:
 ```bash
-pkg_add qt6-qtbase qt6-qttools
+export AUTOCONF_VERSION=2.69 # replace this with the autoconf version that you installed
+export AUTOMAKE_VERSION=1.15 # replace this with the automake version that you installed
+./autogen.sh
 ```
+Make sure `BDB_PREFIX` is set to the appropriate path from the above steps.
 
-###### libqrencode
-
-The GUI will be able to encode addresses in QR codes unless this feature is explicitly disabled. To install libqrencode, run:
-
+To configure with wallet:
 ```bash
-pkg_add libqrencode
+./configure --with-gui=no CC=cc CXX=c++ \
+    BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" BDB_CFLAGS="-I${BDB_PREFIX}/include"
 ```
 
-Otherwise, if you don't need QR encoding support, use the `-DWITH_QRENCODE=OFF` option to disable this feature in order to compile the GUI.
-
----
-
-#### Notifications
-###### ZeroMQ
-
-Bitcoin Core can provide notifications via ZeroMQ. If the package is installed, support will be compiled in.
+To configure without wallet:
 ```bash
-pkg_add zeromq
+./configure --disable-wallet --with-gui=no CC=cc CXX=c++
 ```
 
-#### Test Suite Dependencies
-There is an included test suite that is useful for testing code changes when developing.
-To run the test suite (recommended), you will need to have Python 3 installed:
-
+Build and run the tests:
 ```bash
-pkg_add python py3-zmq  # Select the newest version of the python package if necessary.
+gmake # use -jX here for parallelism
+gmake check
 ```
 
-## Building Bitcoin Core
-
-### 1. Configuration
-
-There are many ways to configure Bitcoin Core, here are a few common examples:
-
-##### Wallet and GUI:
-This enables wallet support and the GUI, assuming SQLite and Qt 6 are installed.
-
-```bash
-cmake -B build -DBUILD_GUI=ON
-```
-
-Run `cmake -B build -LH` to see the full list of available options.
-
-### 2. Compile
-
-```bash
-cmake --build build     # Append "-j N" for N parallel jobs.
-ctest --test-dir build  # Append "-j N" for N parallel tests.
-```
-
-## Resource limits
+Resource limits
+-------------------
 
 If the build runs into out-of-memory errors, the instructions in this section
 might help.
 
 The standard ulimit restrictions in OpenBSD are very strict:
-```bash
-data(kbytes)         1572864
-```
 
-This is, unfortunately, in some cases not enough to compile some `.cpp` files in the project,
-(see issue [#6658](https://github.com/bitcoin/bitcoin/issues/6658)).
+    data(kbytes)         1572864
+
+This, unfortunately, in some cases not enough to compile some `.cpp` files in the project,
+(see issue [#6658](https://github.com/hypercoin/hypercoin/issues/6658)).
 If your user is in the `staff` group the limit can be raised with:
-```bash
-ulimit -d 3000000
-```
+
+    ulimit -d 3000000
+
 The change will only affect the current shell and processes spawned by it. To
 make the change system-wide, change `datasize-cur` and `datasize-max` in
 `/etc/login.conf`, and reboot.
+

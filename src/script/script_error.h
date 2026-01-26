@@ -1,12 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2016 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SCRIPT_SCRIPT_ERROR_H
-#define BITCOIN_SCRIPT_SCRIPT_ERROR_H
-
-#include <string>
+#ifndef HYPERCOIN_SCRIPT_SCRIPT_ERROR_H
+#define HYPERCOIN_SCRIPT_SCRIPT_ERROR_H
 
 typedef enum ScriptError_t
 {
@@ -56,9 +54,6 @@ typedef enum ScriptError_t
     /* softfork safeness */
     SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS,
     SCRIPT_ERR_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM,
-    SCRIPT_ERR_DISCOURAGE_UPGRADABLE_TAPROOT_VERSION,
-    SCRIPT_ERR_DISCOURAGE_OP_SUCCESS,
-    SCRIPT_ERR_DISCOURAGE_UPGRADABLE_PUBKEYTYPE,
 
     /* segregated witness */
     SCRIPT_ERR_WITNESS_PROGRAM_WRONG_LENGTH,
@@ -69,25 +64,11 @@ typedef enum ScriptError_t
     SCRIPT_ERR_WITNESS_UNEXPECTED,
     SCRIPT_ERR_WITNESS_PUBKEYTYPE,
 
-    /* Taproot */
-    SCRIPT_ERR_SCHNORR_SIG_SIZE,
-    SCRIPT_ERR_SCHNORR_SIG_HASHTYPE,
-    SCRIPT_ERR_SCHNORR_SIG,
-    SCRIPT_ERR_TAPROOT_WRONG_CONTROL_SIZE,
-    SCRIPT_ERR_TAPSCRIPT_VALIDATION_WEIGHT,
-    SCRIPT_ERR_TAPSCRIPT_CHECKMULTISIG,
-    SCRIPT_ERR_TAPSCRIPT_MINIMALIF,
-    SCRIPT_ERR_TAPSCRIPT_EMPTY_PUBKEY,
-
-    /* Constant scriptCode */
-    SCRIPT_ERR_OP_CODESEPARATOR,
-    SCRIPT_ERR_SIG_FINDANDDELETE,
-
     SCRIPT_ERR_ERROR_COUNT
 } ScriptError;
 
 #define SCRIPT_ERR_LAST SCRIPT_ERR_ERROR_COUNT
 
-std::string ScriptErrorString(ScriptError error);
+const char* ScriptErrorString(const ScriptError error);
 
-#endif // BITCOIN_SCRIPT_SCRIPT_ERROR_H
+#endif // HYPERCOIN_SCRIPT_SCRIPT_ERROR_H

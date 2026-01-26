@@ -1,9 +1,9 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2015 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_EDITADDRESSDIALOG_H
-#define BITCOIN_QT_EDITADDRESSDIALOG_H
+#ifndef HYPERCOIN_QT_EDITADDRESSDIALOG_H
+#define HYPERCOIN_QT_EDITADDRESSDIALOG_H
 
 #include <QDialog>
 
@@ -25,12 +25,13 @@ class EditAddressDialog : public QDialog
 
 public:
     enum Mode {
+        NewReceivingAddress,
         NewSendingAddress,
         EditReceivingAddress,
         EditSendingAddress
     };
 
-    explicit EditAddressDialog(Mode mode, QWidget *parent = nullptr);
+    explicit EditAddressDialog(Mode mode, QWidget *parent);
     ~EditAddressDialog();
 
     void setModel(AddressTableModel *model);
@@ -40,20 +41,17 @@ public:
     void setAddress(const QString &address);
 
 public Q_SLOTS:
-    void accept() override;
+    void accept();
 
 private:
     bool saveCurrentRow();
 
-    /** Return a descriptive string when adding an already-existing address fails. */
-    QString getDuplicateAddressWarning() const;
-
     Ui::EditAddressDialog *ui;
-    QDataWidgetMapper* mapper{nullptr};
+    QDataWidgetMapper *mapper;
     Mode mode;
-    AddressTableModel* model{nullptr};
+    AddressTableModel *model;
 
     QString address;
 };
 
-#endif // BITCOIN_QT_EDITADDRESSDIALOG_H
+#endif // HYPERCOIN_QT_EDITADDRESSDIALOG_H

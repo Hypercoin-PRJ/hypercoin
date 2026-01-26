@@ -1,31 +1,23 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2016 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_GUICONSTANTS_H
-#define BITCOIN_QT_GUICONSTANTS_H
+#ifndef HYPERCOIN_QT_GUICONSTANTS_H
+#define HYPERCOIN_QT_GUICONSTANTS_H
 
-#include <chrono>
-#include <cstdint>
-
-using namespace std::chrono_literals;
-
-/* A delay between model updates */
-static constexpr auto MODEL_UPDATE_DELAY{250ms};
-
-/* A delay between shutdown pollings */
-static constexpr auto SHUTDOWN_POLLING_DELAY{200ms};
+/* Milliseconds between model updates */
+static const int MODEL_UPDATE_DELAY = 250;
 
 /* AskPassphraseDialog -- Maximum passphrase length */
 static const int MAX_PASSPHRASE_SIZE = 1024;
 
-/* BitcoinGUI -- Size of icons in status bar */
+/* HypercoinGUI -- Size of icons in status bar */
 static const int STATUSBAR_ICONSIZE = 16;
 
 static const bool DEFAULT_SPLASHSCREEN = true;
 
 /* Invalid field background style */
-#define STYLE_INVALID "border: 3px solid #FF8080"
+#define STYLE_INVALID "background:#FF8080"
 
 /* Transaction list -- unconfirmed transaction */
 #define COLOR_UNCONFIRMED QColor(128, 128, 128)
@@ -33,6 +25,10 @@ static const bool DEFAULT_SPLASHSCREEN = true;
 #define COLOR_NEGATIVE QColor(255, 0, 0)
 /* Transaction list -- bare address (without label) */
 #define COLOR_BAREADDRESS QColor(140, 140, 140)
+/* Transaction list -- TX status decoration - open until date */
+#define COLOR_TX_STATUS_OPENUNTILDATE QColor(64, 64, 255)
+/* Transaction list -- TX status decoration - offline */
+#define COLOR_TX_STATUS_OFFLINE QColor(192, 192, 192)
 /* Transaction list -- TX status decoration - danger, tx needs attention */
 #define COLOR_TX_STATUS_DANGER QColor(200, 100, 100)
 /* Transaction list -- TX status decoration - default color */
@@ -43,21 +39,18 @@ static const bool DEFAULT_SPLASHSCREEN = true;
  */
 static const int TOOLTIP_WRAP_THRESHOLD = 80;
 
+/* Maximum allowed URI length */
+static const int MAX_URI_LENGTH = 255;
+
+/* QRCodeDialog -- size of exported QR Code image */
+#define QR_IMAGE_SIZE 300
+
 /* Number of frames in spinner animation */
 #define SPINNER_FRAMES 36
 
-#define QAPP_ORG_NAME "Bitcoin"
-#define QAPP_ORG_DOMAIN "bitcoin.org"
-#define QAPP_APP_NAME_DEFAULT "Bitcoin-Qt"
-#define QAPP_APP_NAME_TESTNET "Bitcoin-Qt-testnet"
-#define QAPP_APP_NAME_TESTNET4 "Bitcoin-Qt-testnet4"
-#define QAPP_APP_NAME_SIGNET "Bitcoin-Qt-signet"
-#define QAPP_APP_NAME_REGTEST "Bitcoin-Qt-regtest"
+#define QAPP_ORG_NAME "Hypercoin"
+#define QAPP_ORG_DOMAIN "hypercoin.org"
+#define QAPP_APP_NAME_DEFAULT "Hypercoin-Qt"
+#define QAPP_APP_NAME_TESTNET "Hypercoin-Qt-testnet"
 
-/* One gigabyte (GB) in bytes */
-static constexpr uint64_t GB_BYTES{1000000000};
-
-// Default prune target displayed in GUI.
-static constexpr int DEFAULT_PRUNE_TARGET_GB{2};
-
-#endif // BITCOIN_QT_GUICONSTANTS_H
+#endif // HYPERCOIN_QT_GUICONSTANTS_H

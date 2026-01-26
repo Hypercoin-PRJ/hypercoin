@@ -1,13 +1,12 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2017 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_ADDRESSBOOKPAGE_H
-#define BITCOIN_QT_ADDRESSBOOKPAGE_H
+#ifndef HYPERCOIN_QT_ADDRESSBOOKPAGE_H
+#define HYPERCOIN_QT_ADDRESSBOOKPAGE_H
 
 #include <QDialog>
 
-class AddressBookSortFilterProxyModel;
 class AddressTableModel;
 class PlatformStyle;
 
@@ -19,6 +18,7 @@ QT_BEGIN_NAMESPACE
 class QItemSelection;
 class QMenu;
 class QModelIndex;
+class QSortFilterProxyModel;
 QT_END_NAMESPACE
 
 /** Widget that shows a list of sending or receiving addresses.
@@ -38,25 +38,25 @@ public:
         ForEditing  /**< Open address book for editing */
     };
 
-    explicit AddressBookPage(const PlatformStyle *platformStyle, Mode mode, Tabs tab, QWidget *parent = nullptr);
+    explicit AddressBookPage(const PlatformStyle *platformStyle, Mode mode, Tabs tab, QWidget *parent);
     ~AddressBookPage();
 
     void setModel(AddressTableModel *model);
     const QString &getReturnValue() const { return returnValue; }
 
 public Q_SLOTS:
-    void done(int retval) override;
+    void done(int retval);
 
 private:
     Ui::AddressBookPage *ui;
-    AddressTableModel* model{nullptr};
+    AddressTableModel *model;
     Mode mode;
     Tabs tab;
     QString returnValue;
-    AddressBookSortFilterProxyModel *proxyModel;
+    QSortFilterProxyModel *proxyModel;
     QMenu *contextMenu;
+    QAction *deleteAction; // to be able to explicitly disable it
     QString newAddressToSelect;
-    void updateWindowsTitleWithWalletName();
 
 private Q_SLOTS:
     /** Delete currently selected address entry */
@@ -83,4 +83,4 @@ Q_SIGNALS:
     void sendCoins(QString addr);
 };
 
-#endif // BITCOIN_QT_ADDRESSBOOKPAGE_H
+#endif // HYPERCOIN_QT_ADDRESSBOOKPAGE_H

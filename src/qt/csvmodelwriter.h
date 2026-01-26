@@ -1,9 +1,9 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2014 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_CSVMODELWRITER_H
-#define BITCOIN_QT_CSVMODELWRITER_H
+#ifndef HYPERCOIN_QT_CSVMODELWRITER_H
+#define HYPERCOIN_QT_CSVMODELWRITER_H
 
 #include <QList>
 #include <QObject>
@@ -20,7 +20,7 @@ class CSVModelWriter : public QObject
     Q_OBJECT
 
 public:
-    explicit CSVModelWriter(const QString &filename, QObject *parent = nullptr);
+    explicit CSVModelWriter(const QString &filename, QObject *parent = 0);
 
     void setModel(const QAbstractItemModel *model);
     void addColumn(const QString &title, int column, int role=Qt::EditRole);
@@ -32,7 +32,7 @@ public:
 
 private:
     QString filename;
-    const QAbstractItemModel* model{nullptr};
+    const QAbstractItemModel *model;
 
     struct Column
     {
@@ -43,4 +43,4 @@ private:
     QList<Column> columns;
 };
 
-#endif // BITCOIN_QT_CSVMODELWRITER_H
+#endif // HYPERCOIN_QT_CSVMODELWRITER_H

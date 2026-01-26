@@ -1,22 +1,18 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2017 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <qt/qvalidatedlineedit.h>
 
-#include <qt/bitcoinaddressvalidator.h>
+#include <qt/hypercoinaddressvalidator.h>
 #include <qt/guiconstants.h>
 
-QValidatedLineEdit::QValidatedLineEdit(QWidget* parent)
-    : QLineEdit(parent)
+QValidatedLineEdit::QValidatedLineEdit(QWidget *parent) :
+    QLineEdit(parent),
+    valid(true),
+    checkValidator(0)
 {
-    connect(this, &QValidatedLineEdit::textChanged, this, &QValidatedLineEdit::markValid);
-}
-
-void QValidatedLineEdit::setText(const QString& text)
-{
-    QLineEdit::setText(text);
-    checkValidity();
+    connect(this, SIGNAL(textChanged(QString)), this, SLOT(markValid()));
 }
 
 void QValidatedLineEdit::setValid(bool _valid)
@@ -32,7 +28,7 @@ void QValidatedLineEdit::setValid(bool _valid)
     }
     else
     {
-        setStyleSheet("QValidatedLineEdit { " STYLE_INVALID "}");
+        setStyleSheet(STYLE_INVALID);
     }
     this->valid = _valid;
 }
@@ -110,7 +106,6 @@ void QValidatedLineEdit::checkValidity()
 void QValidatedLineEdit::setCheckValidator(const QValidator *v)
 {
     checkValidator = v;
-    checkValidity();
 }
 
 bool QValidatedLineEdit::isValid()

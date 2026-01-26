@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Name=Hypercoin Core
+Comment=Connect to the Hypercoin P2P Network
+Comment[de]=Verbinde mit dem Hypercoin peer-to-peer Netzwerk
+Comment[fr]=Hypercoin, monnaie virtuelle cryptographique pair à pair
+Comment[tr]=Hypercoin, eşten eşe kriptografik sanal para birimi
+Exec=hypercoin-qt %u
+Terminal=false
+Type=Application
+Icon=hypercoin128
+MimeType=x-scheme-handler/hypercoin;
+Categories=Office;Finance;
+StartupWMClass=Hypercoin-qt

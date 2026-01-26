@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-present The Bitcoin Core developers
+# Copyright (c) 2017 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the RPC call related to the uptime command.
@@ -9,27 +9,22 @@ Test corresponds to code in rpc/server.cpp.
 
 import time
 
-from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_raises_rpc_error
+from test_framework.test_framework import HypercoinTestFramework
 
 
-class UptimeTest(BitcoinTestFramework):
+class UptimeTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
 
     def run_test(self):
-        self._test_negative_time()
         self._test_uptime()
-
-    def _test_negative_time(self):
-        assert_raises_rpc_error(-8, "Mocktime must be in the range [0, 9223372036], not -1.", self.nodes[0].setmocktime, -1)
 
     def _test_uptime(self):
         wait_time = 10
         self.nodes[0].setmocktime(int(time.time() + wait_time))
-        assert self.nodes[0].uptime() >= wait_time
+        assert(self.nodes[0].uptime() >= wait_time)
 
 
 if __name__ == '__main__':
-    UptimeTest(__file__).main()
+    UptimeTest().main()

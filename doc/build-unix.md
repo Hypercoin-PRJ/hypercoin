@@ -1,220 +1,326 @@
 UNIX BUILD NOTES
 ====================
-Some notes on how to build Bitcoin Core in Unix.
+Some notes on how to build Hypercoin Core in Unix.
 
-(For BSD specific instructions, see `build-*bsd.md` in this directory.)
+(for OpenBSD specific instructions, see [build-openbsd.md](build-openbsd.md))
+
+Note
+---------------------
+Always use absolute paths to configure and compile hypercoin and the dependencies,
+for example, when specifying the path of the dependency:
+
+	../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
+
+Here BDB_PREFIX must be an absolute path - it is defined using $(pwd) which ensures
+the usage of the absolute path.
 
 To Build
 ---------------------
 
 ```bash
-cmake -B build
-```
-Run `cmake -B build -LH` to see the full list of available options.
-
-```bash
-cmake --build build    # Append "-j N" for N parallel jobs
-cmake --install build  # Optional
+./autogen.sh
+./configure
+make
+make install # optional
 ```
 
-See below for instructions on how to [install the dependencies on popular Linux
-distributions](#linux-distribution-specific-instructions), or the
-[dependencies](#dependencies) section for a complete overview.
+This will build hypercoin-qt as well if the dependencies are met.
 
-## Memory Requirements
+Dependencies
+---------------------
+
+These dependencies are required:
+
+ Library     | Purpose          | Description
+ ------------|------------------|----------------------
+ libssl      | Crypto           | Random Number Generation, Elliptic Curve Cryptography
+ libboost    | Utility          | Library for threading, data structures, etc
+ libevent    | Networking       | OS independent asynchronous networking
+
+Optional dependencies:
+
+ Library     | Purpose          | Description
+ ------------|------------------|----------------------
+ miniupnpc   | UPnP Support     | Firewall-jumping support
+ libdb4.8    | Berkeley DB      | Wallet storage (only needed when wallet enabled)
+ qt          | GUI              | GUI toolkit (only needed when GUI enabled)
+ protobuf    | Payments in GUI  | Data interchange format used for payment protocol (only needed when GUI enabled)
+ libqrencode | QR codes in GUI  | Optional for generating QR codes (only needed when GUI enabled)
+ univalue    | Utility          | JSON parsing and encoding (bundled version will be used unless --with-system-univalue passed to configure)
+ libzmq3     | ZMQ notification | Optional, allows generating ZMQ notifications (requires ZMQ version >= 4.x)
+
+For the versions used, see [dependencies.md](dependencies.md)
+
+Memory Requirements
+--------------------
 
 C++ compilers are memory-hungry. It is recommended to have at least 1.5 GB of
-memory available when compiling Bitcoin Core. On systems with less, gcc can be
-tuned to conserve memory with additional `CMAKE_CXX_FLAGS`:
+memory available when compiling Hypercoin Core. On systems with less, gcc can be
+tuned to conserve memory with additional CXXFLAGS:
 
 
-    cmake -B build -DCMAKE_CXX_FLAGS="--param ggc-min-expand=1 --param ggc-min-heapsize=32768"
+    ./configure CXXFLAGS="--param ggc-min-expand=1 --param ggc-min-heapsize=32768"
 
-Alternatively, or in addition, debugging information can be skipped for compilation.
-For the default build type `RelWithDebInfo`, the default compile flags are
-`-O2 -g`, and can be changed with:
+Dependency Build Instructions: Ubuntu & Debian
+----------------------------------------------
+Build requirements:
 
-    cmake -B build -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g0"
+    sudo apt-get install build-essential libtool autotools-dev automake pkg-config libssl-dev libevent-dev bsdmainutils python3
 
-Finally, clang (often less resource hungry) can be used instead of gcc, which is used by default:
+Options when installing required Boost library files:
 
-    cmake -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang
+1. On at least Ubuntu 14.04+ and Debian 7+ there are generic names for the
+individual boost development packages, so the following can be used to only
+install necessary parts of boost:
 
-## Linux Distribution Specific Instructions
+        sudo apt-get install libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-program-options-dev libboost-test-dev libboost-thread-dev
 
-### Ubuntu & Debian
+2. If that doesn't work, you can install all boost development packages with:
 
-#### Dependency Build Instructions
+        sudo apt-get install libboost-all-dev
 
-Build requirements for the latest Debian "stable" release, or the latest Ubuntu LTS release:
+BerkeleyDB is required for the wallet.
 
-    sudo apt-get install build-essential cmake pkgconf python3
+**For Ubuntu only:** db4.8 packages are available [here](https://launchpad.net/~hypercoin/+archive/hypercoin).
+You can add the repository and install using the following commands:
 
-For Debian "oldstable", or earlier Ubuntu LTS releases, you may need to pick a
-later compiler version, according to the [dependencies](/doc/dependencies.md)
-documentation.
+    sudo apt-get install software-properties-common
+    sudo add-apt-repository ppa:hypercoin/hypercoin
+    sudo apt-get update
+    sudo apt-get install libdb4.8-dev libdb4.8++-dev
 
-Now, you can either build from self-compiled [depends](#dependencies) or install the required dependencies:
+Ubuntu and Debian have their own libdb-dev and libdb++-dev packages, but these will install
+BerkeleyDB 5.1 or later, which break binary wallet compatibility with the distributed executables which
+are based on BerkeleyDB 4.8. If you do not care about wallet compatibility,
+pass `--with-incompatible-bdb` to configure.
 
-    sudo apt-get install libevent-dev libboost-dev
+See the section "Disable-wallet mode" to build Hypercoin Core without wallet.
 
-SQLite is required for the wallet:
+Optional (see --with-miniupnpc and --enable-upnp-default):
 
-    sudo apt install libsqlite3-dev
+    sudo apt-get install libminiupnpc-dev
 
-To build Bitcoin Core without the wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
-
-Cap'n Proto is needed for IPC functionality (see [multiprocess.md](multiprocess.md)):
-
-    sudo apt-get install libcapnp-dev capnproto
-
-Compile with `-DENABLE_IPC=OFF` if you do not need IPC functionality.
-
-ZMQ-enabled binaries are compiled with `-DWITH_ZMQ=ON` and require the following dependency:
+ZMQ dependencies (provides ZMQ API 4.x):
 
     sudo apt-get install libzmq3-dev
 
-User-Space, Statically Defined Tracing (USDT) dependencies:
+Dependencies for the GUI: Ubuntu & Debian
+-----------------------------------------
 
-    sudo apt install systemtap-sdt-dev
+If you want to build Hypercoin-Qt, make sure that the required packages for Qt development
+are installed. Either Qt 5 or Qt 4 are necessary to build the GUI.
+If both Qt 4 and Qt 5 are installed, Qt 5 will be used. Pass `--with-gui=qt4` to configure to choose Qt4.
+To build without GUI pass `--without-gui`.
 
-GUI dependencies:
+To build with Qt 5 (recommended) you need the following:
 
-Bitcoin Core includes a GUI built with the cross-platform Qt Framework. To compile the GUI, we need to install
-the necessary parts of Qt, the libqrencode and pass `-DBUILD_GUI=ON`. Skip if you don't intend to use the GUI.
+    sudo apt-get install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools libprotobuf-dev protobuf-compiler
 
-    sudo apt-get install qt6-base-dev qt6-tools-dev qt6-l10n-tools qt6-tools-dev-tools libgl-dev
+Alternatively, to build with Qt 4 you need the following:
 
-Additionally, to support Wayland protocol for modern desktop environments:
+    sudo apt-get install libqt4-dev libprotobuf-dev protobuf-compiler
 
-    sudo apt install qt6-wayland
-
-The GUI will be able to encode addresses in QR codes unless this feature is explicitly disabled. To install libqrencode, run:
+libqrencode (optional) can be installed with:
 
     sudo apt-get install libqrencode-dev
 
-Otherwise, if you don't need QR encoding support, use the `-DWITH_QRENCODE=OFF` option to disable this feature in order to compile the GUI.
+Once these are installed, they will be found by configure and a hypercoin-qt executable will be
+built by default.
 
-
-### Fedora
-
-#### Dependency Build Instructions
-
+Dependency Build Instructions: Fedora
+-------------------------------------
 Build requirements:
 
-    sudo dnf install gcc-c++ cmake make python3
+    sudo dnf install gcc-c++ libtool make autoconf automake openssl-devel libevent-devel boost-devel libdb4-devel libdb4-cxx-devel python3
 
-Now, you can either build from self-compiled [depends](#dependencies) or install the required dependencies:
+Optional:
 
-    sudo dnf install libevent-devel boost-devel
+    sudo dnf install miniupnpc-devel
 
-SQLite is required for the wallet:
+To build with Qt 5 (recommended) you need the following:
 
-    sudo dnf install sqlite-devel
+    sudo dnf install qt5-qttools-devel qt5-qtbase-devel protobuf-devel
 
-To build Bitcoin Core without the wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
-
-ZMQ-enabled binaries are compiled with `-DWITH_ZMQ=ON` and require the following dependency:
-
-    sudo dnf install zeromq-devel
-
-User-Space, Statically Defined Tracing (USDT) dependencies:
-
-    sudo dnf install systemtap-sdt-devel
-
-Cap'n Proto is needed for IPC functionality (see [multiprocess.md](multiprocess.md)):
-
-    sudo dnf install capnproto capnproto-devel
-
-Compile with `-DENABLE_IPC=OFF` if you do not need IPC functionality.
-
-GUI dependencies:
-
-Bitcoin Core includes a GUI built with the cross-platform Qt Framework. To compile the GUI, we need to install
-the necessary parts of Qt, the libqrencode and pass `-DBUILD_GUI=ON`. Skip if you don't intend to use the GUI.
-
-    sudo dnf install qt6-qtbase-devel qt6-qttools-devel
-
-Additionally, to support Wayland protocol for modern desktop environments:
-
-    sudo dnf install qt6-qtwayland
-
-The GUI will be able to encode addresses in QR codes unless this feature is explicitly disabled. To install libqrencode, run:
+libqrencode (optional) can be installed with:
 
     sudo dnf install qrencode-devel
 
-Otherwise, if you don't need QR encoding support, use the `-DWITH_QRENCODE=OFF` option to disable this feature in order to compile the GUI.
+Notes
+-----
+The release is built with GCC and then "strip hypercoind" to strip the debug
+symbols, which reduces the executable size by about 90%.
 
-### Alpine
 
-#### Dependency Build Instructions
+miniupnpc
+---------
 
-Build requirements:
+[miniupnpc](http://miniupnp.free.fr/) may be used for UPnP port mapping.  It can be downloaded from [here](
+http://miniupnp.tuxfamily.org/files/).  UPnP support is compiled in and
+turned off by default.  See the configure options for upnp behavior desired:
 
-    apk add build-base cmake linux-headers pkgconf python3
+	--without-miniupnpc      No UPnP support miniupnp not required
+	--disable-upnp-default   (the default) UPnP support turned off by default at runtime
+	--enable-upnp-default    UPnP support turned on by default at runtime
 
-Now, you can either build from self-compiled [depends](#dependencies) or install the required dependencies:
 
-    apk add libevent-dev boost-dev
+Berkeley DB
+-----------
+It is recommended to use Berkeley DB 4.8. If you have to build it yourself,
+you can use [the installation script included in contrib/](/contrib/install_db4.sh)
+like so
 
-SQLite is required for the wallet:
+```shell
+./contrib/install_db4.sh `pwd`
+```
 
-    apk add sqlite-dev
+from the root of the repository.
 
-To build Bitcoin Core without the wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
+**Note**: You only need Berkeley DB if the wallet is enabled (see the section *Disable-Wallet mode* below).
 
-Cap'n Proto is needed for IPC functionality (see [multiprocess.md](multiprocess.md)):
+Boost
+-----
+If you need to build Boost yourself:
 
-    apk add capnproto capnproto-dev
+	sudo su
+	./bootstrap.sh
+	./bjam install
 
-Compile with `-DENABLE_IPC=OFF` if you do not need IPC functionality.
 
-ZMQ dependencies (provides ZMQ API):
+Security
+--------
+To help make your hypercoin installation more secure by making certain attacks impossible to
+exploit even if a vulnerability is found, binaries are hardened by default.
+This can be disabled with:
 
-    apk add zeromq-dev
+Hardening Flags:
 
-User-Space, Statically Defined Tracing (USDT) is not supported or tested on Alpine Linux at this time.
+	./configure --enable-hardening
+	./configure --disable-hardening
 
-GUI dependencies:
 
-Bitcoin Core includes a GUI built with the cross-platform Qt Framework. To compile the GUI, we need to install
-the necessary parts of Qt, the libqrencode and pass `-DBUILD_GUI=ON`. Skip if you don't intend to use the GUI.
+Hardening enables the following features:
 
-    apk add qt6-qtbase-dev  qt6-qttools-dev
+* Position Independent Executable
+    Build position independent code to take advantage of Address Space Layout Randomization
+    offered by some kernels. Attackers who can cause execution of code at an arbitrary memory
+    location are thwarted if they don't know where anything useful is located.
+    The stack and heap are randomly located by default but this allows the code section to be
+    randomly located as well.
 
-The GUI will be able to encode addresses in QR codes unless this feature is explicitly disabled. To install libqrencode, run:
+    On an AMD64 processor where a library was not compiled with -fPIC, this will cause an error
+    such as: "relocation R_X86_64_32 against `......' can not be used when making a shared object;"
 
-    apk add libqrencode-dev
+    To test that you have built PIE executable, install scanelf, part of paxutils, and use:
 
-Otherwise, if you don't need QR encoding support, use the `-DWITH_QRENCODE=OFF` option to disable this feature in order to compile the GUI.
+    	scanelf -e ./hypercoin
 
-## Dependencies
+    The output should contain:
 
-See [dependencies.md](dependencies.md) for a complete overview, and
-[depends](/depends/README.md) on how to compile them yourself, if you wish to
-not use the packages of your Linux distribution.
+     TYPE
+    ET_DYN
+
+* Non-executable Stack
+    If the stack is executable then trivial stack based buffer overflow exploits are possible if
+    vulnerable buffers are found. By default, hypercoin should be built with a non-executable stack
+    but if one of the libraries it uses asks for an executable stack or someone makes a mistake
+    and uses a compiler extension which requires an executable stack, it will silently build an
+    executable without the non-executable stack protection.
+
+    To verify that the stack is non-executable after compiling use:
+    `scanelf -e ./hypercoin`
+
+    the output should contain:
+	STK/REL/PTL
+	RW- R-- RW-
+
+    The STK RW- means that the stack is readable and writeable but not executable.
 
 Disable-wallet mode
 --------------------
-When the intention is to only run a P2P node, without a wallet, Bitcoin Core can
-be compiled in disable-wallet mode with:
+When the intention is to run only a P2P node without a wallet, hypercoin may be compiled in
+disable-wallet mode with:
 
-    cmake -B build -DENABLE_WALLET=OFF
+    ./configure --disable-wallet
 
-In this case there is no dependency on SQLite.
+In this case there is no dependency on Berkeley DB 4.8.
 
-Mining is also possible in disable-wallet mode using the `getblocktemplate` RPC call.
+Mining is also possible in disable-wallet mode, but only using the `getblocktemplate` RPC
+call not `getwork`.
+
+Additional Configure Flags
+--------------------------
+A list of additional configure flags can be displayed with:
+
+    ./configure --help
+
 
 Setup and Build Example: Arch Linux
 -----------------------------------
-This example lists the steps necessary to setup and build a command line only distribution of the latest changes on Arch Linux:
+This example lists the steps necessary to setup and build a command line only, non-wallet distribution of the latest changes on Arch Linux:
 
-    pacman --sync --needed capnproto cmake boost gcc git libevent make python sqlite
-    git clone https://github.com/bitcoin/bitcoin.git
-    cd bitcoin/
-    cmake -B build
-    cmake --build build
-    ctest --test-dir build
-    ./build/bin/bitcoind
-    ./build/bin/bitcoin help
+    pacman -S git base-devel boost libevent python
+    git clone https://github.com/hypercoin/hypercoin.git
+    cd hypercoin/
+    ./autogen.sh
+    ./configure --disable-wallet --without-gui --without-miniupnpc
+    make check
 
+Note:
+Enabling wallet support requires either compiling against a Berkeley DB newer than 4.8 (package `db`) using `--with-incompatible-bdb`,
+or building and depending on a local version of Berkeley DB 4.8. The readily available Arch Linux packages are currently built using
+`--with-incompatible-bdb` according to the [PKGBUILD](https://projects.archlinux.org/svntogit/community.git/tree/hypercoin/trunk/PKGBUILD).
+As mentioned above, when maintaining portability of the wallet between the standard Hypercoin Core distributions and independently built
+node software is desired, Berkeley DB 4.8 must be used.
+
+
+ARM Cross-compilation
+-------------------
+These steps can be performed on, for example, an Ubuntu VM. The depends system
+will also work on other Linux distributions, however the commands for
+installing the toolchain will be different.
+
+Make sure you install the build requirements mentioned above.
+Then, install the toolchain and curl:
+
+    sudo apt-get install g++-arm-linux-gnueabihf curl
+
+To build executables for ARM:
+
+    cd depends
+    make HOST=arm-linux-gnueabihf NO_QT=1
+    cd ..
+    ./configure --prefix=$PWD/depends/arm-linux-gnueabihf --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++
+    make
+
+
+For further documentation on the depends system see [README.md](../depends/README.md) in the depends directory.
+
+Building on FreeBSD
+--------------------
+
+(Updated as of FreeBSD 11.0)
+
+Clang is installed by default as `cc` compiler, this makes it easier to get
+started than on [OpenBSD](build-openbsd.md). Installing dependencies:
+
+    pkg install autoconf automake libtool pkgconf
+    pkg install boost-libs openssl libevent
+    pkg install gmake
+
+You need to use GNU make (`gmake`) instead of `make`.
+(`libressl` instead of `openssl` will also work)
+
+For the wallet (optional):
+
+    ./contrib/install_db4.sh `pwd`
+    setenv BDB_PREFIX $PWD/db4
+
+Then build using:
+
+    ./autogen.sh
+    ./configure BDB_CFLAGS="-I${BDB_PREFIX}/include" BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx"
+    gmake
+
+*Note on debugging*: The version of `gdb` installed by default is [ancient and considered harmful](https://wiki.freebsd.org/GdbRetirement).
+It is not suitable for debugging a multi-threaded C++ program, not even for getting backtraces. Please install the package `gdb` and
+use the versioned gdb command e.g. `gdb7111`.

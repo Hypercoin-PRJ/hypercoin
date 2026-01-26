@@ -1,18 +1,15 @@
 package=expat
-$(package)_version=2.7.3
-$(package)_download_path=https://github.com/libexpat/libexpat/releases/download/R_$(subst .,_,$($(package)_version))/
-$(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=821ac9710d2c073eaf13e1b1895a9c9aa66c1157a99635c639fbff65cdbdd732
-$(package)_build_subdir=build
+$(package)_version=2.2.1
+$(package)_download_path=https://downloads.sourceforge.net/project/expat/expat/$($(package)_version)
+$(package)_file_name=$(package)-$($(package)_version).tar.bz2
+$(package)_sha256_hash=1868cadae4c82a018e361e2b2091de103cd820aaacb0d6cfa49bd2cd83978885
 
 define $(package)_set_vars
-  $(package)_config_opts := -DCMAKE_BUILD_TYPE=None -DEXPAT_BUILD_TOOLS=OFF
-  $(package)_config_opts += -DEXPAT_BUILD_EXAMPLES=OFF -DEXPAT_BUILD_TESTS=OFF
-  $(package)_config_opts += -DBUILD_SHARED_LIBS=OFF
+$(package)_config_opts=--disable-static
 endef
 
 define $(package)_config_cmds
-  $($(package)_cmake) -S .. -B .
+  $($(package)_autoconf)
 endef
 
 define $(package)_build_cmds
@@ -21,8 +18,4 @@ endef
 
 define $(package)_stage_cmds
   $(MAKE) DESTDIR=$($(package)_staging_dir) install
-endef
-
-define $(package)_postprocess_cmds
-  rm -rf share lib/cmake
 endef

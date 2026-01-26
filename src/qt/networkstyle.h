@@ -1,11 +1,9 @@
-// Copyright (c) 2014-present The Bitcoin Core developers
+// Copyright (c) 2014 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_NETWORKSTYLE_H
-#define BITCOIN_QT_NETWORKSTYLE_H
-
-#include <util/chaintype.h>
+#ifndef HYPERCOIN_QT_NETWORKSTYLE_H
+#define HYPERCOIN_QT_NETWORKSTYLE_H
 
 #include <QIcon>
 #include <QPixmap>
@@ -15,8 +13,8 @@
 class NetworkStyle
 {
 public:
-    /** Get style associated with provided network id, or 0 if not known */
-    static const NetworkStyle* instantiate(ChainType networkId);
+    /** Get style associated with provided BIP70 network id, or 0 if not known */
+    static const NetworkStyle *instantiate(const QString &networkId);
 
     const QString &getAppName() const { return appName; }
     const QIcon &getAppIcon() const { return appIcon; }
@@ -24,7 +22,7 @@ public:
     const QString &getTitleAddText() const { return titleAddText; }
 
 private:
-    NetworkStyle(const QString& appName, int iconColorHueShift, int iconColorSaturationReduction, const char* titleAddText);
+    NetworkStyle(const QString &appName, const int iconColorHueShift, const int iconColorSaturationReduction, const char *titleAddText);
 
     QString appName;
     QIcon appIcon;
@@ -32,4 +30,4 @@ private:
     QString titleAddText;
 };
 
-#endif // BITCOIN_QT_NETWORKSTYLE_H
+#endif // HYPERCOIN_QT_NETWORKSTYLE_H

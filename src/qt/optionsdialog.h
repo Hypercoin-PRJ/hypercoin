@@ -1,14 +1,13 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2017 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_OPTIONSDIALOG_H
-#define BITCOIN_QT_OPTIONSDIALOG_H
+#ifndef HYPERCOIN_QT_OPTIONSDIALOG_H
+#define HYPERCOIN_QT_OPTIONSDIALOG_H
 
 #include <QDialog>
 #include <QValidator>
 
-class ClientModel;
 class OptionsModel;
 class QValidatedLineEdit;
 
@@ -29,7 +28,7 @@ class ProxyAddressValidator : public QValidator
 public:
     explicit ProxyAddressValidator(QObject *parent);
 
-    State validate(QString &input, int &pos) const override;
+    State validate(QString &input, int &pos) const;
 };
 
 /** Preferences dialog. */
@@ -41,27 +40,19 @@ public:
     explicit OptionsDialog(QWidget *parent, bool enableWallet);
     ~OptionsDialog();
 
-    enum Tab {
-        TAB_MAIN,
-        TAB_NETWORK,
-    };
-
-    void setClientModel(ClientModel* client_model);
     void setModel(OptionsModel *model);
     void setMapper();
-    void setCurrentTab(OptionsDialog::Tab tab);
 
 private Q_SLOTS:
     /* set OK button state (enabled / disabled) */
     void setOkButtonState(bool fState);
     void on_resetButton_clicked();
-    void on_openBitcoinConfButton_clicked();
+    void on_openHypercoinConfButton_clicked();
     void on_okButton_clicked();
     void on_cancelButton_clicked();
+    
+    void on_hideTrayIcon_stateChanged(int fState);
 
-    void on_showTrayIcon_stateChanged(int state);
-
-    void togglePruneWarning(bool enabled);
     void showRestartWarning(bool fPersistent = false);
     void clearStatusLabel();
     void updateProxyValidationState();
@@ -69,14 +60,12 @@ private Q_SLOTS:
     void updateDefaultProxyNets();
 
 Q_SIGNALS:
-    void proxyIpChecks(QValidatedLineEdit *pUiProxyIp, uint16_t nProxyPort);
-    void quitOnReset();
+    void proxyIpChecks(QValidatedLineEdit *pUiProxyIp, int nProxyPort);
 
 private:
     Ui::OptionsDialog *ui;
-    ClientModel* m_client_model{nullptr};
-    OptionsModel* model{nullptr};
-    QDataWidgetMapper* mapper{nullptr};
+    OptionsModel *model;
+    QDataWidgetMapper *mapper;
 };
 
-#endif // BITCOIN_QT_OPTIONSDIALOG_H
+#endif // HYPERCOIN_QT_OPTIONSDIALOG_H

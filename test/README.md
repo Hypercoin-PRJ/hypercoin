@@ -1,261 +1,137 @@
-This directory contains integration tests that test bitcoind and its
+This directory contains integration tests that test hypercoind and its
 utilities in their entirety. It does not contain unit tests, which
 can be found in [/src/test](/src/test), [/src/wallet/test](/src/wallet/test),
 etc.
 
-This directory contains the following sets of tests:
+There are currently two sets of tests in this directory:
 
-- [fuzz](/test/fuzz) A runner to execute all fuzz targets from
-  [/src/test/fuzz](/src/test/fuzz).
-- [functional](/test/functional) which test the functionality of
-bitcoind and bitcoin-qt by interacting with them through the RPC and P2P
+- [functional](/test/functional) which test the functionality of 
+hypercoind and hypercoin-qt by interacting with them through the RPC and P2P
 interfaces.
-- [lint](/test/lint/) which perform various static analysis checks.
+- [util](/test/util) which tests the hypercoin utilities, currently only
+hypercoin-tx.
 
-The fuzz tests, functional
-tests and lint scripts can be run as explained in the sections below.
+The util tests are run as part of `make check` target. The functional
+tests are run by the travis continuous build process whenever a pull
+request is opened. Both sets of tests can also be run locally.
 
 # Running tests locally
 
-Before tests can be run locally, Bitcoin Core must be built.  See the [building instructions](/doc#building) for help.
-
-The following examples assume that the build directory is named `build`.
-
-## Fuzz tests
-
-See [/doc/fuzzing.md](/doc/fuzzing.md)
+Build for your system first. Be sure to enable wallet, utils and daemon when you configure. Tests will not run otherwise.
 
 ### Functional tests
 
-#### Dependencies and prerequisites
+#### Dependencies
 
 The ZMQ functional test requires a python ZMQ library. To install it:
 
 - on Unix, run `sudo apt-get install python3-zmq`
 - on mac OS, run `pip3 install pyzmq`
 
-The IPC functional test requires a python IPC library. `pip3 install pycapnp` may work, but if not, install it from source:
-
-```sh
-git clone -b v2.2.1 https://github.com/capnproto/pycapnp
-pip3 install ./pycapnp
-```
-
-If that does not work, try adding `-C force-bundled-libcapnp=True` to the `pip` command.
-Depending on the system, it may be necessary to install and run in a venv:
-
-```sh
-python -m venv venv
-git clone -b v2.2.1 https://github.com/capnproto/pycapnp
-venv/bin/pip3 install ./pycapnp -C force-bundled-libcapnp=True
-venv/bin/python3 build/test/functional/interface_ipc.py
-```
-
-The functional tests assume Python UTF-8 Mode, which is the default on most
-systems.
-On Windows the `PYTHONUTF8` environment variable must be set to 1:
-
-```cmd
-set PYTHONUTF8=1
-```
-
 #### Running the tests
 
-Individual tests can be run by directly calling the test script, e.g.:
+Individual tests can be run by directly calling the test script, eg:
 
 ```
-build/test/functional/feature_rbf.py
+test/functional/replace-by-fee.py
 ```
 
 or can be run through the test_runner harness, eg:
 
 ```
-build/test/functional/test_runner.py feature_rbf.py
+test/functional/test_runner.py replace-by-fee.py
 ```
 
 You can run any combination (incl. duplicates) of tests by calling:
 
 ```
-build/test/functional/test_runner.py <testname1> <testname2> <testname3> ...
-```
-
-Wildcard test names can be passed, if the paths are coherent and the test runner
-is called from a `bash` shell or similar that does the globbing. For example,
-to run all the wallet tests:
-
-```
-build/test/functional/test_runner.py test/functional/wallet*
-functional/test_runner.py functional/wallet*  # (called from the build/test/ directory)
-test_runner.py wallet*  # (called from the build/test/functional/ directory)
-```
-
-but not
-
-```
-build/test/functional/test_runner.py wallet*
-```
-
-Combinations of wildcards can be passed:
-
-```
-build/test/functional/test_runner.py ./test/functional/tool* test/functional/mempool*
-test_runner.py tool* mempool*
+test/functional/test_runner.py <testname1> <testname2> <testname3> ...
 ```
 
 Run the regression test suite with:
 
 ```
-build/test/functional/test_runner.py
+test/functional/test_runner.py
 ```
 
 Run all possible tests with
 
 ```
-build/test/functional/test_runner.py --extended
+test/functional/test_runner.py --extended
 ```
-
-In order to run backwards compatibility tests, first run:
-
-```
-test/get_previous_releases.py
-```
-
-to download the necessary previous release binaries.
 
 By default, up to 4 tests will be run in parallel by test_runner. To specify
 how many jobs to run, append `--jobs=n`
 
 The individual tests and the test_runner harness have many command-line
-options. Run `build/test/functional/test_runner.py -h` to see them all.
-
-#### Speed up test runs with a RAM disk
-
-If you have available RAM on your system you can create a RAM disk to use as the `cache` and `tmp` directories for the functional tests in order to speed them up.
-Speed-up amount varies on each system (and according to your RAM speed and other variables), but a 2-3x speed-up is not uncommon.
-
-**Linux**
-
-To create a 4 GiB RAM disk at `/mnt/tmp/`:
-
-```bash
-sudo mkdir -p /mnt/tmp
-sudo mount -t tmpfs -o size=4g tmpfs /mnt/tmp/
-```
-
-Configure the size of the RAM disk using the `size=` option.
-The size of the RAM disk needed is relative to the number of concurrent jobs the test suite runs.
-For example running the test suite with `--jobs=100` might need a 4 GiB RAM disk, but running with `--jobs=32` will only need a 2.5 GiB RAM disk.
-
-To use, run the test suite specifying the RAM disk as the `cachedir` and `tmpdir`:
-
-```bash
-build/test/functional/test_runner.py --cachedir=/mnt/tmp/cache --tmpdir=/mnt/tmp
-```
-
-Once finished with the tests and the disk, and to free the RAM, simply unmount the disk:
-
-```bash
-sudo umount /mnt/tmp
-```
-
-**macOS**
-
-To create a 4 GiB RAM disk named "ramdisk" at `/Volumes/ramdisk/`:
-
-```bash
-diskutil erasevolume HFS+ ramdisk $(hdiutil attach -nomount ram://8388608)
-```
-
-Configure the RAM disk size, expressed as the number of blocks, at the end of the command
-(`4096 MiB * 2048 blocks/MiB = 8388608 blocks` for 4 GiB). To run the tests using the RAM disk:
-
-```bash
-build/test/functional/test_runner.py --cachedir=/Volumes/ramdisk/cache --tmpdir=/Volumes/ramdisk/tmp
-```
-
-To unmount:
-
-```bash
-umount /Volumes/ramdisk
-```
+options. Run `test_runner.py -h` to see them all.
 
 #### Troubleshooting and debugging test failures
 
 ##### Resource contention
 
-The P2P and RPC ports used by the bitcoind nodes-under-test are chosen to make
-conflicts with other processes unlikely. However, if there is another bitcoind
+The P2P and RPC ports used by the hypercoind nodes-under-test are chosen to make
+conflicts with other processes unlikely. However, if there is another hypercoind
 process running on the system (perhaps from a previous test which hasn't successfully
-killed all its bitcoind nodes), then there may be a port conflict which will
+killed all its hypercoind nodes), then there may be a port conflict which will
 cause the test to fail. It is recommended that you run the tests on a system
-where no other bitcoind processes are running.
+where no other hypercoind processes are running.
 
-On linux, the test framework will warn if there is another
-bitcoind process running when the tests are started.
+On linux, the test_framework will warn if there is another
+hypercoind process running when the tests are started.
 
-If there are zombie bitcoind processes after test failure, you can kill them
+If there are zombie hypercoind processes after test failure, you can kill them
 by running the following commands. **Note that these commands will kill all
-bitcoind processes running on the system, so should not be used if any non-test
-bitcoind processes are being run.**
+hypercoind processes running on the system, so should not be used if any non-test
+hypercoind processes are being run.**
 
 ```bash
-killall bitcoind
+killall hypercoind
 ```
 
 or
 
 ```bash
-pkill -9 bitcoind
+pkill -9 hypercoind
 ```
 
 
 ##### Data directory cache
 
 A pre-mined blockchain with 200 blocks is generated the first time a
-functional test is run and is stored in build/test/cache. This speeds up
+functional test is run and is stored in test/cache. This speeds up
 test startup times since new blockchains don't need to be generated for
 each test. However, the cache may get into a bad state, in which case
 tests will fail. If this happens, remove the cache directory (and make
-sure bitcoind processes are stopped as above):
+sure hypercoind processes are stopped as above):
 
 ```bash
-rm -rf build/test/cache
-killall bitcoind
+rm -rf cache
+killall hypercoind
 ```
 
 ##### Test logging
 
-The tests contain logging at five different levels (DEBUG, INFO, WARNING, ERROR
-and CRITICAL). From within your functional tests you can log to these different
-levels using the logger included in the test_framework, e.g.
-`self.log.debug(object)`. By default:
+The tests contain logging at different levels (debug, info, warning, etc). By
+default:
 
 - when run through the test_runner harness, *all* logs are written to
   `test_framework.log` and no logs are output to the console.
 - when run directly, *all* logs are written to `test_framework.log` and INFO
   level and above are output to the console.
-- when run by [our CI (Continuous Integration)](/ci/README.md), no logs are output to the console. However, if a test
-  fails, the `test_framework.log` and bitcoind `debug.log`s will all be dumped
+- when run on Travis, no logs are output to the console. However, if a test
+  fails, the `test_framework.log` and hypercoind `debug.log`s will all be dumped
   to the console to help troubleshooting.
-
-These log files can be located under the test data directory (which is always
-printed in the first line of test output):
-  - `<test data directory>/test_framework.log`
-  - `<test data directory>/node<node number>/regtest/debug.log`.
-
-The node number identifies the relevant test node, starting from `node0`, which
-corresponds to its position in the nodes list of the specific test,
-e.g. `self.nodes[0]`.
 
 To change the level of logs output to the console, use the `-l` command line
 argument.
 
-`test_framework.log` and bitcoind `debug.log`s can be combined into a single
+`test_framework.log` and hypercoind `debug.log`s can be combined into a single
 aggregate log by running the `combine_logs.py` script. The output can be plain
 text, colorized text or html. For example:
 
 ```
-build/test/functional/combine_logs.py -c <test data directory> | less -r
+combine_logs.py -c <test data directory> | less -r
 ```
 
 will pipe the colorized logs from the test into less.
@@ -277,73 +153,35 @@ import pdb; pdb.set_trace()
 ```
 
 anywhere in the test. You will then be able to inspect variables, as well as
-call methods that interact with the bitcoind nodes-under-test.
+call methods that interact with the hypercoind nodes-under-test.
 
-If further introspection of the bitcoind instances themselves becomes
+If further introspection of the hypercoind instances themselves becomes
 necessary, this can be accomplished by first setting a pdb breakpoint
 at an appropriate location, running the test to that point, then using
-`gdb` (or `lldb` on macOS) to attach to the process and debug.
+`gdb` to attach to the process and debug.
 
-For instance, to attach to `self.node[1]` during a run you can get
-the pid of the node within `pdb`.
-
-```
-(pdb) self.node[1].process.pid
-```
-
-Alternatively, you can find the pid by inspecting the temp folder for the specific test
-you are running. The path to that folder is printed at the beginning of every
-test run:
+For instance, to attach to `self.node[1]` during a run:
 
 ```bash
 2017-06-27 14:13:56.686000 TestFramework (INFO): Initializing test directory /tmp/user/1000/testo9vsdjo3
 ```
 
-Use the path to find the pid file in the temp folder:
+use the directory path to get the pid from the pid file:
 
 ```bash
-cat /tmp/user/1000/testo9vsdjo3/node1/regtest/bitcoind.pid
+cat /tmp/user/1000/testo9vsdjo3/node1/regtest/hypercoind.pid
+gdb /home/example/hypercoind <pid>
 ```
 
-Then you can use the pid to start `gdb`:
+Note: gdb attach step may require `sudo`
 
-```bash
-gdb /home/example/bitcoind <pid>
-```
+### Util tests
 
-Note: gdb attach step may require ptrace_scope to be modified, or `sudo` preceding the `gdb`.
-See this link for considerations: https://www.kernel.org/doc/Documentation/security/Yama.txt
-
-Often while debugging RPC calls in functional tests, the test might time out before the
-process can return a response. Use `--timeout-factor 0` to disable all RPC timeouts for that particular
-functional test. Ex: `build/test/functional/wallet_hd.py --timeout-factor 0`.
-
-##### Profiling
-
-An easy way to profile node performance during functional tests is provided
-for Linux platforms using `perf`.
-
-Perf will sample the running node and will generate profile data in the node's
-datadir. The profile data can then be presented using `perf report` or a graphical
-tool like [hotspot](https://github.com/KDAB/hotspot).
-
-To generate a profile during test suite runs, use the `--perf` flag.
-
-To see render the output to text, run
-
-```sh
-perf report -i /path/to/datadir/send-big-msgs.perf.data.xxxx --stdio | c++filt | less
-```
-
-For ways to generate more granular profiles, see the README in
-[test/functional](/test/functional).
-
-### Lint tests
-
-See the README in [test/lint](/test/lint).
+Util tests can be run locally by running `test/util/hypercoin-util-test.py`. 
+Use the `-v` option for verbose output.
 
 # Writing functional tests
 
 You are encouraged to write functional tests for new or existing features.
-Further information about the functional test framework and individual
+Further information about the functional test framework and individual 
 tests is found in [test/functional](/test/functional).

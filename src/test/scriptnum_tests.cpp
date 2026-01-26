@@ -1,14 +1,14 @@
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-2017 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <script/script.h>
 #include <test/scriptnum10.h>
-#include <test/util/setup_common.h>
+#include <script/script.h>
+#include <test/test_hypercoin.h>
 
 #include <boost/test/unit_test.hpp>
-#include <climits>
-#include <cstdint>
+#include <limits.h>
+#include <stdint.h>
 
 BOOST_FIXTURE_TEST_SUITE(scriptnum_tests, BasicTestingSetup)
 
@@ -164,9 +164,9 @@ static void RunOperators(const int64_t& num1, const int64_t& num2)
 
 BOOST_AUTO_TEST_CASE(creation)
 {
-    for(size_t i = 0; i < std::size(values); ++i)
+    for(size_t i = 0; i < sizeof(values) / sizeof(values[0]); ++i)
     {
-        for(size_t j = 0; j < std::size(offsets); ++j)
+        for(size_t j = 0; j < sizeof(offsets) / sizeof(offsets[0]); ++j)
         {
             RunCreate(values[i]);
             RunCreate(values[i] + offsets[j]);
@@ -177,9 +177,9 @@ BOOST_AUTO_TEST_CASE(creation)
 
 BOOST_AUTO_TEST_CASE(operators)
 {
-    for(size_t i = 0; i < std::size(values); ++i)
+    for(size_t i = 0; i < sizeof(values) / sizeof(values[0]); ++i)
     {
-        for(size_t j = 0; j < std::size(offsets); ++j)
+        for(size_t j = 0; j < sizeof(offsets) / sizeof(offsets[0]); ++j)
         {
             RunOperators(values[i], values[i]);
             RunOperators(values[i], -values[i]);

@@ -1,141 +1,146 @@
-// Copyright (c) 2015-present The Bitcoin Core developers
+// Copyright (c) 2015-2017 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
+#include <bench/perf.h>
 
-#include <test/util/setup_common.h> // IWYU pragma: keep
-#include <util/check.h>
-#include <util/fs.h>
-
-#include <chrono>
-#include <compare>
-#include <fstream>
-#include <functional>
+#include <assert.h>
 #include <iostream>
+#include <iomanip>
+#include <algorithm>
 #include <regex>
-#include <string>
-#include <utility>
-#include <vector>
+#include <numeric>
 
-using namespace std::chrono_literals;
-
-const std::function<void(const std::string&)> G_TEST_LOG_FUN{};
-
-/**
- * Retrieves the available test setup command line arguments that may be used
- * in the benchmark. They will be used only if the benchmark utilizes a
- * 'BasicTestingSetup' or any child of it.
- */
-static std::function<std::vector<const char*>()> g_bench_command_line_args{};
-const std::function<std::vector<const char*>()> G_TEST_COMMAND_LINE_ARGUMENTS = []() {
-    return g_bench_command_line_args();
-};
-
-/**
- * Retrieve the name of the currently in-use benchmark.
- * This is applicable only to benchmarks that utilize the unit test
- * framework context setup (e.g. ones using 'MakeNoLogFileContext<TestingSetup>()').
- * It places the datadir of each benchmark run within their respective benchmark name.
- */
-static std::string g_running_benchmark_name;
-const std::function<std::string()> G_TEST_GET_FULL_NAME = []() {
-    return g_running_benchmark_name;
-};
-
-namespace {
-
-void GenerateTemplateResults(const std::vector<ankerl::nanobench::Result>& benchmarkResults, const fs::path& file, const char* tpl)
+void benchmark::ConsolePrinter::header()
 {
-    if (benchmarkResults.empty() || file.empty()) {
-        // nothing to write, bail out
-        return;
-    }
-    std::ofstream fout{file.std_path()};
-    if (fout.is_open()) {
-        ankerl::nanobench::render(tpl, benchmarkResults, fout);
-        std::cout << "Created " << file << std::endl;
-    } else {
-        std::cout << "Could not write to file " << file << std::endl;
-    }
+    std::cout << "# Benchmark, evals, iterations, total, min, max, median" << std::endl;
 }
 
-} // namespace
-
-namespace benchmark {
-
-BenchRunner::BenchmarkMap& BenchRunner::benchmarks()
+void benchmark::ConsolePrinter::result(const State& state)
 {
-    static BenchmarkMap benchmarks_map;
+    auto results = state.m_elapsed_results;
+    std::sort(results.begin(), results.end());
+
+    double total = state.m_num_iters * std::accumulate(results.begin(), results.end(), 0.0);
+
+    double front = 0;
+    double back = 0;
+    double median = 0;
+
+    if (!results.empty()) {
+        front = results.front();
+        back = results.back();
+
+        size_t mid = results.size() / 2;
+        median = results[mid];
+        if (0 == results.size() % 2) {
+            median = (results[mid] + results[mid + 1]) / 2;
+        }
+    }
+
+    std::cout << std::setprecision(6);
+    std::cout << state.m_name << ", " << state.m_num_evals << ", " << state.m_num_iters << ", " << total << ", " << front << ", " << back << ", " << median << std::endl;
+}
+
+void benchmark::ConsolePrinter::footer() {}
+benchmark::PlotlyPrinter::PlotlyPrinter(std::string plotly_url, int64_t width, int64_t height)
+    : m_plotly_url(plotly_url), m_width(width), m_height(height)
+{
+}
+
+void benchmark::PlotlyPrinter::header()
+{
+    std::cout << "<html><head>"
+              << "<script src=\"" << m_plotly_url << "\"></script>"
+              << "</head><body><div id=\"myDiv\" style=\"width:" << m_width << "px; height:" << m_height << "px\"></div>"
+              << "<script> var data = ["
+              << std::endl;
+}
+
+void benchmark::PlotlyPrinter::result(const State& state)
+{
+    std::cout << "{ " << std::endl
+              << "  name: '" << state.m_name << "', " << std::endl
+              << "  y: [";
+
+    const char* prefix = "";
+    for (const auto& e : state.m_elapsed_results) {
+        std::cout << prefix << std::setprecision(6) << e;
+        prefix = ", ";
+    }
+    std::cout << "]," << std::endl
+              << "  boxpoints: 'all', jitter: 0.3, pointpos: 0, type: 'box',"
+              << std::endl
+              << "}," << std::endl;
+}
+
+void benchmark::PlotlyPrinter::footer()
+{
+    std::cout << "]; var layout = { showlegend: false, yaxis: { rangemode: 'tozero', autorange: true } };"
+              << "Plotly.newPlot('myDiv', data, layout);"
+              << "</script></body></html>";
+}
+
+
+benchmark::BenchRunner::BenchmarkMap& benchmark::BenchRunner::benchmarks()
+{
+    static std::map<std::string, Bench> benchmarks_map;
     return benchmarks_map;
 }
 
-BenchRunner::BenchRunner(std::string name, BenchFunction func)
+benchmark::BenchRunner::BenchRunner(std::string name, benchmark::BenchFunction func, uint64_t num_iters_for_one_second)
 {
-    Assert(benchmarks().try_emplace(std::move(name), std::move(func)).second);
+    benchmarks().insert(std::make_pair(name, Bench{func, num_iters_for_one_second}));
 }
 
-void BenchRunner::RunAll(const Args& args)
+void benchmark::BenchRunner::RunAll(Printer& printer, uint64_t num_evals, double scaling, const std::string& filter, bool is_list_only)
 {
-    std::regex reFilter(args.regex_filter);
+    perf_init();
+    if (!std::ratio_less_equal<benchmark::clock::period, std::micro>::value) {
+        std::cerr << "WARNING: Clock precision is worse than microsecond - benchmarks may be less accurate!\n";
+    }
+#ifdef DEBUG
+    std::cerr << "WARNING: This is a debug build - may result in slower benchmarks.\n";
+#endif
+
+    std::regex reFilter(filter);
     std::smatch baseMatch;
 
-    if (args.sanity_check) {
-        std::cout << "Running with -sanity-check option, output is being suppressed as benchmark results will be useless." << std::endl;
-    }
+    printer.header();
 
-    // Load inner test setup args
-    g_bench_command_line_args = [&args]() {
-        std::vector<const char*> ret;
-        ret.reserve(args.setup_args.size());
-        for (const auto& arg : args.setup_args) ret.emplace_back(arg.c_str());
-        return ret;
-    };
-
-    std::vector<ankerl::nanobench::Result> benchmarkResults;
-    for (const auto& [name, func] : benchmarks()) {
-
-        if (!std::regex_match(name, baseMatch, reFilter)) {
+    for (const auto& p : benchmarks()) {
+        if (!std::regex_match(p.first, baseMatch, reFilter)) {
             continue;
         }
 
-        if (args.is_list_only) {
-            std::cout << name << std::endl;
-            continue;
+        uint64_t num_iters = static_cast<uint64_t>(p.second.num_iters_for_one_second * scaling);
+        if (0 == num_iters) {
+            num_iters = 1;
         }
-
-        Bench bench;
-        if (args.sanity_check) {
-            bench.epochs(1).epochIterations(1);
-            bench.output(nullptr);
+        State state(p.first, num_evals, num_iters, printer);
+        if (!is_list_only) {
+            p.second.func(state);
         }
-        bench.name(name);
-        g_running_benchmark_name = name;
-        if (args.min_time > 0ms) {
-            // convert to nanos before dividing to reduce rounding errors
-            std::chrono::nanoseconds min_time_ns = args.min_time;
-            bench.minEpochTime(min_time_ns / bench.epochs());
-        }
-
-        if (args.asymptote.empty()) {
-            func(bench);
-        } else {
-            for (auto n : args.asymptote) {
-                bench.complexityN(n);
-                func(bench);
-            }
-            std::cout << bench.complexityBigO() << std::endl;
-        }
-
-        if (!bench.results().empty()) {
-            benchmarkResults.push_back(bench.results().back());
-        }
+        printer.result(state);
     }
 
-    GenerateTemplateResults(benchmarkResults, args.output_csv, "# Benchmark, evals, iterations, total, min, max, median\n"
-                                                               "{{#result}}{{name}}, {{epochs}}, {{average(iterations)}}, {{sumProduct(iterations, elapsed)}}, {{minimum(elapsed)}}, {{maximum(elapsed)}}, {{median(elapsed)}}\n"
-                                                               "{{/result}}");
-    GenerateTemplateResults(benchmarkResults, args.output_json, ankerl::nanobench::templates::json());
+    printer.footer();
+
+    perf_fini();
 }
 
-} // namespace benchmark
+bool benchmark::State::UpdateTimer(const benchmark::time_point current_time)
+{
+    if (m_start_time != time_point()) {
+        std::chrono::duration<double> diff = current_time - m_start_time;
+        m_elapsed_results.push_back(diff.count() / m_num_iters);
+
+        if (m_elapsed_results.size() == m_num_evals) {
+            return false;
+        }
+    }
+
+    m_num_iters_left = m_num_iters - 1;
+    return true;
+}

@@ -1,12 +1,12 @@
-// Copyright (c) 2014-present The Bitcoin Core developers
+// Copyright (c) 2014-2016 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CRYPTO_RIPEMD160_H
-#define BITCOIN_CRYPTO_RIPEMD160_H
+#ifndef HYPERCOIN_CRYPTO_RIPEMD160_H
+#define HYPERCOIN_CRYPTO_RIPEMD160_H
 
-#include <cstdint>
-#include <cstdlib>
+#include <stdint.h>
+#include <stdlib.h>
 
 /** A hasher class for RIPEMD-160. */
 class CRIPEMD160
@@ -14,7 +14,7 @@ class CRIPEMD160
 private:
     uint32_t s[5];
     unsigned char buf[64];
-    uint64_t bytes{0};
+    uint64_t bytes;
 
 public:
     static const size_t OUTPUT_SIZE = 20;
@@ -25,4 +25,4 @@ public:
     CRIPEMD160& Reset();
 };
 
-#endif // BITCOIN_CRYPTO_RIPEMD160_H
+#endif // HYPERCOIN_CRYPTO_RIPEMD160_H
