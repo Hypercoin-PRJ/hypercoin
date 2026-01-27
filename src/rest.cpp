@@ -1,7 +1,9 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <rest.h>
 
@@ -85,7 +87,11 @@ static NodeContext* GetNodeContext(const std::any& context, HTTPRequest* req)
 {
     auto node_context = util::AnyPtr<NodeContext>(context);
     if (!node_context) {
-        RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, STR_INTERNAL_BUG("Node context not found!"));
+        RESTERR(req, HTTP_INTERNAL_SERVER_ERROR,
+                strprintf("%s:%d (%s)\n"
+                          "Internal bug detected: Node context not found!\n"
+                          "You may report this issue here: %s\n",
+                          __FILE__, __LINE__, __func__, CLIENT_BUGREPORT));
         return nullptr;
     }
     return node_context;
@@ -119,7 +125,11 @@ static ChainstateManager* GetChainman(const std::any& context, HTTPRequest* req)
 {
     auto node_context = util::AnyPtr<NodeContext>(context);
     if (!node_context || !node_context->chainman) {
-        RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, STR_INTERNAL_BUG("Chainman disabled or instance not found!"));
+        RESTERR(req, HTTP_INTERNAL_SERVER_ERROR,
+                strprintf("%s:%d (%s)\n"
+                          "Internal bug detected: Chainman disabled or instance not found!\n"
+                          "You may report this issue here: %s\n",
+                          __FILE__, __LINE__, __func__, CLIENT_BUGREPORT));
         return nullptr;
     }
     return node_context->chainman.get();
@@ -379,17 +389,10 @@ static bool rest_spent_txouts(const std::any& context, HTTPRequest* req, const s
     }
 }
 
-/**
- * This handler is used by multiple HTTP endpoints:
- * - `/block/` via `rest_block_extended()`
- * - `/block/notxdetails/` via `rest_block_notxdetails()`
- * - `/blockpart/` via `rest_block_part()` (doesn't support JSON response, so `tx_verbosity` is unset)
- */
 static bool rest_block(const std::any& context,
                        HTTPRequest* req,
                        const std::string& uri_part,
-                       std::optional<TxVerbosity> tx_verbosity,
-                       std::optional<std::pair<size_t, size_t>> block_part = std::nullopt)
+                       TxVerbosity tx_verbosity)
 {
     if (!CheckWarmup(req))
         return false;
@@ -423,43 +426,34 @@ static bool rest_block(const std::any& context,
         pos = pblockindex->GetBlockPos();
     }
 
-    const auto block_data{chainman.m_blockman.ReadRawBlock(pos, block_part)};
-    if (!block_data) {
-        switch (block_data.error()) {
-        case node::ReadRawError::IO: return RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, "I/O error reading " + hashStr);
-        case node::ReadRawError::BadPartRange:
-            assert(block_part);
-            return RESTERR(req, HTTP_BAD_REQUEST, strprintf("Bad block part offset/size %d/%d for %s", block_part->first, block_part->second, hashStr));
-        } // no default case, so the compiler can warn about missing cases
-        assert(false);
+    std::vector<std::byte> block_data{};
+    if (!chainman.m_blockman.ReadRawBlock(block_data, pos)) {
+        return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
     }
 
     switch (rf) {
     case RESTResponseFormat::BINARY: {
         req->WriteHeader("Content-Type", "application/octet-stream");
-        req->WriteReply(HTTP_OK, *block_data);
+        req->WriteReply(HTTP_OK, block_data);
         return true;
     }
 
     case RESTResponseFormat::HEX: {
-        const std::string strHex{HexStr(*block_data) + "\n"};
+        const std::string strHex{HexStr(block_data) + "\n"};
         req->WriteHeader("Content-Type", "text/plain");
         req->WriteReply(HTTP_OK, strHex);
         return true;
     }
 
     case RESTResponseFormat::JSON: {
-        if (tx_verbosity) {
-            CBlock block{};
-            DataStream block_stream{*block_data};
-            block_stream >> TX_WITH_WITNESS(block);
-            UniValue objBlock = blockToJSON(chainman.m_blockman, block, *tip, *pblockindex, *tx_verbosity, chainman.GetConsensus().powLimit);
-            std::string strJSON = objBlock.write() + "\n";
-            req->WriteHeader("Content-Type", "application/json");
-            req->WriteReply(HTTP_OK, strJSON);
-            return true;
-        }
-        return RESTERR(req, HTTP_BAD_REQUEST, "JSON output is not supported for this request type");
+        CBlock block{};
+        DataStream block_stream{block_data};
+        block_stream >> TX_WITH_WITNESS(block);
+        UniValue objBlock = blockToJSON(chainman.m_blockman, block, *tip, *pblockindex, tx_verbosity, chainman.GetConsensus().powLimit);
+        std::string strJSON = objBlock.write() + "\n";
+        req->WriteHeader("Content-Type", "application/json");
+        req->WriteReply(HTTP_OK, strJSON);
+        return true;
     }
 
     default: {
@@ -476,25 +470,6 @@ static bool rest_block_extended(const std::any& context, HTTPRequest* req, const
 static bool rest_block_notxdetails(const std::any& context, HTTPRequest* req, const std::string& uri_part)
 {
     return rest_block(context, req, uri_part, TxVerbosity::SHOW_TXID);
-}
-
-static bool rest_block_part(const std::any& context, HTTPRequest* req, const std::string& uri_part)
-{
-    try {
-        if (const auto opt_offset{ToIntegral<size_t>(req->GetQueryParameter("offset").value_or(""))}) {
-            if (const auto opt_size{ToIntegral<size_t>(req->GetQueryParameter("size").value_or(""))}) {
-                return rest_block(context, req, uri_part,
-                                  /*tx_verbosity=*/std::nullopt,
-                                  /*block_part=*/{{*opt_offset, *opt_size}});
-            } else {
-                return RESTERR(req, HTTP_BAD_REQUEST, "Block part size missing or invalid");
-            }
-        } else {
-            return RESTERR(req, HTTP_BAD_REQUEST, "Block part offset missing or invalid");
-        }
-    } catch (const std::runtime_error& e) {
-        return RESTERR(req, HTTP_BAD_REQUEST, e.what());
-    }
 }
 
 static bool rest_filter_header(const std::any& context, HTTPRequest* req, const std::string& uri_part)
@@ -854,7 +829,7 @@ static bool rest_tx(const std::any& context, HTTPRequest* req, const std::string
     const NodeContext* const node = GetNodeContext(context, req);
     if (!node) return false;
     uint256 hashBlock = uint256();
-    const CTransactionRef tx{GetTransaction(/*block_index=*/nullptr, node->mempool.get(), *hash,  node->chainman->m_blockman, hashBlock)};
+    const CTransactionRef tx{GetTransaction(/*block_index=*/nullptr, node->mempool.get(), *hash, hashBlock, node->chainman->m_blockman)};
     if (!tx) {
         return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
     }
@@ -1142,20 +1117,19 @@ static const struct {
     const char* prefix;
     bool (*handler)(const std::any& context, HTTPRequest* req, const std::string& strReq);
 } uri_prefixes[] = {
-    {"/rest/tx/", rest_tx},
-    {"/rest/block/notxdetails/", rest_block_notxdetails},
-    {"/rest/block/", rest_block_extended},
-    {"/rest/blockpart/", rest_block_part},
-    {"/rest/blockfilter/", rest_block_filter},
-    {"/rest/blockfilterheaders/", rest_filter_header},
-    {"/rest/chaininfo", rest_chaininfo},
-    {"/rest/mempool/", rest_mempool},
-    {"/rest/headers/", rest_headers},
-    {"/rest/getutxos", rest_getutxos},
-    {"/rest/deploymentinfo/", rest_deploymentinfo},
-    {"/rest/deploymentinfo", rest_deploymentinfo},
-    {"/rest/blockhashbyheight/", rest_blockhash_by_height},
-    {"/rest/spenttxouts/", rest_spent_txouts},
+      {"/rest/tx/", rest_tx},
+      {"/rest/block/notxdetails/", rest_block_notxdetails},
+      {"/rest/block/", rest_block_extended},
+      {"/rest/blockfilter/", rest_block_filter},
+      {"/rest/blockfilterheaders/", rest_filter_header},
+      {"/rest/chaininfo", rest_chaininfo},
+      {"/rest/mempool/", rest_mempool},
+      {"/rest/headers/", rest_headers},
+      {"/rest/getutxos", rest_getutxos},
+      {"/rest/deploymentinfo/", rest_deploymentinfo},
+      {"/rest/deploymentinfo", rest_deploymentinfo},
+      {"/rest/blockhashbyheight/", rest_blockhash_by_height},
+      {"/rest/spenttxouts/", rest_spent_txouts},
 };
 
 void StartREST(const std::any& context)

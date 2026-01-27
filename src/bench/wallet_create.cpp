@@ -1,4 +1,4 @@
-// Copyright (c) 2023-present The Bitcoin Core developers
+// Copyright (c) 2023-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
@@ -60,7 +60,7 @@ static void WalletCreate(benchmark::Bench& bench, bool encrypted)
 static void WalletCreatePlain(benchmark::Bench& bench) { WalletCreate(bench, /*encrypted=*/false); }
 static void WalletCreateEncrypted(benchmark::Bench& bench) { WalletCreate(bench, /*encrypted=*/true); }
 
-BENCHMARK(WalletCreatePlain);
-BENCHMARK(WalletCreateEncrypted);
+BENCHMARK(WalletCreatePlain, benchmark::PriorityLevel::LOW);
+BENCHMARK(WalletCreateEncrypted, benchmark::PriorityLevel::LOW);
 
 } // namespace wallet

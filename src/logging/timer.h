@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_LOGGING_TIMER_H
-#define BITCOIN_LOGGING_TIMER_H
+#ifndef HYPERCOIN_LOGGING_TIMER_H
+#define HYPERCOIN_LOGGING_TIMER_H
 
 #include <logging.h>
 #include <util/macros.h>
@@ -53,7 +53,7 @@ public:
         const std::string full_msg = this->LogMsg(msg);
 
         if (m_log_category == BCLog::LogFlags::ALL) {
-            LogInfo("%s\n", full_msg);
+            LogPrintf("%s\n", full_msg);
         } else {
             LogDebug(m_log_category, "%s\n", full_msg);
         }
@@ -108,4 +108,4 @@ private:
     BCLog::Timer<std::chrono::seconds> UNIQUE_NAME(logging_timer)(__func__, end_msg)
 
 
-#endif // BITCOIN_LOGGING_TIMER_H
+#endif // HYPERCOIN_LOGGING_TIMER_H

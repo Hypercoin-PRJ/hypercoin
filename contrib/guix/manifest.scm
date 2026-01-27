@@ -19,7 +19,7 @@
              ((gnu packages python-build) #:select (python-poetry-core))
              ((gnu packages python-crypto) #:select (python-asn1crypto))
              ((gnu packages python-science) #:select (python-scikit-build-core))
-             ((gnu packages python-xyz) #:select (python-pydantic-2))
+             ((gnu packages python-xyz) #:select (python-pydantic-2 python-pydantic-core))
              ((gnu packages tls) #:select (openssl))
              ((gnu packages version-control) #:select (git-minimal))
              (guix build-system cmake)
@@ -94,37 +94,27 @@ chain for " target " development."))
       (home-page (package-home-page xgcc))
       (license (package-license xgcc)))))
 
-(define base-gcc
-  (package
-    (inherit gcc-14) ;; 14.2.0
-    (version "14.3.0")
-    (source (origin
-              (method url-fetch)
-              (uri (string-append "mirror://gnu/gcc/gcc-"
-                                  version "/gcc-" version ".tar.xz"))
-              (sha256
-               (base32
-                "0fna78ly417g69fdm4i5f3ms96g8xzzjza8gwp41lqr5fqlpgp70"))))))
+(define base-gcc gcc-13) ;; 13.3.0
 
 (define base-linux-kernel-headers linux-libre-headers-6.1)
 
-(define* (make-bitcoin-cross-toolchain target
+(define* (make-hypercoin-cross-toolchain target
                                        #:key
-                                       (base-gcc-for-libc (gcc-libgcc-patches linux-base-gcc))
+                                       (base-gcc-for-libc linux-base-gcc)
                                        (base-kernel-headers base-linux-kernel-headers)
                                        (base-libc glibc-2.31)
-                                       (base-gcc (gcc-libgcc-patches linux-base-gcc)))
+                                       (base-gcc linux-base-gcc))
   "Convenience wrapper around MAKE-CROSS-TOOLCHAIN with default values
-desirable for building Bitcoin Core release binaries."
+desirable for building Hypercoin Core release binaries."
   (make-cross-toolchain target
                         base-gcc-for-libc
                         base-kernel-headers
                         base-libc
                         base-gcc))
 
-(define (gcc-libgcc-patches gcc)
+(define (gcc-mingw-patches gcc)
   (package-with-extra-patches gcc
-    (search-our-patches "gcc-remap-guix-store.patch" "gcc-ssa-generation.patch")))
+    (search-our-patches "gcc-remap-guix-store.patch")))
 
 (define (binutils-mingw-patches binutils)
   (package-with-extra-patches binutils
@@ -139,10 +129,10 @@ desirable for building Bitcoin Core release binaries."
   (let* ((xbinutils (binutils-mingw-patches (cross-binutils target)))
          (machine (substring target 0 (string-index target #\-)))
          (pthreads-xlibc (winpthreads-patches (make-mingw-w64 machine
-                                         #:xgcc (cross-gcc target #:xgcc (gcc-libgcc-patches base-gcc))
+                                         #:xgcc (cross-gcc target #:xgcc (gcc-mingw-patches base-gcc))
                                          #:with-winpthreads? #t)))
          (pthreads-xgcc (cross-gcc target
-                                    #:xgcc (gcc-libgcc-patches mingw-w64-base-gcc)
+                                    #:xgcc (gcc-mingw-patches mingw-w64-base-gcc)
                                     #:xbinutils xbinutils
                                     #:libc pthreads-xlibc)))
     ;; Define a meta-package that propagates the resulting XBINUTILS, XLIBC, and
@@ -167,7 +157,7 @@ chain for " target " development."))
 ;; While LIEF is packaged in Guix, we maintain our own package,
 ;; to simplify building, and more easily apply updates.
 ;; Moreover, the Guix's package uses cmake, which caused build
-;; failure; see https://github.com/bitcoin/bitcoin/pull/27296.
+;; failure; see https://github.com/hypercoin/hypercoin/pull/27296.
 (define-public python-lief
   (package
     (name "python-lief")
@@ -186,6 +176,7 @@ chain for " target " development."))
     (native-inputs (list cmake-minimal
                          ninja
                          python-scikit-build-core
+                         python-pydantic-core
                          python-pydantic-2))
     (arguments
      (list
@@ -442,9 +433,7 @@ inspecting signatures in Mach-O binaries.")
             ;; https://gcc.gnu.org/install/configure.html
             (list "--enable-threads=posix",
                   "--enable-default-ssp=yes",
-                  "--enable-host-bind-now=yes",
                   "--disable-gcov",
-                  "--disable-libgomp",
                   building-on)))))))
 
 (define-public linux-base-gcc
@@ -458,14 +447,9 @@ inspecting signatures in Mach-O binaries.")
             (list "--enable-initfini-array=yes",
                   "--enable-default-ssp=yes",
                   "--enable-default-pie=yes",
-                  "--enable-host-bind-now=yes",
                   "--enable-standard-branch-protection=yes",
                   "--enable-cet=yes",
-                  "--enable-gprofng=no",
                   "--disable-gcov",
-                  "--disable-libgomp",
-                  "--disable-libquadmath",
-                  "--disable-libsanitizer",
                   building-on)))
         ((#:phases phases)
           `(modify-phases ,phases
@@ -482,7 +466,7 @@ inspecting signatures in Mach-O binaries.")
 (define-public glibc-2.31
   (let ((commit "7b27c450c34563a28e634cccb399cd415e71ebfe"))
   (package
-    (inherit glibc) ;; 2.39
+    (inherit glibc) ;; 2.35
     (version "2.31")
     (source (origin
               (method git-fetch)
@@ -493,8 +477,7 @@ inspecting signatures in Mach-O binaries.")
               (sha256
                (base32
                 "017qdpr5id7ddb4lpkzj2li1abvw916m3fc6n7nw28z4h5qbv2n0"))
-              (patches (search-our-patches "glibc-guix-prefix.patch"
-                                           "glibc-riscv-jumptarget.patch"))))
+              (patches (search-our-patches "glibc-guix-prefix.patch"))))
     (arguments
       (substitute-keyword-arguments (package-arguments glibc)
         ((#:configure-flags flags)
@@ -571,7 +554,7 @@ inspecting signatures in Mach-O binaries.")
         gzip
         xz
         ;; Build tools
-        gcc-toolchain-14
+        gcc-toolchain-13
         cmake-minimal
         gnu-make
         ninja
@@ -591,12 +574,12 @@ inspecting signatures in Mach-O binaries.")
           ((string-contains target "-linux-")
            (list bison
                  pkg-config
-                 (list gcc-toolchain-14 "static")
-                 (make-bitcoin-cross-toolchain target)))
+                 (list gcc-toolchain-13 "static")
+                 (make-hypercoin-cross-toolchain target)))
           ((string-contains target "darwin")
-           (list clang-toolchain-19
-                 lld-19
-                 (make-lld-wrapper lld-19 #:lld-as-ld? #t)
+           (list clang-toolchain-18
+                 lld-18
+                 (make-lld-wrapper lld-18 #:lld-as-ld? #t)
                  python-signapple
                  zip))
           (else '())))))

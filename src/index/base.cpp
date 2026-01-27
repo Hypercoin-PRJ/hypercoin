@@ -1,48 +1,32 @@
-// Copyright (c) 2017-present The Bitcoin Core developers
+// Copyright (c) 2017-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <index/base.h>
-
-#include <chain.h>
+#include <chainparams.h>
 #include <common/args.h>
-#include <dbwrapper.h>
+#include <index/base.h>
 #include <interfaces/chain.h>
-#include <interfaces/types.h>
-#include <kernel/types.h>
+#include <kernel/chain.h>
 #include <logging.h>
 #include <node/abort.h>
 #include <node/blockstorage.h>
 #include <node/context.h>
 #include <node/database_args.h>
 #include <node/interface_ui.h>
-#include <primitives/block.h>
-#include <sync.h>
 #include <tinyformat.h>
-#include <uint256.h>
 #include <undo.h>
-#include <util/fs.h>
 #include <util/string.h>
 #include <util/thread.h>
-#include <util/threadinterrupt.h>
-#include <util/time.h>
 #include <util/translation.h>
 #include <validation.h>
-#include <validationinterface.h>
 
-#include <cassert>
-#include <compare>
-#include <cstdint>
+#include <chrono>
 #include <memory>
 #include <optional>
-#include <span>
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
-#include <vector>
-
-using kernel::ChainstateRole;
 
 constexpr uint8_t DB_BEST_BLOCK{'B'};
 
@@ -75,16 +59,13 @@ BaseIndex::DB::DB(const fs::path& path, size_t n_cache_size, bool f_memory, bool
         .options = [] { DBOptions options; node::ReadDatabaseArgs(gArgs, options); return options; }()}}
 {}
 
-CBlockLocator BaseIndex::DB::ReadBestBlock() const
+bool BaseIndex::DB::ReadBestBlock(CBlockLocator& locator) const
 {
-    CBlockLocator locator;
-
     bool success = Read(DB_BEST_BLOCK, locator);
     if (!success) {
         locator.SetNull();
     }
-
-    return locator;
+    return success;
 }
 
 void BaseIndex::DB::WriteBestBlock(CDBBatch& batch, const CBlockLocator& locator)
@@ -109,14 +90,17 @@ bool BaseIndex::Init()
     m_interrupt.reset();
 
     // m_chainstate member gives indexing code access to node internals. It is
-    // removed in followup https://github.com/bitcoin/bitcoin/pull/24230
+    // removed in followup https://github.com/hypercoin/hypercoin/pull/24230
     m_chainstate = WITH_LOCK(::cs_main,
-                             return &m_chain->context()->chainman->ValidatedChainstate());
+        return &m_chain->context()->chainman->GetChainstateForIndexing());
     // Register to validation interface before setting the 'm_synced' flag, so that
     // callbacks are not missed once m_synced is true.
     m_chain->context()->validation_signals->RegisterValidationInterface(this);
 
-    const auto locator{GetDB().ReadBestBlock()};
+    CBlockLocator locator;
+    if (!GetDB().ReadBestBlock(locator)) {
+        locator.SetNull();
+    }
 
     LOCK(cs_main);
     CChain& index_chain = m_chainstate->m_chain;
@@ -277,7 +261,7 @@ bool BaseIndex::Commit()
         ok = CustomCommit(batch);
         if (ok) {
             GetDB().WriteBestBlock(batch, GetLocator(*m_chain, m_best_block_index.load()->GetBlockHash()));
-            GetDB().WriteBatch(batch);
+            ok = GetDB().WriteBatch(batch);
         }
     }
     if (!ok) {
@@ -325,13 +309,15 @@ bool BaseIndex::Rewind(const CBlockIndex* current_tip, const CBlockIndex* new_ti
     return true;
 }
 
-void BaseIndex::BlockConnected(const ChainstateRole& role, const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex)
+void BaseIndex::BlockConnected(ChainstateRole role, const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex)
 {
-    // Ignore events from not fully validated chains to avoid out-of-order indexing.
+    // Ignore events from the assumed-valid chain; we will process its blocks
+    // (sequentially) after it is fully verified by the background chainstate. This
+    // is to avoid any out-of-order indexing.
     //
     // TODO at some point we could parameterize whether a particular index can be
     // built out of order, but for now just do the conservative simple thing.
-    if (!role.validated) {
+    if (role == ChainstateRole::ASSUMEDVALID) {
         return;
     }
 
@@ -377,10 +363,11 @@ void BaseIndex::BlockConnected(const ChainstateRole& role, const std::shared_ptr
     }
 }
 
-void BaseIndex::ChainStateFlushed(const ChainstateRole& role, const CBlockLocator& locator)
+void BaseIndex::ChainStateFlushed(ChainstateRole role, const CBlockLocator& locator)
 {
-    // Ignore events from not fully validated chains to avoid out-of-order indexing.
-    if (!role.validated) {
+    // Ignore events from the assumed-valid chain; we will process its blocks
+    // (sequentially) after it is fully verified by the background chainstate.
+    if (role == ChainstateRole::ASSUMEDVALID) {
         return;
     }
 

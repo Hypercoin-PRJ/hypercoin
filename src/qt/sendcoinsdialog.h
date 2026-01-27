@@ -1,9 +1,9 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_SENDCOINSDIALOG_H
-#define BITCOIN_QT_SENDCOINSDIALOG_H
+#ifndef HYPERCOIN_QT_SENDCOINSDIALOG_H
+#define HYPERCOIN_QT_SENDCOINSDIALOG_H
 
 #include <primitives/transaction_identifier.h>
 #include <qt/clientmodel.h>
@@ -30,7 +30,7 @@ QT_BEGIN_NAMESPACE
 class QUrl;
 QT_END_NAMESPACE
 
-/** Dialog for sending bitcoins */
+/** Dialog for sending hypercoins */
 class SendCoinsDialog : public QDialog
 {
     Q_OBJECT
@@ -153,4 +153,4 @@ private:
     QString m_psbt_button_text{tr("Create Unsigned")};
 };
 
-#endif // BITCOIN_QT_SENDCOINSDIALOG_H
+#endif // HYPERCOIN_QT_SENDCOINSDIALOG_H

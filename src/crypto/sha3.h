@@ -1,13 +1,14 @@
-// Copyright (c) 2020-present The Bitcoin Core developers
+// Copyright (c) 2020-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CRYPTO_SHA3_H
-#define BITCOIN_CRYPTO_SHA3_H
+#ifndef HYPERCOIN_CRYPTO_SHA3_H
+#define HYPERCOIN_CRYPTO_SHA3_H
+
+#include <span.h>
 
 #include <cstdint>
 #include <cstdlib>
-#include <span>
 
 //! The Keccak-f[1600] transform.
 void KeccakF(uint64_t (&st)[25]);
@@ -37,4 +38,4 @@ public:
     SHA3_256& Reset();
 };
 
-#endif // BITCOIN_CRYPTO_SHA3_H
+#endif // HYPERCOIN_CRYPTO_SHA3_H

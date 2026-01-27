@@ -1,4 +1,4 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -8,8 +8,7 @@
 #include <noui.h>
 #include <tinyformat.h>
 
-#include <cstdlib>
-#include <iostream>
+#include <stdexcept>
 
 DebugLogHelper::DebugLogHelper(std::string message, MatchFn match)
     : m_message{std::move(message)}, m_match(std::move(match))
@@ -22,12 +21,11 @@ DebugLogHelper::DebugLogHelper(std::string message, MatchFn match)
     noui_test_redirect();
 }
 
-DebugLogHelper::~DebugLogHelper()
+void DebugLogHelper::check_found()
 {
     noui_reconnect();
     LogInstance().DeleteCallback(m_print_connection);
     if (!m_found && m_match(nullptr)) {
-        tfm::format(std::cerr, "Fatal error: expected message not found in the debug log: '%s'\n", m_message);
-        std::abort();
+        throw std::runtime_error(strprintf("'%s' not found in debug log\n", m_message));
     }
 }

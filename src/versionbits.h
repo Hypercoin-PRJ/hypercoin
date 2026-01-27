@@ -1,9 +1,9 @@
-// Copyright (c) 2016-present The Bitcoin Core developers
+// Copyright (c) 2016-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_VERSIONBITS_H
-#define BITCOIN_VERSIONBITS_H
+#ifndef HYPERCOIN_VERSIONBITS_H
+#define HYPERCOIN_VERSIONBITS_H
 
 #include <chain.h>
 #include <sync.h>
@@ -99,4 +99,4 @@ public:
     void Clear() EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 };
 
-#endif // BITCOIN_VERSIONBITS_H
+#endif // HYPERCOIN_VERSIONBITS_H

@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -51,8 +51,6 @@ bool VerifyWallets(WalletContext& context)
     }
 
     LogInfo("Using wallet directory %s", fs::PathToString(GetWalletDir()));
-    // Print general DB information
-    LogDBInfo();
 
     chain.initMessage(_("Verifying wallet(s)…"));
 

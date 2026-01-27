@@ -1,4 +1,4 @@
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -14,7 +14,6 @@
 #include <util/time.h>
 
 #include <any>
-#include <string_view>
 
 #include <boost/test/unit_test.hpp>
 
@@ -535,43 +534,40 @@ BOOST_AUTO_TEST_CASE(check_dup_param_names)
     make_rpc({{"p1", NAMED_ONLY}, {"p2", NAMED}});
     make_rpc({{"p1", NAMED_ONLY}, {"p2", NAMED_ONLY}});
 
-    {
-        test_only_CheckFailuresAreExceptionsNotAborts mock_checks{};
-        // Error if parameter names are duplicates, unless one parameter is
-        // positional and the other is named and .also_positional is true.
-        BOOST_CHECK_THROW(make_rpc({{"p1", POSITIONAL}, {"p1", POSITIONAL}}), NonFatalCheckError);
-        make_rpc({{"p1", POSITIONAL}, {"p1", NAMED}});
-        BOOST_CHECK_THROW(make_rpc({{"p1", POSITIONAL}, {"p1", NAMED_ONLY}}), NonFatalCheckError);
-        make_rpc({{"p1", NAMED}, {"p1", POSITIONAL}});
-        BOOST_CHECK_THROW(make_rpc({{"p1", NAMED}, {"p1", NAMED}}), NonFatalCheckError);
-        BOOST_CHECK_THROW(make_rpc({{"p1", NAMED}, {"p1", NAMED_ONLY}}), NonFatalCheckError);
-        BOOST_CHECK_THROW(make_rpc({{"p1", NAMED_ONLY}, {"p1", POSITIONAL}}), NonFatalCheckError);
-        BOOST_CHECK_THROW(make_rpc({{"p1", NAMED_ONLY}, {"p1", NAMED}}), NonFatalCheckError);
-        BOOST_CHECK_THROW(make_rpc({{"p1", NAMED_ONLY}, {"p1", NAMED_ONLY}}), NonFatalCheckError);
+    // Error if parameters names are duplicates, unless one parameter is
+    // positional and the other is named and .also_positional is true.
+    BOOST_CHECK_THROW(make_rpc({{"p1", POSITIONAL}, {"p1", POSITIONAL}}), NonFatalCheckError);
+    make_rpc({{"p1", POSITIONAL}, {"p1", NAMED}});
+    BOOST_CHECK_THROW(make_rpc({{"p1", POSITIONAL}, {"p1", NAMED_ONLY}}), NonFatalCheckError);
+    make_rpc({{"p1", NAMED}, {"p1", POSITIONAL}});
+    BOOST_CHECK_THROW(make_rpc({{"p1", NAMED}, {"p1", NAMED}}), NonFatalCheckError);
+    BOOST_CHECK_THROW(make_rpc({{"p1", NAMED}, {"p1", NAMED_ONLY}}), NonFatalCheckError);
+    BOOST_CHECK_THROW(make_rpc({{"p1", NAMED_ONLY}, {"p1", POSITIONAL}}), NonFatalCheckError);
+    BOOST_CHECK_THROW(make_rpc({{"p1", NAMED_ONLY}, {"p1", NAMED}}), NonFatalCheckError);
+    BOOST_CHECK_THROW(make_rpc({{"p1", NAMED_ONLY}, {"p1", NAMED_ONLY}}), NonFatalCheckError);
 
-        // Make sure duplicate aliases are detected too.
-        BOOST_CHECK_THROW(make_rpc({{"p1", POSITIONAL}, {"p2|p1", NAMED_ONLY}}), NonFatalCheckError);
-    }
+    // Make sure duplicate aliases are detected too.
+    BOOST_CHECK_THROW(make_rpc({{"p1", POSITIONAL}, {"p2|p1", NAMED_ONLY}}), NonFatalCheckError);
 }
 
 BOOST_AUTO_TEST_CASE(help_example)
 {
     // test different argument types
     const RPCArgList& args = {{"foo", "bar"}, {"b", true}, {"n", 1}};
-    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", args), "> bitcoin-cli -named test foo=bar b=true n=1\n");
+    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", args), "> hypercoin-cli -named test foo=bar b=true n=1\n");
     BOOST_CHECK_EQUAL(HelpExampleRpcNamed("test", args), "> curl --user myusername --data-binary '{\"jsonrpc\": \"2.0\", \"id\": \"curltest\", \"method\": \"test\", \"params\": {\"foo\":\"bar\",\"b\":true,\"n\":1}}' -H 'content-type: application/json' http://127.0.0.1:8332/\n");
 
     // test shell escape
-    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"foo", "b'ar"}}), "> bitcoin-cli -named test foo='b'''ar'\n");
-    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"foo", "b\"ar"}}), "> bitcoin-cli -named test foo='b\"ar'\n");
-    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"foo", "b ar"}}), "> bitcoin-cli -named test foo='b ar'\n");
+    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"foo", "b'ar"}}), "> hypercoin-cli -named test foo='b'''ar'\n");
+    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"foo", "b\"ar"}}), "> hypercoin-cli -named test foo='b\"ar'\n");
+    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"foo", "b ar"}}), "> hypercoin-cli -named test foo='b ar'\n");
 
     // test object params
     UniValue obj_value(UniValue::VOBJ);
     obj_value.pushKV("foo", "bar");
     obj_value.pushKV("b", false);
     obj_value.pushKV("n", 1);
-    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"name", obj_value}}), "> bitcoin-cli -named test name='{\"foo\":\"bar\",\"b\":false,\"n\":1}'\n");
+    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"name", obj_value}}), "> hypercoin-cli -named test name='{\"foo\":\"bar\",\"b\":false,\"n\":1}'\n");
     BOOST_CHECK_EQUAL(HelpExampleRpcNamed("test", {{"name", obj_value}}), "> curl --user myusername --data-binary '{\"jsonrpc\": \"2.0\", \"id\": \"curltest\", \"method\": \"test\", \"params\": {\"name\":{\"foo\":\"bar\",\"b\":false,\"n\":1}}}' -H 'content-type: application/json' http://127.0.0.1:8332/\n");
 
     // test array params
@@ -579,7 +575,7 @@ BOOST_AUTO_TEST_CASE(help_example)
     arr_value.push_back("bar");
     arr_value.push_back(false);
     arr_value.push_back(1);
-    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"name", arr_value}}), "> bitcoin-cli -named test name='[\"bar\",false,1]'\n");
+    BOOST_CHECK_EQUAL(HelpExampleCliNamed("test", {{"name", arr_value}}), "> hypercoin-cli -named test name='[\"bar\",false,1]'\n");
     BOOST_CHECK_EQUAL(HelpExampleRpcNamed("test", {{"name", arr_value}}), "> curl --user myusername --data-binary '{\"jsonrpc\": \"2.0\", \"id\": \"curltest\", \"method\": \"test\", \"params\": {\"name\":[\"bar\",false,1]}}' -H 'content-type: application/json' http://127.0.0.1:8332/\n");
 
     // test types don't matter for shell
@@ -622,9 +618,9 @@ BOOST_AUTO_TEST_CASE(rpc_arg_helper)
     //! Check that `self.Arg` returns the same value as the `request.params` accessors
     RPCHelpMan::RPCMethodImpl check_positional = [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
             BOOST_CHECK_EQUAL(self.Arg<int>("req_int"), request.params[0].getInt<int>());
-            BOOST_CHECK_EQUAL(self.Arg<std::string_view>("req_str"), request.params[1].get_str());
+            BOOST_CHECK_EQUAL(self.Arg<std::string>("req_str"), request.params[1].get_str());
             BOOST_CHECK_EQUAL(self.Arg<uint64_t>("def_uint64_t"), request.params[2].isNull() ? DEFAULT_UINT64_T : request.params[2].getInt<uint64_t>());
-            BOOST_CHECK_EQUAL(self.Arg<std::string_view>("def_string"), request.params[3].isNull() ? DEFAULT_STRING : request.params[3].get_str());
+            BOOST_CHECK_EQUAL(self.Arg<std::string>("def_string"), request.params[3].isNull() ? DEFAULT_STRING : request.params[3].get_str());
             BOOST_CHECK_EQUAL(self.Arg<bool>("def_bool"), request.params[4].isNull() ? DEFAULT_BOOL : request.params[4].get_bool());
             if (!request.params[5].isNull()) {
                 BOOST_CHECK_EQUAL(self.MaybeArg<double>("opt_double").value(), request.params[5].get_real());
@@ -632,9 +628,10 @@ BOOST_AUTO_TEST_CASE(rpc_arg_helper)
                 BOOST_CHECK(!self.MaybeArg<double>("opt_double"));
             }
             if (!request.params[6].isNull()) {
-                BOOST_CHECK_EQUAL(self.MaybeArg<std::string_view>("opt_string"), request.params[6].get_str());
+                BOOST_CHECK(self.MaybeArg<std::string>("opt_string"));
+                BOOST_CHECK_EQUAL(*self.MaybeArg<std::string>("opt_string"), request.params[6].get_str());
             } else {
-                BOOST_CHECK(!self.MaybeArg<std::string_view>("opt_string"));
+                BOOST_CHECK(!self.MaybeArg<std::string>("opt_string"));
             }
             return UniValue{};
         };

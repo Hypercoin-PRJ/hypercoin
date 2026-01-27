@@ -1,4 +1,4 @@
-# Copyright (c) 2023-present The Bitcoin Core developers
+# Copyright (c) 2023-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit/.
 
@@ -19,7 +19,6 @@ add_executable(fuzz
   block.cpp
   block_header.cpp
   block_index.cpp
-  block_index_tree.cpp
   blockfilter.cpp
   bloom_filter.cpp
   buffered_file.cpp
@@ -42,7 +41,6 @@ add_executable(fuzz
   decode_tx.cpp
   descriptor_parse.cpp
   deserialize.cpp
-  difference_formatter.cpp
   eval_script.cpp
   feefrac.cpp
   fee_rate.cpp
@@ -136,16 +134,13 @@ add_executable(fuzz
   vecdeque.cpp
   versionbits.cpp
 )
-
-add_windows_application_manifest(fuzz)
-
 target_link_libraries(fuzz
   core_interface
   fuzzer_interface
   test_fuzz
-  bitcoin_cli
-  bitcoin_common
-  bitcoin_util
+  hypercoin_cli
+  hypercoin_common
+  hypercoin_util
   minisketch
   leveldb
   univalue

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-present The Bitcoin Core developers
+// Copyright (c) 2021-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -77,7 +77,7 @@ static bool ParseAddress(std::string& address,
     if (address == "unix" || address.starts_with("unix:")) {
         fs::path path;
         if (address.size() <= 5) {
-            path = data_dir / fs::PathFromString(strprintf("%s.sock", RemovePrefixView(dest_exe_name, "bitcoin-")));
+            path = data_dir / fs::PathFromString(strprintf("%s.sock", RemovePrefixView(dest_exe_name, "hypercoin-")));
         } else {
             path = data_dir / fs::PathFromString(address.substr(5));
         }
@@ -116,7 +116,7 @@ int ProcessImpl::connect(const fs::path& data_dir,
     }
     int connect_error = errno;
     if (::close(fd) != 0) {
-        LogWarning("Error closing file descriptor %i '%s': %s", fd, address, SysErrorString(errno));
+        LogPrintf("Error closing file descriptor %i '%s': %s\n", fd, address, SysErrorString(errno));
     }
     throw std::system_error(connect_error, std::system_category());
 }
@@ -147,7 +147,7 @@ int ProcessImpl::bind(const fs::path& data_dir, const std::string& exe_name, std
     }
     int bind_error = errno;
     if (::close(fd) != 0) {
-        LogWarning("Error closing file descriptor %i: %s", fd, SysErrorString(errno));
+        LogPrintf("Error closing file descriptor %i: %s\n", fd, SysErrorString(errno));
     }
     throw std::system_error(bind_error, std::system_category());
 }

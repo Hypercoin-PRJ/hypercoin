@@ -1,9 +1,9 @@
-// Copyright (c) 2018-present The Bitcoin Core developers
+// Copyright (c) 2018 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_COMPAT_STDIN_H
-#define BITCOIN_COMPAT_STDIN_H
+#ifndef HYPERCOIN_COMPAT_STDIN_H
+#define HYPERCOIN_COMPAT_STDIN_H
 
 struct NoechoInst {
     NoechoInst();
@@ -15,4 +15,4 @@ struct NoechoInst {
 bool StdinTerminal();
 bool StdinReady();
 
-#endif // BITCOIN_COMPAT_STDIN_H
+#endif // HYPERCOIN_COMPAT_STDIN_H

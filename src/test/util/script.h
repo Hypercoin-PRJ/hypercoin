@@ -1,13 +1,12 @@
-// Copyright (c) 2021-present The Bitcoin Core developers
+// Copyright (c) 2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_TEST_UTIL_SCRIPT_H
-#define BITCOIN_TEST_UTIL_SCRIPT_H
+#ifndef HYPERCOIN_TEST_UTIL_SCRIPT_H
+#define HYPERCOIN_TEST_UTIL_SCRIPT_H
 
 #include <crypto/sha256.h>
 #include <script/script.h>
-#include <script/verify_flags.h>
 
 static const std::vector<uint8_t> WITNESS_STACK_ELEM_OP_TRUE{uint8_t{OP_TRUE}};
 static const CScript P2WSH_OP_TRUE{
@@ -32,6 +31,6 @@ static const std::vector<std::vector<uint8_t>> P2WSH_EMPTY_TRUE_STACK{{static_ca
 static const std::vector<std::vector<uint8_t>> P2WSH_EMPTY_TWO_STACK{{static_cast<uint8_t>(OP_2)}, {}};
 
 /** Flags that are not forbidden by an assert in script validation */
-bool IsValidFlagCombination(script_verify_flags flags);
+bool IsValidFlagCombination(unsigned flags);
 
-#endif // BITCOIN_TEST_UTIL_SCRIPT_H
+#endif // HYPERCOIN_TEST_UTIL_SCRIPT_H

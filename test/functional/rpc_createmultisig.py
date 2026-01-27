@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-present The Bitcoin Core developers
+# Copyright (c) 2015-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test multisig RPCs"""
@@ -13,7 +13,7 @@ from test_framework.descriptors import descsum_create
 from test_framework.key import ECPubKey
 from test_framework.messages import COIN
 from test_framework.script_util import keys_to_multisig_script
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_raises_rpc_error,
     assert_equal,
@@ -24,7 +24,7 @@ from test_framework.wallet import (
     getnewdestination,
 )
 
-class RpcCreateMultiSigTest(BitcoinTestFramework):
+class RpcCreateMultiSigTest(HypercoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
@@ -184,7 +184,7 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
 
     def test_sortedmulti_descriptors_bip67(self):
         self.log.info('Testing sortedmulti descriptors with BIP 67 test vectors')
-        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/rpc_bip67.json')) as f:
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/rpc_bip67.json'), encoding='utf-8') as f:
             vectors = json.load(f)
 
         for t in vectors:

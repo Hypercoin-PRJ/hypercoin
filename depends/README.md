@@ -1,7 +1,7 @@
 # Depends build
 
 This is a system of building and caching dependencies necessary for building
-Bitcoin Core. It supports cross-compilation. For more details see [description.md](description.md),
+Hypercoin Core. It supports cross-compilation. For more details see [description.md](description.md),
 as well as [packages.md](packages.md) for how to add packages.
 
 ## Usage
@@ -69,13 +69,13 @@ To build dependencies for the current arch+OS:
 
     make
 
-## Configuring Bitcoin Core
+## Configuring Hypercoin Core
 
-**When configuring Bitcoin Core, CMake by default will ignore the depends output.** In
+**When configuring Hypercoin Core, CMake by default will ignore the depends output.** In
 order for it to pick up libraries, tools, and settings from the depends build,
 you must specify the toolchain file.
 In the above example for Ubuntu, a file named `depends/x86_64-pc-linux-gnu/toolchain.cmake` will be
-created. To use it during configuring Bitcoin Core:
+created. To use it during configuring Hypercoin Core:
 
     cmake -B build --toolchain depends/x86_64-pc-linux-gnu/toolchain.cmake
 
@@ -106,7 +106,7 @@ The following can be set when running make: `make FOO=bar`
 - `LTO`: Enable options needed for LTO. Does not add `-flto` related options to *FLAGS.
 
 If some packages are not built, for example `make NO_WALLET=1`, the appropriate CMake cache
-variables will be set when generating the Bitcoin Core buildsystem. In this case, `-DENABLE_WALLET=OFF`.
+variables will be set when generating the Hypercoin Core buildsystem. In this case, `-DENABLE_WALLET=OFF`.
 
 ## Cross compilation
 
@@ -122,9 +122,8 @@ Common `host-platform-triplet`s for cross compilation are:
 
 - `i686-pc-linux-gnu` for Linux x86 32 bit
 - `x86_64-pc-linux-gnu` for Linux x86 64 bit
-- `x86_64-w64-mingw32` for Windows using MSVCRT
-- `x86_64-w64-mingw32ucrt` for Windows using UCRT
-- `x86_64-apple-darwin` for Intel macOS
+- `x86_64-w64-mingw32` for Win64
+- `x86_64-apple-darwin` for macOS
 - `arm64-apple-darwin` for ARM macOS
 - `arm-linux-gnueabihf` for Linux ARM 32 bit
 - `aarch64-linux-gnu` for Linux ARM 64 bit
@@ -145,13 +144,9 @@ proceeding with a cross-compile. Under the depends directory, create a
 subdirectory named `SDKs`. Then, place the extracted SDK under this new directory.
 For more information, see [SDK Extraction](../contrib/macdeploy/README.md#sdk-extraction).
 
-#### For Windows cross compilation using MSVCRT
+#### For Win64 cross compilation
 
     apt install g++-mingw-w64-x86-64-posix
-
-#### For Windows cross compilation using UCRT
-
-    apt install g++-mingw-w64-ucrt64
 
 #### For linux (including i386, ARM) cross compilation
 

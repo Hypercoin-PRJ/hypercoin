@@ -1,16 +1,15 @@
-// Copyright (c) 2018-present The Bitcoin Core developers
+// Copyright (c) 2018-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BLOCKFILTER_H
-#define BITCOIN_BLOCKFILTER_H
+#ifndef HYPERCOIN_BLOCKFILTER_H
+#define HYPERCOIN_BLOCKFILTER_H
 
 #include <cstddef>
 #include <cstdint>
 #include <ios>
 #include <set>
 #include <string>
-#include <string_view>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -100,7 +99,7 @@ enum class BlockFilterType : uint8_t
 const std::string& BlockFilterTypeName(BlockFilterType filter_type);
 
 /** Find a filter type by its human-readable name. */
-bool BlockFilterTypeByName(std::string_view name, BlockFilterType& filter_type);
+bool BlockFilterTypeByName(const std::string& name, BlockFilterType& filter_type);
 
 /** Get a list of known filter types. */
 const std::set<BlockFilterType>& AllBlockFilterTypes();
@@ -173,4 +172,4 @@ public:
     }
 };
 
-#endif // BITCOIN_BLOCKFILTER_H
+#endif // HYPERCOIN_BLOCKFILTER_H

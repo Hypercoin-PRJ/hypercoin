@@ -1,9 +1,9 @@
-// Copyright (c) 2014-present The Bitcoin Core developers
+// Copyright (c) 2014-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CRYPTO_RIPEMD160_H
-#define BITCOIN_CRYPTO_RIPEMD160_H
+#ifndef HYPERCOIN_CRYPTO_RIPEMD160_H
+#define HYPERCOIN_CRYPTO_RIPEMD160_H
 
 #include <cstdint>
 #include <cstdlib>
@@ -25,4 +25,4 @@ public:
     CRIPEMD160& Reset();
 };
 
-#endif // BITCOIN_CRYPTO_RIPEMD160_H
+#endif // HYPERCOIN_CRYPTO_RIPEMD160_H

@@ -1,9 +1,9 @@
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NETBASE_H
-#define BITCOIN_NETBASE_H
+#ifndef HYPERCOIN_NETBASE_H
+#define HYPERCOIN_NETBASE_H
 
 #include <compat/compat.h>
 #include <netaddress.h>
@@ -60,8 +60,7 @@ class Proxy
 public:
     Proxy() : m_is_unix_socket(false), m_tor_stream_isolation(false) {}
     explicit Proxy(const CService& _proxy, bool tor_stream_isolation = false) : proxy(_proxy), m_is_unix_socket(false), m_tor_stream_isolation(tor_stream_isolation) {}
-    explicit Proxy(std::string path, bool tor_stream_isolation = false)
-        : m_unix_socket_path(std::move(path)), m_is_unix_socket(true), m_tor_stream_isolation(tor_stream_isolation) {}
+    explicit Proxy(const std::string path, bool tor_stream_isolation = false) : m_unix_socket_path(path), m_is_unix_socket(true), m_tor_stream_isolation(tor_stream_isolation) {}
 
     CService proxy;
     std::string m_unix_socket_path;
@@ -133,7 +132,7 @@ public:
     {
         AssertLockNotHeld(m_mutex);
         LOCK(m_mutex);
-        return m_reachable.contains(net);
+        return m_reachable.count(net) > 0;
     }
 
     [[nodiscard]] bool Contains(const CNetAddr& addr) const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
@@ -363,4 +362,4 @@ bool IsBadPort(uint16_t port);
  */
 CService MaybeFlipIPv6toCJDNS(const CService& service);
 
-#endif // BITCOIN_NETBASE_H
+#endif // HYPERCOIN_NETBASE_H

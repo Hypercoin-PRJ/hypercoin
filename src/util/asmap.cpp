@@ -1,4 +1,4 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -200,11 +200,13 @@ std::vector<bool> DecodeAsmap(fs::path path)
     FILE *filestr = fsbridge::fopen(path, "rb");
     AutoFile file{filestr};
     if (file.IsNull()) {
-        LogWarning("Failed to open asmap file from disk");
+        LogPrintf("Failed to open asmap file from disk\n");
         return bits;
     }
-    int64_t length{file.size()};
+    file.seek(0, SEEK_END);
+    int length = file.tell();
     LogInfo("Opened asmap file %s (%d bytes) from disk", fs::quoted(fs::PathToString(path)), length);
+    file.seek(0, SEEK_SET);
     uint8_t cur_byte;
     for (int i = 0; i < length; ++i) {
         file >> cur_byte;
@@ -213,8 +215,9 @@ std::vector<bool> DecodeAsmap(fs::path path)
         }
     }
     if (!SanityCheckASMap(bits, 128)) {
-        LogWarning("Sanity check of asmap file %s failed", fs::quoted(fs::PathToString(path)));
+        LogPrintf("Sanity check of asmap file %s failed\n", fs::quoted(fs::PathToString(path)));
         return {};
     }
     return bits;
 }
+

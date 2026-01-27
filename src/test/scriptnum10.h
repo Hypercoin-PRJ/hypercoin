@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_TEST_SCRIPTNUM10_H
-#define BITCOIN_TEST_SCRIPTNUM10_H
+#ifndef HYPERCOIN_TEST_SCRIPTNUM10_H
+#define HYPERCOIN_TEST_SCRIPTNUM10_H
 
 #include <cassert>
 #include <cstdint>
@@ -22,7 +22,7 @@ public:
 class CScriptNum10
 {
 /**
- * The ScriptNum implementation from Bitcoin Core 0.10.0, for cross-comparison.
+ * The ScriptNum implementation from Hypercoin Core 0.10.0, for cross-comparison.
  */
 public:
 
@@ -61,10 +61,18 @@ public:
     }
 
     inline bool operator==(const int64_t& rhs) const    { return m_value == rhs; }
-    inline auto operator<=>(const int64_t& rhs) const    { return m_value <=> rhs; }
+    inline bool operator!=(const int64_t& rhs) const    { return m_value != rhs; }
+    inline bool operator<=(const int64_t& rhs) const    { return m_value <= rhs; }
+    inline bool operator< (const int64_t& rhs) const    { return m_value <  rhs; }
+    inline bool operator>=(const int64_t& rhs) const    { return m_value >= rhs; }
+    inline bool operator> (const int64_t& rhs) const    { return m_value >  rhs; }
 
     inline bool operator==(const CScriptNum10& rhs) const { return operator==(rhs.m_value); }
-    inline auto operator<=>(const CScriptNum10& rhs) const { return operator<=>(rhs.m_value); }
+    inline bool operator!=(const CScriptNum10& rhs) const { return operator!=(rhs.m_value); }
+    inline bool operator<=(const CScriptNum10& rhs) const { return operator<=(rhs.m_value); }
+    inline bool operator< (const CScriptNum10& rhs) const { return operator< (rhs.m_value); }
+    inline bool operator>=(const CScriptNum10& rhs) const { return operator>=(rhs.m_value); }
+    inline bool operator> (const CScriptNum10& rhs) const { return operator> (rhs.m_value); }
 
     inline CScriptNum10 operator+(   const int64_t& rhs)    const { return CScriptNum10(m_value + rhs);}
     inline CScriptNum10 operator-(   const int64_t& rhs)    const { return CScriptNum10(m_value - rhs);}
@@ -171,4 +179,4 @@ private:
 };
 
 
-#endif // BITCOIN_TEST_SCRIPTNUM10_H
+#endif // HYPERCOIN_TEST_SCRIPTNUM10_H

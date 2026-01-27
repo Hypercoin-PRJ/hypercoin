@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_ARITH_UINT256_H
-#define BITCOIN_ARITH_UINT256_H
+#ifndef HYPERCOIN_ARITH_UINT256_H
+#define HYPERCOIN_ARITH_UINT256_H
 
 #include <compare>
 #include <cstdint>
@@ -21,7 +21,7 @@ public:
 };
 
 /** Template base class for unsigned big integers. */
-template <unsigned int BITS>
+template<unsigned int BITS>
 class base_uint
 {
 protected:
@@ -29,18 +29,30 @@ protected:
     static constexpr int WIDTH = BITS / 32;
     /** Big integer represented with 32-bit digits, least-significant first. */
     uint32_t pn[WIDTH];
-
 public:
-    constexpr base_uint()
+
+    base_uint()
     {
         for (int i = 0; i < WIDTH; i++)
             pn[i] = 0;
     }
 
-    base_uint(const base_uint& b) = default;
-    base_uint& operator=(const base_uint& b) = default;
+    base_uint(const base_uint& b)
+    {
+        for (int i = 0; i < WIDTH; i++)
+            pn[i] = b.pn[i];
+    }
 
-    constexpr base_uint(uint64_t b)
+    base_uint& operator=(const base_uint& b)
+    {
+        if (this != &b) {
+            for (int i = 0; i < WIDTH; i++)
+                pn[i] = b.pn[i];
+        }
+        return *this;
+    }
+
+    base_uint(uint64_t b)
     {
         pn[0] = (unsigned int)b;
         pn[1] = (unsigned int)(b >> 32);
@@ -227,12 +239,11 @@ public:
 };
 
 /** 256-bit unsigned big integer. */
-class arith_uint256 : public base_uint<256>
-{
+class arith_uint256 : public base_uint<256> {
 public:
-    constexpr arith_uint256() = default;
-    constexpr arith_uint256(const base_uint& b) : base_uint(b) {}
-    constexpr arith_uint256(uint64_t b) : base_uint(b) {}
+    arith_uint256() = default;
+    arith_uint256(const base_uint<256>& b) : base_uint<256>(b) {}
+    arith_uint256(uint64_t b) : base_uint<256>(b) {}
 
     /**
      * The "compact" format is a representation of a whole
@@ -249,7 +260,7 @@ public:
      * Thus 0x1234560000 is compact (0x05123456)
      * and  0xc0de000000 is compact (0x0600c0de)
      *
-     * Bitcoin only uses this "compact" format for encoding difficulty
+     * Hypercoin only uses this "compact" format for encoding difficulty
      * targets, which are unsigned 256bit quantities.  Thus, all the
      * complexities of the sign bit and using base 256 are probably an
      * implementation accident.
@@ -261,12 +272,9 @@ public:
     friend arith_uint256 UintToArith256(const uint256 &);
 };
 
-// Keeping the trivially copyable property is beneficial for performance
-static_assert(std::is_trivially_copyable_v<arith_uint256>);
-
 uint256 ArithToUint256(const arith_uint256 &);
 arith_uint256 UintToArith256(const uint256 &);
 
 extern template class base_uint<256>;
 
-#endif // BITCOIN_ARITH_UINT256_H
+#endif // HYPERCOIN_ARITH_UINT256_H

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-present The Bitcoin Core developers
+# Copyright (c) 2015-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test block processing."""
@@ -7,7 +7,6 @@ import copy
 import time
 
 from test_framework.blocktools import (
-    add_witness_commitment,
     create_block,
     create_coinbase,
     create_tx_with_script,
@@ -50,7 +49,7 @@ from test_framework.script import (
 from test_framework.script_util import (
     script_to_p2sh_script,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -85,7 +84,7 @@ class CBrokenBlock(CBlock):
 DUPLICATE_COINBASE_SCRIPT_SIG = b'\x01\x78'  # Valid for block at height 120
 
 
-class FullBlockTest(BitcoinTestFramework):
+class FullBlockTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -93,9 +92,6 @@ class FullBlockTest(BitcoinTestFramework):
             '-acceptnonstdtxn=1',  # This is a consensus block test, we don't care about tx policy
             '-testactivationheight=bip34@2',
         ]]
-
-    def add_options(self, parser):
-        parser.add_argument("--skipreorg", action='store_true', dest="skip_reorg", help="Skip the large re-org test", default=False)
 
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node
@@ -390,7 +386,7 @@ class FullBlockTest(BitcoinTestFramework):
         b26 = self.update_block(26, [])
         self.send_blocks([b26], success=False, reject_reason='bad-cb-length', reconnect=True)
 
-        # Extend the b26 chain to make sure bitcoind isn't accepting b26
+        # Extend the b26 chain to make sure hypercoind isn't accepting b26
         b27 = self.next_block(27, spend=out[7])
         self.send_blocks([b27], False)
 
@@ -401,7 +397,7 @@ class FullBlockTest(BitcoinTestFramework):
         b28 = self.update_block(28, [])
         self.send_blocks([b28], success=False, reject_reason='bad-cb-length', reconnect=True)
 
-        # Extend the b28 chain to make sure bitcoind isn't accepting b28
+        # Extend the b28 chain to make sure hypercoind isn't accepting b28
         b29 = self.next_block(29, spend=out[7])
         self.send_blocks([b29], False)
 
@@ -946,7 +942,7 @@ class FullBlockTest(BitcoinTestFramework):
         assert_equal(b64a.get_weight(), MAX_BLOCK_WEIGHT + 8 * 4)
         self.send_blocks([b64a], success=False, reject_reason='non-canonical ReadCompactSize()')
 
-        # bitcoind doesn't disconnect us for sending a bloated block, but if we subsequently
+        # hypercoind doesn't disconnect us for sending a bloated block, but if we subsequently
         # resend the header message, it won't send us the getdata message again. Just
         # disconnect and reconnect and then call sync_blocks.
         # TODO: improve this test to be less dependent on P2P DOS behaviour.
@@ -1166,7 +1162,7 @@ class FullBlockTest(BitcoinTestFramework):
         #
         #    The tx'es must be unsigned and pass the node's mempool policy.  It is unsigned for the
         #    rather obscure reason that the Python signature code does not distinguish between
-        #    Low-S and High-S values (whereas the bitcoin code has custom code which does so);
+        #    Low-S and High-S values (whereas the hypercoin code has custom code which does so);
         #    as a result of which, the odds are 50% that the python code will use the right
         #    value and the transaction will be accepted into the mempool. Until we modify the
         #    test framework to support low-S signing, we are out of luck.
@@ -1278,62 +1274,60 @@ class FullBlockTest(BitcoinTestFramework):
         b89a = self.update_block("89a", [tx])
         self.send_blocks([b89a], success=False, reject_reason='bad-txns-inputs-missingorspent', reconnect=True)
 
+        # Don't use v2transport for the large reorg, which is too slow with the unoptimized python ChaCha20 implementation
+        if self.options.v2transport:
+            self.nodes[0].disconnect_p2ps()
+            self.helper_peer = self.nodes[0].add_p2p_connection(P2PDataStore(), supports_v2_p2p=False)
+        self.log.info("Test a re-org of one week's worth of blocks (1088 blocks)")
+
         self.move_tip(88)
+        LARGE_REORG_SIZE = 1088
+        blocks = []
+        spend = out[32]
+        for i in range(89, LARGE_REORG_SIZE + 89):
+            b = self.next_block(i, spend)
+            tx = CTransaction()
+            script_length = (MAX_BLOCK_WEIGHT - b.get_weight() - 276) // 4
+            script_output = CScript([b'\x00' * script_length])
+            tx.vout.append(CTxOut(0, script_output))
+            tx.vin.append(CTxIn(COutPoint(b.vtx[1].txid_int, 0)))
+            b = self.update_block(i, [tx])
+            assert_equal(b.get_weight(), MAX_BLOCK_WEIGHT)
+            blocks.append(b)
+            self.save_spendable_output()
+            spend = self.get_spendable_output()
+
+        self.send_blocks(blocks, True, timeout=2440)
+        chain1_tip = i
+
+        # now create alt chain of same length
+        self.move_tip(88)
+        blocks2 = []
+        for i in range(89, LARGE_REORG_SIZE + 89):
+            blocks2.append(self.next_block("alt" + str(i)))
+        self.send_blocks(blocks2, False, force_send=False)
+
+        # extend alt chain to trigger re-org
+        block = self.next_block("alt" + str(chain1_tip + 1))
+        self.send_blocks([block], True, timeout=2440)
+
+        # ... and re-org back to the first chain
+        self.move_tip(chain1_tip)
+        block = self.next_block(chain1_tip + 1)
+        self.send_blocks([block], False, force_send=True)
+        block = self.next_block(chain1_tip + 2)
+        self.send_blocks([block], True, timeout=2440)
+
         self.log.info("Reject a block with an invalid block header version")
         b_v1 = self.next_block('b_v1', version=1)
         self.send_blocks([b_v1], success=False, force_send=True, reject_reason='bad-version(0x00000001)', reconnect=True)
 
-        self.move_tip(87)
+        self.move_tip(chain1_tip + 2)
         b_cb34 = self.next_block('b_cb34')
         b_cb34.vtx[0].vin[0].scriptSig = b_cb34.vtx[0].vin[0].scriptSig[:-1]
         b_cb34.hashMerkleRoot = b_cb34.calc_merkle_root()
         b_cb34.solve()
         self.send_blocks([b_cb34], success=False, reject_reason='bad-cb-height', reconnect=True)
-
-        # Don't use v2transport for the large reorg, which is too slow with the unoptimized python ChaCha20 implementation
-        if self.options.v2transport:
-            self.nodes[0].disconnect_p2ps()
-            self.helper_peer = self.nodes[0].add_p2p_connection(P2PDataStore(), supports_v2_p2p=False)
-
-        self.move_tip(88)
-        if not self.options.skip_reorg:
-            self.log.info("Test a re-org of one week's worth of blocks (1088 blocks)")
-            LARGE_REORG_SIZE = 1088
-            blocks = []
-            spend = out[32]
-            for i in range(89, LARGE_REORG_SIZE + 89):
-                b = self.next_block(i, spend)
-                tx = CTransaction()
-                script_length = (MAX_BLOCK_WEIGHT - b.get_weight() - 276) // 4
-                script_output = CScript([b'\x00' * script_length])
-                tx.vout.append(CTxOut(0, script_output))
-                tx.vin.append(CTxIn(COutPoint(b.vtx[1].txid_int, 0)))
-                b = self.update_block(i, [tx])
-                assert_equal(b.get_weight(), MAX_BLOCK_WEIGHT)
-                blocks.append(b)
-                self.save_spendable_output()
-                spend = self.get_spendable_output()
-
-            self.send_blocks(blocks, True, timeout=2440)
-            chain1_tip = i
-
-            # now create alt chain of same length
-            self.move_tip(88)
-            blocks2 = []
-            for i in range(89, LARGE_REORG_SIZE + 89):
-                blocks2.append(self.next_block("alt" + str(i)))
-            self.send_blocks(blocks2, False, force_send=False)
-
-            # extend alt chain to trigger re-org
-            block = self.next_block("alt" + str(chain1_tip + 1))
-            self.send_blocks([block], True, timeout=2440)
-
-            # ... and re-org back to the first chain
-            self.move_tip(chain1_tip)
-            block = self.next_block(chain1_tip + 1)
-            self.send_blocks([block], False, force_send=True)
-            block = self.next_block(chain1_tip + 2)
-            self.send_blocks([block], True, timeout=2440)
 
     # Helper methods
     ################
@@ -1417,9 +1411,6 @@ class FullBlockTest(BitcoinTestFramework):
         if nTime is not None:
             block.nTime = nTime
         block.hashMerkleRoot = block.calc_merkle_root()
-        has_witness_tx = any(not tx.wit.is_null() for tx in block.vtx)
-        if has_witness_tx:
-            add_witness_commitment(block)
         block.solve()
         # Update the internal state just like in next_block
         self.tip = block

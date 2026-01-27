@@ -1,0 +1,208 @@
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Setting build type to "RelWithDebInfo" as none was specified
+-- Performing Test CXX_SUPPORTS__WERROR
+-- Performing Test CXX_SUPPORTS__WERROR - Success
+-- Performing Test CXX_SUPPORTS__G3
+-- Performing Test CXX_SUPPORTS__G3 - Success
+-- Performing Test LINKER_SUPPORTS__G3
+-- Performing Test LINKER_SUPPORTS__G3 - Success
+-- Performing Test CXX_SUPPORTS__FTRAPV
+-- Performing Test CXX_SUPPORTS__FTRAPV - Success
+-- Performing Test LINKER_SUPPORTS__FTRAPV
+-- Performing Test LINKER_SUPPORTS__FTRAPV - Success
+-- Found SQLite3: /usr/include (found suitable version "3.37.2", minimum required is "3.7.17") 
+-- Found QRencode: /usr/lib/x86_64-linux-gnu/libqrencode.so (found version "4.1.1") 
+-- Looking for C++ include pthread.h
+-- Looking for C++ include pthread.h - found
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE  
+-- Found OpenGL: /usr/lib/x86_64-linux-gnu/libOpenGL.so   
+-- Found WrapOpenGL: TRUE  
+-- Found XKB: /root/hypercoin-30.2/depends/x86_64-pc-linux-gnu/lib/libxkbcommon.so (Required is at least version "0.5.0") 
+-- Could NOT find WrapVulkanHeaders (missing: Vulkan_INCLUDE_DIR) 
+-- Found Qt: /usr/lib/x86_64-linux-gnu/cmake/Qt6 (found suitable version "6.2.4", minimum required is "6.2") 
+-- Performing Test LINKER_SUPPORTS__WL___FATAL_WARNINGS
+-- Performing Test LINKER_SUPPORTS__WL___FATAL_WARNINGS - Success
+-- Performing Test NO_DIAGNOSTICS_BOOST_NO_CXX98_FUNCTION_BASE
+-- Performing Test NO_DIAGNOSTICS_BOOST_NO_CXX98_FUNCTION_BASE - Success
+-- Found Libevent: /root/hypercoin-30.2/depends/x86_64-pc-linux-gnu/lib/cmake/libevent (found suitable version "2.1.12", minimum required is "2.1.8") 
+-- Performing Test HAVE_EVHTTP_CONNECTION_GET_PEER_CONST_CHAR
+-- Performing Test HAVE_EVHTTP_CONNECTION_GET_PEER_CONST_CHAR - Failed
+-- Looking for O_CLOEXEC
+-- Looking for O_CLOEXEC - found
+-- Looking for fdatasync
+-- Looking for fdatasync - found
+-- Looking for fork
+-- Looking for fork - found
+-- Looking for pipe2
+-- Looking for pipe2 - found
+-- Looking for setsid
+-- Looking for setsid - found
+-- Performing Test IFADDR_LINKS_WITHOUT_LIBSOCKET
+-- Performing Test IFADDR_LINKS_WITHOUT_LIBSOCKET - Success
+-- Performing Test STD_ATOMIC_LINKS_WITHOUT_LIBATOMIC
+-- Performing Test STD_ATOMIC_LINKS_WITHOUT_LIBATOMIC - Success
+-- Looking for std::system
+-- Looking for std::system - found
+-- Looking for ::_wsystem
+-- Looking for ::_wsystem - not found
+-- Performing Test STRERROR_R_CHAR_P
+-- Performing Test STRERROR_R_CHAR_P - Success
+-- Looking for malloc_info
+-- Looking for malloc_info - found
+-- Performing Test HAVE_MALLOPT_ARENA_MAX
+-- Performing Test HAVE_MALLOPT_ARENA_MAX - Success
+-- Performing Test HAVE_POSIX_FALLOCATE
+-- Performing Test HAVE_POSIX_FALLOCATE - Success
+-- Performing Test HAVE_STRONG_GETAUXVAL
+-- Performing Test HAVE_STRONG_GETAUXVAL - Success
+-- Performing Test HAVE_SOCKADDR_UN
+-- Performing Test HAVE_SOCKADDR_UN - Success
+-- Performing Test HAVE_GETRANDOM
+-- Performing Test HAVE_GETRANDOM - Success
+-- Performing Test HAVE_GETENTROPY_RAND
+-- Performing Test HAVE_GETENTROPY_RAND - Success
+-- Performing Test HAVE_SYSCTL
+-- Performing Test HAVE_SYSCTL - Failed
+-- Performing Test HAVE_SYSCTL_ARND
+-- Performing Test HAVE_SYSCTL_ARND - Failed
+-- Performing Test HAVE_SSE41
+-- Performing Test HAVE_SSE41 - Success
+-- Performing Test HAVE_AVX2
+-- Performing Test HAVE_AVX2 - Success
+-- Performing Test HAVE_X86_SHANI
+-- Performing Test HAVE_X86_SHANI - Success
+-- Performing Test HAVE_ARM_SHANI
+-- Performing Test HAVE_ARM_SHANI - Failed
+-- Performing Test CXX_SUPPORTS__WALL
+-- Performing Test CXX_SUPPORTS__WALL - Success
+-- Performing Test CXX_SUPPORTS__WEXTRA
+-- Performing Test CXX_SUPPORTS__WEXTRA - Success
+-- Performing Test CXX_SUPPORTS__WGNU
+-- Performing Test CXX_SUPPORTS__WGNU - Failed
+-- Performing Test CXX_SUPPORTS__WFORMAT__WFORMAT_SECURITY
+-- Performing Test CXX_SUPPORTS__WFORMAT__WFORMAT_SECURITY - Success
+-- Performing Test CXX_SUPPORTS__WVLA
+-- Performing Test CXX_SUPPORTS__WVLA - Success
+-- Performing Test CXX_SUPPORTS__WSHADOW_FIELD
+-- Performing Test CXX_SUPPORTS__WSHADOW_FIELD - Failed
+-- Performing Test CXX_SUPPORTS__WTHREAD_SAFETY
+-- Performing Test CXX_SUPPORTS__WTHREAD_SAFETY - Failed
+-- Performing Test CXX_SUPPORTS__WTHREAD_SAFETY_POINTER
+-- Performing Test CXX_SUPPORTS__WTHREAD_SAFETY_POINTER - Failed
+-- Performing Test CXX_SUPPORTS__WLOOP_ANALYSIS
+-- Performing Test CXX_SUPPORTS__WLOOP_ANALYSIS - Failed
+-- Performing Test CXX_SUPPORTS__WREDUNDANT_DECLS
+-- Performing Test CXX_SUPPORTS__WREDUNDANT_DECLS - Success
+-- Performing Test CXX_SUPPORTS__WUNUSED_MEMBER_FUNCTION
+-- Performing Test CXX_SUPPORTS__WUNUSED_MEMBER_FUNCTION - Failed
+-- Performing Test CXX_SUPPORTS__WDATE_TIME
+-- Performing Test CXX_SUPPORTS__WDATE_TIME - Success
+-- Performing Test CXX_SUPPORTS__WCONDITIONAL_UNINITIALIZED
+-- Performing Test CXX_SUPPORTS__WCONDITIONAL_UNINITIALIZED - Failed
+-- Performing Test CXX_SUPPORTS__WDUPLICATED_BRANCHES
+-- Performing Test CXX_SUPPORTS__WDUPLICATED_BRANCHES - Success
+-- Performing Test CXX_SUPPORTS__WDUPLICATED_COND
+-- Performing Test CXX_SUPPORTS__WDUPLICATED_COND - Success
+-- Performing Test CXX_SUPPORTS__WLOGICAL_OP
+-- Performing Test CXX_SUPPORTS__WLOGICAL_OP - Success
+-- Performing Test CXX_SUPPORTS__WOVERLOADED_VIRTUAL
+-- Performing Test CXX_SUPPORTS__WOVERLOADED_VIRTUAL - Success
+-- Performing Test CXX_SUPPORTS__WSUGGEST_OVERRIDE
+-- Performing Test CXX_SUPPORTS__WSUGGEST_OVERRIDE - Success
+-- Performing Test CXX_SUPPORTS__WIMPLICIT_FALLTHROUGH
+-- Performing Test CXX_SUPPORTS__WIMPLICIT_FALLTHROUGH - Success
+-- Performing Test CXX_SUPPORTS__WUNREACHABLE_CODE
+-- Performing Test CXX_SUPPORTS__WUNREACHABLE_CODE - Success
+-- Performing Test CXX_SUPPORTS__WDOCUMENTATION
+-- Performing Test CXX_SUPPORTS__WDOCUMENTATION - Failed
+-- Performing Test CXX_SUPPORTS__WSELF_ASSIGN
+-- Performing Test CXX_SUPPORTS__WSELF_ASSIGN - Failed
+-- Performing Test CXX_SUPPORTS__WBIDI_CHARS_ANY
+-- Performing Test CXX_SUPPORTS__WBIDI_CHARS_ANY - Failed
+-- Performing Test CXX_SUPPORTS__WUNDEF
+-- Performing Test CXX_SUPPORTS__WUNDEF - Success
+-- Performing Test CXX_SUPPORTS__WUNUSED_PARAMETER
+-- Performing Test CXX_SUPPORTS__WUNUSED_PARAMETER - Success
+-- Performing Test CXX_SUPPORTS__FNO_EXTENDED_IDENTIFIERS
+-- Performing Test CXX_SUPPORTS__FNO_EXTENDED_IDENTIFIERS - Success
+-- Performing Test CXX_SUPPORTS__FDEBUG_PREFIX_MAP_A_B
+-- Performing Test CXX_SUPPORTS__FDEBUG_PREFIX_MAP_A_B - Success
+-- Performing Test CXX_SUPPORTS__FMACRO_PREFIX_MAP_A_B
+-- Performing Test CXX_SUPPORTS__FMACRO_PREFIX_MAP_A_B - Success
+-- Performing Test CXX_SUPPORTS__FSTACK_REUSE_NONE
+-- Performing Test CXX_SUPPORTS__FSTACK_REUSE_NONE - Success
+-- Performing Test LINKER_SUPPORTS__FSTACK_REUSE_NONE
+-- Performing Test LINKER_SUPPORTS__FSTACK_REUSE_NONE - Success
+-- Performing Test CXX_SUPPORTS__U_FORTIFY_SOURCE__D_FORTIFY_SOURCE_3_2d08
+-- Performing Test CXX_SUPPORTS__U_FORTIFY_SOURCE__D_FORTIFY_SOURCE_3_2d08 - Success
+-- Performing Test LINKER_SUPPORTS__U_FORTIFY_SOURCE__D_FORTIFY_SOURCE_3_2d08
+-- Performing Test LINKER_SUPPORTS__U_FORTIFY_SOURCE__D_FORTIFY_SOURCE_3_2d08 - Success
+-- Performing Test CXX_SUPPORTS__WSTACK_PROTECTOR
+-- Performing Test CXX_SUPPORTS__WSTACK_PROTECTOR - Success
+-- Performing Test CXX_SUPPORTS__FSTACK_PROTECTOR_ALL
+-- Performing Test CXX_SUPPORTS__FSTACK_PROTECTOR_ALL - Success
+-- Performing Test LINKER_SUPPORTS__FSTACK_PROTECTOR_ALL
+-- Performing Test LINKER_SUPPORTS__FSTACK_PROTECTOR_ALL - Success
+-- Performing Test CXX_SUPPORTS__FCF_PROTECTION_FULL
+-- Performing Test CXX_SUPPORTS__FCF_PROTECTION_FULL - Success
+-- Performing Test LINKER_SUPPORTS__FCF_PROTECTION_FULL
+-- Performing Test LINKER_SUPPORTS__FCF_PROTECTION_FULL - Success
+-- Performing Test CXX_SUPPORTS__FSTACK_CLASH_PROTECTION
+-- Performing Test CXX_SUPPORTS__FSTACK_CLASH_PROTECTION - Success
+-- Performing Test LINKER_SUPPORTS__FSTACK_CLASH_PROTECTION
+-- Performing Test LINKER_SUPPORTS__FSTACK_CLASH_PROTECTION - Success
+-- Performing Test LINKER_SUPPORTS__WL___ENABLE_RELOC_SECTION
+-- Performing Test LINKER_SUPPORTS__WL___ENABLE_RELOC_SECTION - Failed
+-- Performing Test LINKER_SUPPORTS__WL___DYNAMICBASE
+-- Performing Test LINKER_SUPPORTS__WL___DYNAMICBASE - Failed
+-- Performing Test LINKER_SUPPORTS__WL___NXCOMPAT
+-- Performing Test LINKER_SUPPORTS__WL___NXCOMPAT - Failed
+-- Performing Test LINKER_SUPPORTS__WL___HIGH_ENTROPY_VA
+-- Performing Test LINKER_SUPPORTS__WL___HIGH_ENTROPY_VA - Failed
+-- Performing Test LINKER_SUPPORTS__WL__Z_RELRO
+-- Performing Test LINKER_SUPPORTS__WL__Z_RELRO - Success
+-- Performing Test LINKER_SUPPORTS__WL__Z_NOW
+-- Performing Test LINKER_SUPPORTS__WL__Z_NOW - Success
+-- Performing Test LINKER_SUPPORTS__WL__Z_SEPARATE_CODE
+-- Performing Test LINKER_SUPPORTS__WL__Z_SEPARATE_CODE - Success
+-- Found Python3: /usr/bin/python3 (found suitable version "3.10.12", minimum required is "3.10") found components: Interpreter 
+-- Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE dot) 
+-- Performing Test HAVE_BUILTIN_PREFETCH
+-- Performing Test HAVE_BUILTIN_PREFETCH - Success
+-- Performing Test HAVE_MM_PREFETCH
+-- Performing Test HAVE_MM_PREFETCH - Success
+-- Performing Test HAVE_SSE42
+-- Performing Test HAVE_SSE42 - Success
+-- Performing Test HAVE_ARM64_CRC32C
+-- Performing Test HAVE_ARM64_CRC32C - Failed
+-- Looking for F_FULLFSYNC
+-- Looking for F_FULLFSYNC - not found
+-- Performing Test HAVE_CLMUL
+-- Performing Test HAVE_CLMUL - Success
+CMake Error at src/ipc/libmultiprocess/CMakeLists.txt:76 (message):
+  The version of Cap'n Proto detected: 0.8.0 has known compatibility issues:
+
+  - CVE-2022-46149 security vulnerability (details:
+  https://github.com/advisories/GHSA-qqff-4vw4-f6hx)
+
+  To resolve, choose one of the following:
+
+    - Upgrade to Cap'n Proto version 1.0 or newer (recommended)
+    - Upgrade to a patched minor version (0.7.1, 0.8.1, 0.9.2, 0.10.3, or later)
+    - For Hypercoin Core compilation build with -DENABLE_IPC=OFF to disable multiprocess support
+
+
+
+-- Configuring incomplete, errors occurred!
+See also "/root/hypercoin-30.2/build/CMakeFiles/CMakeOutput.log".
+See also "/root/hypercoin-30.2/build/CMakeFiles/CMakeError.log".

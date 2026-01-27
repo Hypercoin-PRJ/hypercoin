@@ -1,4 +1,4 @@
-// Copyright (c) 2024-present The Bitcoin Core developers
+// Copyright (c) 2024-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -70,7 +70,7 @@ void HeadersSyncSetup::ResetAndInitialize()
 
     for (auto conn_type : conn_types) {
         CAddress addr{};
-        m_connections.push_back(new CNode(id++, nullptr, addr, 0, 0, addr, "", conn_type, false, 0));
+        m_connections.push_back(new CNode(id++, nullptr, addr, 0, 0, addr, "", conn_type, false));
         CNode& p2p_node = *m_connections.back();
 
         connman.Handshake(

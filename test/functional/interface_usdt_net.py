@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# Copyright (c) 2022-present The Bitcoin Core developers
+# Copyright (c) 2022-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 """  Tests the net:* tracepoint API interface.
-     See https://github.com/bitcoin/bitcoin/blob/master/doc/tracing.md#context-net
+     See https://github.com/hypercoin/hypercoin/blob/master/doc/tracing.md#context-net
 """
 
 import ctypes
@@ -16,7 +16,7 @@ except ImportError:
     pass
 from test_framework.messages import CBlockHeader, MAX_HEADERS_RESULTS, msg_headers, msg_version
 from test_framework.p2p import P2PInterface
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -244,14 +244,14 @@ class MisbehavingConnection(ctypes.Structure):
         return f"MisbehavingConnection(id={self.id}, message={self.message})"
 
 
-class NetTracepointTest(BitcoinTestFramework):
+class NetTracepointTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.extra_args = [[f'-maxconnections={MAX_CONNECTIONS}']]
 
     def skip_test_if_missing_module(self):
         self.skip_if_platform_not_linux()
-        self.skip_if_no_bitcoind_tracepoints()
+        self.skip_if_no_hypercoind_tracepoints()
         self.skip_if_no_python_bcc()
         self.skip_if_no_bpf_permissions()
         self.skip_if_running_under_valgrind()
@@ -266,7 +266,7 @@ class NetTracepointTest(BitcoinTestFramework):
 
     def p2p_message_tracepoint_test(self):
         # Tests the net:inbound_message and net:outbound_message tracepoints
-        # See https://github.com/bitcoin/bitcoin/blob/master/doc/tracing.md#context-net
+        # See https://github.com/hypercoin/hypercoin/blob/master/doc/tracing.md#context-net
 
         class P2PMessage(ctypes.Structure):
             _fields_ = [
@@ -323,7 +323,7 @@ class NetTracepointTest(BitcoinTestFramework):
         bpf["inbound_messages"].open_perf_buffer(handle_inbound)
         bpf["outbound_messages"].open_perf_buffer(handle_outbound)
 
-        self.log.info("connect a P2P test node to our bitcoind node")
+        self.log.info("connect a P2P test node to our hypercoind node")
         test_node = P2PInterface()
         self.nodes[0].add_p2p_connection(test_node)
         bpf.perf_buffer_poll(timeout=200)
@@ -359,7 +359,7 @@ class NetTracepointTest(BitcoinTestFramework):
 
         bpf["inbound_connections"].open_perf_buffer(handle_inbound_connection)
 
-        self.log.info("connect two P2P test nodes to our bitcoind node")
+        self.log.info("connect two P2P test nodes to our hypercoind node")
         testnodes = list()
         for _ in range(EXPECTED_INBOUND_CONNECTIONS):
             testnode = P2PInterface()
@@ -399,7 +399,7 @@ class NetTracepointTest(BitcoinTestFramework):
             handle_outbound_connection)
 
         self.log.info(
-            f"connect {EXPECTED_OUTBOUND_CONNECTIONS} P2P test nodes to our bitcoind node")
+            f"connect {EXPECTED_OUTBOUND_CONNECTIONS} P2P test nodes to our hypercoind node")
         testnodes = list()
         for p2p_idx in range(EXPECTED_OUTBOUND_CONNECTIONS):
             testnode = P2PInterface()
@@ -437,7 +437,7 @@ class NetTracepointTest(BitcoinTestFramework):
         bpf["evicted_inbound_connections"].open_perf_buffer(handle_evicted_inbound_connection)
 
         self.log.info(
-            f"connect {MAX_INBOUND_CONNECTIONS + EXPECTED_EVICTED_CONNECTIONS} P2P test nodes to our bitcoind node and expect {EXPECTED_EVICTED_CONNECTIONS} evictions")
+            f"connect {MAX_INBOUND_CONNECTIONS + EXPECTED_EVICTED_CONNECTIONS} P2P test nodes to our hypercoind node and expect {EXPECTED_EVICTED_CONNECTIONS} evictions")
         testnodes = list()
         for p2p_idx in range(MAX_INBOUND_CONNECTIONS + EXPECTED_EVICTED_CONNECTIONS):
             testnode = P2PInterface()
@@ -473,7 +473,7 @@ class NetTracepointTest(BitcoinTestFramework):
 
         bpf["misbehaving_connections"].open_perf_buffer(handle_misbehaving_connection)
 
-        self.log.info("connect a misbehaving P2P test nodes to our bitcoind node")
+        self.log.info("connect a misbehaving P2P test nodes to our hypercoind node")
         msg = msg_headers([CBlockHeader()] * (MAX_HEADERS_RESULTS + 1))
         for _ in range(EXPECTED_MISBEHAVING_CONNECTIONS):
             testnode = P2PInterface()
@@ -508,7 +508,7 @@ class NetTracepointTest(BitcoinTestFramework):
         bpf["closed_connections"].open_perf_buffer(handle_closed_connection)
 
         self.log.info(
-            f"connect {EXPECTED_CLOSED_CONNECTIONS} P2P test nodes to our bitcoind node")
+            f"connect {EXPECTED_CLOSED_CONNECTIONS} P2P test nodes to our hypercoind node")
         testnodes = list()
         for p2p_idx in range(EXPECTED_CLOSED_CONNECTIONS):
             testnode = P2PInterface()

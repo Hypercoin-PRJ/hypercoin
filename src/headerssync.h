@@ -1,9 +1,9 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_HEADERSSYNC_H
-#define BITCOIN_HEADERSSYNC_H
+#ifndef HYPERCOIN_HEADERSSYNC_H
+#define HYPERCOIN_HEADERSSYNC_H
 
 #include <arith_uint256.h>
 #include <chain.h>
@@ -31,17 +31,16 @@ struct CompressedHeader {
         hashMerkleRoot.SetNull();
     }
 
-    explicit CompressedHeader(const CBlockHeader& header)
-        : nVersion{header.nVersion},
-          hashMerkleRoot{header.hashMerkleRoot},
-          nTime{header.nTime},
-          nBits{header.nBits},
-          nNonce{header.nNonce}
+    CompressedHeader(const CBlockHeader& header)
     {
+        nVersion = header.nVersion;
+        hashMerkleRoot = header.hashMerkleRoot;
+        nTime = header.nTime;
+        nBits = header.nBits;
+        nNonce = header.nNonce;
     }
 
-    CBlockHeader GetFullHeader(const uint256& hash_prev_block) const
-    {
+    CBlockHeader GetFullHeader(const uint256& hash_prev_block) {
         CBlockHeader ret;
         ret.nVersion = nVersion;
         ret.hashPrevBlock = hash_prev_block;
@@ -57,7 +56,7 @@ struct CompressedHeader {
  *
  * We wish to download a peer's headers chain in a DoS-resistant way.
  *
- * The Bitcoin protocol does not offer an easy way to determine the work on a
+ * The Hypercoin protocol does not offer an easy way to determine the work on a
  * peer's chain. Currently, we can query a peer's headers by using a GETHEADERS
  * message, and our peer can return a set of up to 2000 headers that connect to
  * something we know. If a peer's chain has more than 2000 blocks, then we need
@@ -137,8 +136,7 @@ public:
      * minimum_required_work: amount of chain work required to accept the chain
      */
     HeadersSyncState(NodeId id, const Consensus::Params& consensus_params,
-                     const HeadersSyncParams& params, const CBlockIndex& chain_start,
-                     const arith_uint256& minimum_required_work);
+            const CBlockIndex* chain_start, const arith_uint256& minimum_required_work);
 
     /** Result data structure for ProcessNextHeaders. */
     struct ProcessingResult {
@@ -167,7 +165,7 @@ public:
      * ProcessingResult.request_more: if true, the caller is suggested to call
      *                       NextHeadersRequestLocator and send a getheaders message using it.
      */
-    ProcessingResult ProcessNextHeaders(std::span<const CBlockHeader>
+    ProcessingResult ProcessNextHeaders(const std::vector<CBlockHeader>&
             received_headers, bool full_headers_message);
 
     /** Issue the next GETHEADERS message to our peer.
@@ -181,8 +179,8 @@ protected:
     /** The (secret) offset on the heights for which to create commitments.
      *
      * m_header_commitments entries are created at any height h for which
-     * (h % m_params.commitment_period) == m_commit_offset. */
-    const size_t m_commit_offset;
+     * (h % HEADER_COMMITMENT_PERIOD) == m_commit_offset. */
+    const unsigned m_commit_offset;
 
 private:
     /** Clear out all download state that might be in progress (freeing any used
@@ -197,7 +195,7 @@ private:
      *  processed headers.
      *  On failure, this invokes Finalize() and returns false.
      */
-    bool ValidateAndStoreHeadersCommitments(std::span<const CBlockHeader> headers);
+    bool ValidateAndStoreHeadersCommitments(const std::vector<CBlockHeader>& headers);
 
     /** In PRESYNC, process and update state for a single header */
     bool ValidateAndProcessSingleHeader(const CBlockHeader& current);
@@ -216,11 +214,8 @@ private:
     /** We use the consensus params in our anti-DoS calculations */
     const Consensus::Params& m_consensus_params;
 
-    /** Parameters that impact memory usage for a given chain, especially when attacked. */
-    const HeadersSyncParams m_params;
-
     /** Store the last block in our block index that the peer's chain builds from */
-    const CBlockIndex& m_chain_start;
+    const CBlockIndex* m_chain_start{nullptr};
 
     /** Minimum work that we're looking for on this chain. */
     const arith_uint256 m_minimum_required_work;
@@ -280,4 +275,4 @@ private:
     State m_download_state{State::PRESYNC};
 };
 
-#endif // BITCOIN_HEADERSSYNC_H
+#endif // HYPERCOIN_HEADERSSYNC_H

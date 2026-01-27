@@ -64,12 +64,14 @@ Please refer to fanquake's instructions
 
 ## Option 4: Using a distribution-maintained package
 
-For an up-to-date view on Guix's package status/version across
-distros, please see: https://repology.org/project/guix/versions
+Note that this section is based on the distro packaging situation at the time of
+writing (July 2021). Guix is expected to be more widely packaged over time. For
+an up-to-date view on Guix's package status/version across distros, please see:
+https://repology.org/project/guix/versions
 
 ### Debian / Ubuntu
 
-Guix is available as a distribution package in various versions of [Debian
+Guix is available as a distribution package in [Debian
 ](https://packages.debian.org/search?keywords=guix) and [Ubuntu
 ](https://packages.ubuntu.com/search?keywords=guix).
 
@@ -405,7 +407,7 @@ in the Guix Reference Manual for more details.
 
 ## Optional setup
 
-At this point, you are set up to [use Guix to build Bitcoin
+At this point, you are set up to [use Guix to build Hypercoin
 Core](./README.md#usage). However, if you want to polish your setup a bit and
 make it "what Guix intended", then read the next few subsections.
 

@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_KERNEL_CHAINPARAMS_H
-#define BITCOIN_KERNEL_CHAINPARAMS_H
+#ifndef HYPERCOIN_KERNEL_CHAINPARAMS_H
+#define HYPERCOIN_KERNEL_CHAINPARAMS_H
 
 #include <consensus/params.h>
 #include <kernel/messagestartchars.h>
@@ -14,12 +14,13 @@
 #include <util/hash_type.h>
 #include <util/vector.h>
 
-#include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 struct AssumeutxoHash : public BaseHash<uint256> {
@@ -60,18 +61,9 @@ struct ChainTxData {
     double dTxRate;   //!< estimated number of transactions per second after that timestamp
 };
 
-//! Configuration for headers sync memory usage.
-struct HeadersSyncParams {
-    //! Distance in blocks between header commitments.
-    size_t commitment_period{0};
-    //! Minimum number of validated headers to accumulate in the redownload
-    //! buffer before feeding them into the permanent block index.
-    size_t redownload_buffer_size{0};
-};
-
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
- * Bitcoin system.
+ * Hypercoin system.
  */
 class CChainParams
 {
@@ -114,7 +106,6 @@ public:
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     const std::string& Bech32HRP() const { return bech32_hrp; }
     const std::vector<uint8_t>& FixedSeeds() const { return vFixedSeeds; }
-    const HeadersSyncParams& HeadersSync() const { return m_headers_sync_params; }
 
     std::optional<AssumeutxoData> AssumeutxoForHeight(int height) const
     {
@@ -179,9 +170,8 @@ protected:
     bool m_is_mockable_chain;
     std::vector<AssumeutxoData> m_assumeutxo_data;
     ChainTxData chainTxData;
-    HeadersSyncParams m_headers_sync_params;
 };
 
 std::optional<ChainType> GetNetworkForMagic(const MessageStartChars& pchMessageStart);
 
-#endif // BITCOIN_KERNEL_CHAINPARAMS_H
+#endif // HYPERCOIN_KERNEL_CHAINPARAMS_H

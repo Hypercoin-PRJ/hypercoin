@@ -1,4 +1,4 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
@@ -11,7 +11,6 @@
 #include <consensus/merkle.h>
 #include <interfaces/chain.h>
 #include <kernel/chain.h>
-#include <kernel/types.h>
 #include <node/blockstorage.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
@@ -40,7 +39,6 @@
 #include <utility>
 #include <vector>
 
-using kernel::ChainstateRole;
 using wallet::CWallet;
 using wallet::CreateMockableWalletDatabase;
 using wallet::WALLET_FLAG_DESCRIPTORS;
@@ -103,7 +101,7 @@ void generateFakeBlock(const CChainParams& params,
 
     // notify wallet
     const auto& pindex = WITH_LOCK(::cs_main, return context.chainman->ActiveChain().Tip());
-    wallet.blockConnected(ChainstateRole{}, kernel::MakeBlockInfo(pindex, &block));
+    wallet.blockConnected(ChainstateRole::NORMAL, kernel::MakeBlockInfo(pindex, &block));
 }
 
 struct PreSelectInputs {
@@ -145,7 +143,7 @@ static void WalletCreateTx(benchmark::Bench& bench, const OutputType output_type
 
     CAmount target = 0;
     if (preset_inputs) {
-        // Select inputs, each has 48 BTC
+        // Select inputs, each has 48 HRC
         wallet::CoinFilterParams filter_coins;
         filter_coins.max_count = preset_inputs->num_of_internal_inputs;
         const auto& res = WITH_LOCK(wallet.cs_wallet,
@@ -215,6 +213,6 @@ static void WalletCreateTxUsePresetInputsAndCoinSelection(benchmark::Bench& benc
 
 static void WalletAvailableCoins(benchmark::Bench& bench) { AvailableCoins(bench, {OutputType::BECH32M}); }
 
-BENCHMARK(WalletCreateTxUseOnlyPresetInputs);
-BENCHMARK(WalletCreateTxUsePresetInputsAndCoinSelection);
-BENCHMARK(WalletAvailableCoins);
+BENCHMARK(WalletCreateTxUseOnlyPresetInputs, benchmark::PriorityLevel::LOW)
+BENCHMARK(WalletCreateTxUsePresetInputsAndCoinSelection, benchmark::PriorityLevel::LOW)
+BENCHMARK(WalletAvailableCoins, benchmark::PriorityLevel::LOW);

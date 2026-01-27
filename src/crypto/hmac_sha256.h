@@ -1,13 +1,14 @@
-// Copyright (c) 2014-present The Bitcoin Core developers
+// Copyright (c) 2014-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CRYPTO_HMAC_SHA256_H
-#define BITCOIN_CRYPTO_HMAC_SHA256_H
+#ifndef HYPERCOIN_CRYPTO_HMAC_SHA256_H
+#define HYPERCOIN_CRYPTO_HMAC_SHA256_H
 
 #include <crypto/sha256.h>
 
-#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 
 /** A hasher class for HMAC-SHA-256. */
 class CHMAC_SHA256
@@ -28,4 +29,4 @@ public:
     void Finalize(unsigned char hash[OUTPUT_SIZE]);
 };
 
-#endif // BITCOIN_CRYPTO_HMAC_SHA256_H
+#endif // HYPERCOIN_CRYPTO_HMAC_SHA256_H

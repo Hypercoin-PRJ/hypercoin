@@ -1,9 +1,9 @@
-// Copyright (c) 2015-present The Bitcoin Core developers
+// Copyright (c) 2015-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_REST_H
-#define BITCOIN_REST_H
+#ifndef HYPERCOIN_REST_H
+#define HYPERCOIN_REST_H
 
 #include <string>
 
@@ -25,4 +25,4 @@ enum class RESTResponseFormat {
  */
 RESTResponseFormat ParseDataFormat(std::string& param, const std::string& strReq);
 
-#endif // BITCOIN_REST_H
+#endif // HYPERCOIN_REST_H

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-present The Bitcoin Core developers
+// Copyright (c) 2021-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -163,7 +163,7 @@ bool MockableBatch::HasKey(DataStream&& key)
         return false;
     }
     SerializeData key_data{key.begin(), key.end()};
-    return m_records.contains(key_data);
+    return m_records.count(key_data) > 0;
 }
 
 bool MockableBatch::ErasePrefix(std::span<const std::byte> prefix)

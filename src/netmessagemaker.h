@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NETMESSAGEMAKER_H
-#define BITCOIN_NETMESSAGEMAKER_H
+#ifndef HYPERCOIN_NETMESSAGEMAKER_H
+#define HYPERCOIN_NETMESSAGEMAKER_H
 
 #include <net.h>
 #include <serialize.h>
@@ -20,4 +20,4 @@ namespace NetMsg {
     }
 } // namespace NetMsg
 
-#endif // BITCOIN_NETMESSAGEMAKER_H
+#endif // HYPERCOIN_NETMESSAGEMAKER_H

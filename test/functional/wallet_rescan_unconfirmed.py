@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2024-present The Bitcoin Core developers
+# Copyright (c) 2024 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test that descriptor wallets rescan mempool transactions properly when importing."""
@@ -9,13 +9,13 @@ from test_framework.address import (
     ADDRESS_BCRT1_UNSPENDABLE,
 )
 from test_framework.messages import COIN
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import assert_equal
 from test_framework.wallet import MiniWallet
 from test_framework.wallet_util import test_address
 
 
-class WalletRescanUnconfirmed(BitcoinTestFramework):
+class WalletRescanUnconfirmed(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
 
@@ -62,8 +62,7 @@ class WalletRescanUnconfirmed(BitcoinTestFramework):
         assert tx_parent_to_reorg["txid"] in node.getrawmempool()
 
         self.log.info("Import descriptor wallet on another node")
-        # descriptor is ranged - label not allowed
-        descriptors_to_import = [{"desc": w0.getaddressinfo(parent_address)['parent_desc'], "timestamp": 0}]
+        descriptors_to_import = [{"desc": w0.getaddressinfo(parent_address)['parent_desc'], "timestamp": 0, "label": "w0 import"}]
 
         node.createwallet(wallet_name="w1", disable_private_keys=True)
         w1 = node.get_wallet_rpc("w1")

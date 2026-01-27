@@ -1,4 +1,4 @@
-// Copyright (c) 2015-present The Bitcoin Core developers
+// Copyright (c) 2015-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -154,11 +154,6 @@ BOOST_AUTO_TEST_CASE(merkle_test_empty_block)
 
     BOOST_CHECK_EQUAL(root.IsNull(), true);
     BOOST_CHECK_EQUAL(mutated, false);
-
-    // Verify TransactionMerklePath handles empty block correctly
-    // This tests the early-return path in MerkleComputation
-    std::vector<uint256> merkle_path = TransactionMerklePath(block, 0);
-    BOOST_CHECK(merkle_path.empty());
 }
 
 BOOST_AUTO_TEST_CASE(merkle_test_oneTx_block)
@@ -232,9 +227,8 @@ BOOST_AUTO_TEST_CASE(merkle_test_BlockWitness)
 {
     CBlock block;
 
-    constexpr size_t vtx_count{3};
-    block.vtx.resize(vtx_count);
-    for (std::size_t pos = 0; pos < vtx_count; pos++) {
+    block.vtx.resize(2);
+    for (std::size_t pos = 0; pos < block.vtx.size(); pos++) {
         CMutableTransaction mtx;
         mtx.nLockTime = pos;
         block.vtx[pos] = MakeTransactionRef(std::move(mtx));
@@ -243,12 +237,12 @@ BOOST_AUTO_TEST_CASE(merkle_test_BlockWitness)
     uint256 blockWitness = BlockWitnessMerkleRoot(block);
 
     std::vector<uint256> hashes;
-    hashes.resize(vtx_count); // Note: leaving odd count to exercise old behavior
-    for (size_t pos{1}; pos < vtx_count; ++pos) {
-        hashes[pos] = block.vtx[pos]->GetWitnessHash().ToUint256();
-    }
+    hashes.resize(block.vtx.size());
+    hashes[0].SetNull();
+    hashes[1] = block.vtx[1]->GetHash().ToUint256();
 
     uint256 merkleRootofHashes = ComputeMerkleRoot(hashes);
+
     BOOST_CHECK_EQUAL(merkleRootofHashes, blockWitness);
 }
 BOOST_AUTO_TEST_SUITE_END()

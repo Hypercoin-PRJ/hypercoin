@@ -1,10 +1,10 @@
-# Copyright (c) 2023-present The Bitcoin Core developers
+# Copyright (c) 2023-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit/.
 
 include(AddWindowsResources)
 
-configure_file(${PROJECT_SOURCE_DIR}/cmake/bitcoin-build-config.h.in bitcoin-build-config.h USE_SOURCE_PERMISSIONS @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/hypercoin-build-config.h.in hypercoin-build-config.h USE_SOURCE_PERMISSIONS @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 #=============================
@@ -38,19 +38,19 @@ if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
 endif()
 
 add_custom_target(generate_build_info
-  BYPRODUCTS ${PROJECT_BINARY_DIR}/src/bitcoin-build-info.h
-  COMMAND ${CMAKE_COMMAND} -DBUILD_INFO_HEADER_PATH=${PROJECT_BINARY_DIR}/src/bitcoin-build-info.h -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/script/GenerateBuildInfo.cmake
-  COMMENT "Generating bitcoin-build-info.h"
+  BYPRODUCTS ${PROJECT_BINARY_DIR}/src/hypercoin-build-info.h
+  COMMAND ${CMAKE_COMMAND} -DBUILD_INFO_HEADER_PATH=${PROJECT_BINARY_DIR}/src/hypercoin-build-info.h -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/script/GenerateBuildInfo.cmake
+  COMMENT "Generating hypercoin-build-info.h"
   VERBATIM
 )
-add_library(bitcoin_clientversion STATIC
+add_library(hypercoin_clientversion STATIC EXCLUDE_FROM_ALL
   clientversion.cpp
 )
-target_link_libraries(bitcoin_clientversion
+target_link_libraries(hypercoin_clientversion
   PRIVATE
     core_interface
 )
-add_dependencies(bitcoin_clientversion generate_build_info)
+add_dependencies(hypercoin_clientversion generate_build_info)
 
 add_subdirectory(crypto)
 add_subdirectory(util)
@@ -58,7 +58,7 @@ if(ENABLE_IPC)
   add_subdirectory(ipc)
 endif()
 
-add_library(bitcoin_consensus STATIC EXCLUDE_FROM_ALL
+add_library(hypercoin_consensus STATIC EXCLUDE_FROM_ALL
   arith_uint256.cpp
   consensus/merkle.cpp
   consensus/tx_check.cpp
@@ -71,10 +71,10 @@ add_library(bitcoin_consensus STATIC EXCLUDE_FROM_ALL
   script/script_error.cpp
   uint256.cpp
 )
-target_link_libraries(bitcoin_consensus
+target_link_libraries(hypercoin_consensus
   PRIVATE
     core_interface
-    bitcoin_crypto
+    hypercoin_crypto
     secp256k1
 )
 
@@ -83,8 +83,8 @@ if(WITH_ZMQ)
 endif()
 
 # Home for common functionality shared by different executables and libraries.
-# Similar to `bitcoin_util` library, but higher-level.
-add_library(bitcoin_common STATIC EXCLUDE_FROM_ALL
+# Similar to `hypercoin_util` library, but higher-level.
+add_library(hypercoin_common STATIC EXCLUDE_FROM_ALL
   addresstype.cpp
   base58.cpp
   bech32.cpp
@@ -106,7 +106,8 @@ add_library(bitcoin_common STATIC EXCLUDE_FROM_ALL
   common/system.cpp
   common/url.cpp
   compressor.cpp
-  core_io.cpp
+  core_read.cpp
+  core_write.cpp
   deploymentinfo.cpp
   external_signer.cpp
   init/common.cpp
@@ -136,11 +137,11 @@ add_library(bitcoin_common STATIC EXCLUDE_FROM_ALL
   script/signingprovider.cpp
   script/solver.cpp
 )
-target_link_libraries(bitcoin_common
+target_link_libraries(hypercoin_common
   PRIVATE
     core_interface
-    bitcoin_consensus
-    bitcoin_util
+    hypercoin_consensus
+    hypercoin_util
     univalue
     secp256k1
     Boost::headers
@@ -154,27 +155,27 @@ if(ENABLE_WALLET)
   add_subdirectory(wallet)
 
   if(BUILD_WALLET_TOOL)
-    add_executable(bitcoin-wallet
-      bitcoin-wallet.cpp
-      init/bitcoin-wallet.cpp
+    add_executable(hypercoin-wallet
+      hypercoin-wallet.cpp
+      init/hypercoin-wallet.cpp
       wallet/wallettool.cpp
     )
-    add_windows_resources(bitcoin-wallet bitcoin-wallet-res.rc)
-    add_windows_application_manifest(bitcoin-wallet)
-    target_link_libraries(bitcoin-wallet
+    add_windows_resources(hypercoin-wallet hypercoin-wallet-res.rc)
+    add_windows_application_manifest(hypercoin-wallet)
+    target_link_libraries(hypercoin-wallet
       core_interface
-      bitcoin_wallet
-      bitcoin_common
-      bitcoin_util
+      hypercoin_wallet
+      hypercoin_common
+      hypercoin_util
       Boost::headers
     )
-    install_binary_component(bitcoin-wallet HAS_MANPAGE)
+    install_binary_component(hypercoin-wallet HAS_MANPAGE)
   endif()
 endif()
 
 
-# P2P and RPC server functionality used by `bitcoind` and `bitcoin-qt` executables.
-add_library(bitcoin_node STATIC EXCLUDE_FROM_ALL
+# P2P and RPC server functionality used by `hypercoind` and `hypercoin-qt` executables.
+add_library(hypercoin_node STATIC EXCLUDE_FROM_ALL
   addrdb.cpp
   addrman.cpp
   banman.cpp
@@ -237,13 +238,12 @@ add_library(bitcoin_node STATIC EXCLUDE_FROM_ALL
   node/warnings.cpp
   noui.cpp
   policy/ephemeral_policy.cpp
-  policy/fees/block_policy_estimator.cpp
-  policy/fees/block_policy_estimator_args.cpp
+  policy/fees.cpp
+  policy/fees_args.cpp
   policy/packages.cpp
   policy/rbf.cpp
   policy/settings.cpp
   policy/truc_policy.cpp
-  private_broadcast.cpp
   rest.cpp
   rpc/blockchain.cpp
   rpc/external_signer.cpp
@@ -268,15 +268,15 @@ add_library(bitcoin_node STATIC EXCLUDE_FROM_ALL
   validation.cpp
   validationinterface.cpp
   versionbits.cpp
-  $<$<TARGET_EXISTS:bitcoin_wallet>:wallet/init.cpp>
-  $<$<NOT:$<TARGET_EXISTS:bitcoin_wallet>>:dummywallet.cpp>
+  $<$<TARGET_EXISTS:hypercoin_wallet>:wallet/init.cpp>
+  $<$<NOT:$<TARGET_EXISTS:hypercoin_wallet>>:dummywallet.cpp>
 )
-target_link_libraries(bitcoin_node
+target_link_libraries(hypercoin_node
   PRIVATE
     core_interface
-    bitcoin_common
-    bitcoin_util
-    $<TARGET_NAME_IF_EXISTS:bitcoin_zmq>
+    hypercoin_common
+    hypercoin_util
+    $<TARGET_NAME_IF_EXISTS:hypercoin_zmq>
     leveldb
     minisketch
     univalue
@@ -287,97 +287,113 @@ target_link_libraries(bitcoin_node
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
 
-# Bitcoin wrapper executable that can call other executables.
-if(BUILD_BITCOIN_BIN)
-  add_executable(bitcoin bitcoin.cpp)
-  add_windows_resources(bitcoin bitcoin-res.rc)
-  add_windows_application_manifest(bitcoin)
-  target_link_libraries(bitcoin core_interface bitcoin_common bitcoin_util)
-  install_binary_component(bitcoin HAS_MANPAGE)
+# Hypercoin wrapper executable that can call other executables.
+if(BUILD_HYPERCOIN_BIN)
+  add_executable(hypercoin hypercoin.cpp)
+  add_windows_resources(hypercoin hypercoin-res.rc)
+  add_windows_application_manifest(hypercoin)
+  target_link_libraries(hypercoin core_interface hypercoin_common hypercoin_util)
+  install_binary_component(hypercoin HAS_MANPAGE)
 endif()
 
-# Bitcoin Core bitcoind.
+# Hypercoin Core hypercoind.
 if(BUILD_DAEMON)
-  add_executable(bitcoind
-    bitcoind.cpp
-    init/bitcoind.cpp
+  add_executable(hypercoind
+    hypercoind.cpp
+    init/hypercoind.cpp
   )
-  add_windows_resources(bitcoind bitcoind-res.rc)
-  add_windows_application_manifest(bitcoind)
-  target_link_libraries(bitcoind
+  add_windows_resources(hypercoind hypercoind-res.rc)
+  add_windows_application_manifest(hypercoind)
+  target_link_libraries(hypercoind
     core_interface
-    bitcoin_node
-    $<TARGET_NAME_IF_EXISTS:bitcoin_wallet>
+    hypercoin_node
+    $<TARGET_NAME_IF_EXISTS:hypercoin_wallet>
   )
-  install_binary_component(bitcoind HAS_MANPAGE)
+  install_binary_component(hypercoind HAS_MANPAGE)
 endif()
 if(ENABLE_IPC AND BUILD_DAEMON)
-  add_executable(bitcoin-node
-    bitcoind.cpp
-    init/bitcoin-node.cpp
+  add_executable(hypercoin-node
+    hypercoind.cpp
+    init/hypercoin-node.cpp
   )
-  target_link_libraries(bitcoin-node
+  target_link_libraries(hypercoin-node
     core_interface
-    bitcoin_node
-    bitcoin_ipc
-    $<TARGET_NAME_IF_EXISTS:bitcoin_wallet>
+    hypercoin_node
+    hypercoin_ipc
+    $<TARGET_NAME_IF_EXISTS:hypercoin_wallet>
   )
-  install_binary_component(bitcoin-node INTERNAL)
+  install_binary_component(hypercoin-node INTERNAL)
+endif()
+
+if(ENABLE_IPC AND BUILD_TESTS)
+    # hypercoin_ipc_test library target is defined here in src/CMakeLists.txt
+    # instead of src/test/CMakeLists.txt so capnp files in src/test/ are able to
+    # reference capnp files in src/ipc/capnp/ by relative path. The Cap'n Proto
+    # compiler only allows importing by relative path when the importing and
+    # imported files are underneath the same compilation source prefix, so the
+    # source prefix must be src/, not src/test/
+    add_library(hypercoin_ipc_test STATIC EXCLUDE_FROM_ALL
+      test/ipc_test.cpp
+    )
+    target_capnp_sources(hypercoin_ipc_test ${PROJECT_SOURCE_DIR}
+      test/ipc_test.capnp
+    )
+    add_dependencies(hypercoin_ipc_test hypercoin_ipc_headers)
 endif()
 
 
-add_library(bitcoin_cli STATIC EXCLUDE_FROM_ALL
+add_library(hypercoin_cli STATIC EXCLUDE_FROM_ALL
   compat/stdin.cpp
   rpc/client.cpp
 )
-target_link_libraries(bitcoin_cli
+target_link_libraries(hypercoin_cli
   PUBLIC
     core_interface
     univalue
 )
 
 
-# Bitcoin Core RPC client
+# Hypercoin Core RPC client
 if(BUILD_CLI)
-  add_executable(bitcoin-cli bitcoin-cli.cpp)
-  add_windows_resources(bitcoin-cli bitcoin-cli-res.rc)
-  add_windows_application_manifest(bitcoin-cli)
-  target_link_libraries(bitcoin-cli
+  add_executable(hypercoin-cli hypercoin-cli.cpp)
+  add_windows_resources(hypercoin-cli hypercoin-cli-res.rc)
+  add_windows_application_manifest(hypercoin-cli)
+  target_link_libraries(hypercoin-cli
     core_interface
-    bitcoin_cli
-    bitcoin_common
-    bitcoin_util
+    hypercoin_cli
+    hypercoin_common
+    hypercoin_util
     libevent::core
     libevent::extra
   )
-  install_binary_component(bitcoin-cli HAS_MANPAGE)
+  install_binary_component(hypercoin-cli HAS_MANPAGE)
 endif()
 
 
 if(BUILD_TX)
-  add_executable(bitcoin-tx bitcoin-tx.cpp)
-  add_windows_resources(bitcoin-tx bitcoin-tx-res.rc)
-  add_windows_application_manifest(bitcoin-tx)
-  target_link_libraries(bitcoin-tx
+  add_executable(hypercoin-tx hypercoin-tx.cpp)
+  add_windows_resources(hypercoin-tx hypercoin-tx-res.rc)
+  add_windows_application_manifest(hypercoin-tx)
+  target_link_libraries(hypercoin-tx
     core_interface
-    bitcoin_common
-    bitcoin_util
+    hypercoin_common
+    hypercoin_util
     univalue
   )
-  install_binary_component(bitcoin-tx HAS_MANPAGE)
+  install_binary_component(hypercoin-tx HAS_MANPAGE)
 endif()
 
 
 if(BUILD_UTIL)
-  add_executable(bitcoin-util bitcoin-util.cpp)
-  add_windows_resources(bitcoin-util bitcoin-util-res.rc)
-  add_windows_application_manifest(bitcoin-util)
-  target_link_libraries(bitcoin-util
+  add_executable(hypercoin-util hypercoin-util.cpp)
+  add_windows_resources(hypercoin-util hypercoin-util-res.rc)
+  add_windows_application_manifest(hypercoin-util)
+  target_link_libraries(hypercoin-util
     core_interface
-    bitcoin_common
-    bitcoin_util
+    hypercoin_common
+    hypercoin_util
   )
-  install_binary_component(bitcoin-util HAS_MANPAGE)
+  install_binary_component(hypercoin-util HAS_MANPAGE)
 endif()
 
 
@@ -388,21 +404,27 @@ endif()
 
 if(BUILD_KERNEL_LIB)
   add_subdirectory(kernel)
-  if (BUILD_KERNEL_TEST)
-    add_subdirectory(test/kernel)
-  endif()
-  if(BUILD_UTIL_CHAINSTATE)
-    add_executable(bitcoin-chainstate
-      bitcoin-chainstate.cpp
-    )
-    add_windows_application_manifest(bitcoin-chainstate)
-    target_link_libraries(bitcoin-chainstate
-      PRIVATE
-        core_interface
-        bitcoinkernel
-    )
-    install_binary_component(bitcoin-chainstate INTERNAL)
-  endif()
+endif()
+
+if(BUILD_UTIL_CHAINSTATE)
+  add_executable(hypercoin-chainstate
+    hypercoin-chainstate.cpp
+  )
+  # TODO: The `SKIP_BUILD_RPATH` property setting can be deleted
+  #       in the future after reordering Guix script commands to
+  #       perform binary checks after the installation step.
+  # Relevant discussions:
+  # - https://github.com/hebasto/hypercoin/pull/236#issuecomment-2183120953
+  # - https://github.com/hypercoin/hypercoin/pull/30312#issuecomment-2191235833
+  set_target_properties(hypercoin-chainstate PROPERTIES
+    SKIP_BUILD_RPATH OFF
+  )
+  target_link_libraries(hypercoin-chainstate
+    PRIVATE
+      core_interface
+      hypercoinkernel
+  )
+  install_binary_component(hypercoin-chainstate INTERNAL)
 endif()
 
 

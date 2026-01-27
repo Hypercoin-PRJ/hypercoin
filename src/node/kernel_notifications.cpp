@@ -1,10 +1,10 @@
-// Copyright (c) 2023-present The Bitcoin Core developers
+// Copyright (c) 2023 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <node/kernel_notifications.h>
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <chain.h>
 #include <common/args.h>
@@ -48,7 +48,7 @@ static void AlertNotify(const std::string& strMessage)
 
 namespace node {
 
-kernel::InterruptResult KernelNotifications::blockTip(SynchronizationState state, const CBlockIndex& index, double verification_progress)
+kernel::InterruptResult KernelNotifications::blockTip(SynchronizationState state, CBlockIndex& index, double verification_progress)
 {
     {
         LOCK(m_tip_block_mutex);

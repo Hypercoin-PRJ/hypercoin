@@ -1,4 +1,4 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -339,7 +339,7 @@ FUZZ_TARGET(txorphan_protected, .init = initialize_orphanage)
                     }
                 },
                 [&] { // EraseTx
-                    if (protected_wtxids.contains(tx->GetWitnessHash())) {
+                    if (protected_wtxids.count(tx->GetWitnessHash())) {
                         protected_wtxids.erase(wtxid);
                     }
                     orphanage->EraseTx(wtxid);
@@ -616,7 +616,7 @@ FUZZ_TARGET(txorphanage_sim)
                 real->EraseForBlock(block);
                 std::erase_if(sim_announcements, [&](auto& ann) {
                     for (auto& txin : txn[ann.tx]->vin) {
-                        if (spent.contains(txin.prevout)) return true;
+                        if (spent.count(txin.prevout)) return true;
                     }
                     return false;
                 });

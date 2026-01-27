@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2022-present The Bitcoin Core developers
+# Copyright (c) 2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test signet miner tool"""
@@ -14,7 +14,7 @@ import time
 from test_framework.blocktools import DIFF_1_N_BITS, SIGNET_HEADER
 from test_framework.key import ECKey
 from test_framework.script_util import CScript, key_to_p2wpkh_script
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_equal,
     wallet_importprivkey,
@@ -36,7 +36,7 @@ def get_signet_commitment(segwit_commitment):
             return el[4:].hex()
     return None
 
-class SignetMinerTest(BitcoinTestFramework):
+class SignetMinerTest(HypercoinTestFramework):
     def set_test_params(self):
         self.chain = "signet"
         self.setup_clean_chain = True
@@ -58,7 +58,7 @@ class SignetMinerTest(BitcoinTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_cli()
         self.skip_if_no_wallet()
-        self.skip_if_no_bitcoin_util()
+        self.skip_if_no_hypercoin_util()
 
     def setup_network(self):
         self.setup_nodes()
@@ -102,8 +102,8 @@ class SignetMinerTest(BitcoinTestFramework):
                 'genpsbt',
                 f'--address={node.getnewaddress()}',
                 '--poolnum=98',
-            ], check=True, text=True, input=json.dumps(template), capture_output=True)
-        psbt = genpsbt.stdout.strip()
+            ], check=True, input=json.dumps(template).encode('utf8'), capture_output=True)
+        psbt = genpsbt.stdout.decode('utf8').strip()
         if sign:
             self.log.debug("Sign the PSBT")
             res = node.walletprocesspsbt(psbt=psbt, sign=True, sighashtype='ALL')
@@ -112,8 +112,8 @@ class SignetMinerTest(BitcoinTestFramework):
         solvepsbt = subprocess.run(base_cmd + [
                 'solvepsbt',
                 f'--grind-cmd={shlex.join(util_argv)}',
-            ], check=True, text=True, input=psbt, capture_output=True)
-        node.submitblock(solvepsbt.stdout.strip())
+            ], check=True, input=psbt.encode('utf8'), capture_output=True)
+        node.submitblock(solvepsbt.stdout.decode('utf8').strip())
         assert_equal(node.getblockcount(), n_blocks + 1)
 
     def run_test(self):

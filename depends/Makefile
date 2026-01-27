@@ -1,6 +1,4 @@
 .NOTPARALLEL :
-# Disable builtin variables, rules and suffixes.
-MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
 # Pattern rule to print variables, e.g. make print-top_srcdir
 print-%: FORCE
@@ -193,7 +191,7 @@ $(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
 	echo copying packages: $^
 	echo to: $(@D)
 	cd $(@D); $(foreach package,$^, $(build_TAR) xf $($(package)_cached); )
-	echo To build Bitcoin Core with these packages, pass \'--toolchain $(@D)/toolchain.cmake\' to the first CMake invocation.
+	echo To build Hypercoin Core with these packages, pass \'--toolchain $(@D)/toolchain.cmake\' to the first CMake invocation.
 	touch $@
 
 ifeq ($(host),$(build))

@@ -1,9 +1,9 @@
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_COMMON_BLOOM_H
-#define BITCOIN_COMMON_BLOOM_H
+#ifndef HYPERCOIN_COMMON_BLOOM_H
+#define HYPERCOIN_COMMON_BLOOM_H
 
 #include <serialize.h>
 #include <span.h>
@@ -61,7 +61,7 @@ public:
      * It should generally always be a random value (and is largely only exposed for unit testing)
      * nFlags should be one of the BLOOM_UPDATE_* enums (not _MASK)
      */
-    CBloomFilter(unsigned int nElements, double nFPRate, unsigned int nTweak, unsigned char nFlagsIn);
+    CBloomFilter(const unsigned int nElements, const double nFPRate, const unsigned int nTweak, unsigned char nFlagsIn);
     CBloomFilter() : nHashFuncs(0), nTweak(0), nFlags(0) {}
 
     SERIALIZE_METHODS(CBloomFilter, obj) { READWRITE(obj.vData, obj.nHashFuncs, obj.nTweak, obj.nFlags); }
@@ -108,7 +108,7 @@ public:
 class CRollingBloomFilter
 {
 public:
-    CRollingBloomFilter(unsigned int nElements, double nFPRate);
+    CRollingBloomFilter(const unsigned int nElements, const double nFPRate);
 
     void insert(std::span<const unsigned char> vKey);
     bool contains(std::span<const unsigned char> vKey) const;
@@ -124,4 +124,4 @@ private:
     int nHashFuncs;
 };
 
-#endif // BITCOIN_COMMON_BLOOM_H
+#endif // HYPERCOIN_COMMON_BLOOM_H

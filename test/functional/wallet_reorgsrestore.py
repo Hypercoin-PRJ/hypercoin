@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019-present The Bitcoin Core developers
+# Copyright (c) 2019-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -16,7 +16,7 @@ disconnected.
 from decimal import Decimal
 import shutil
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
         assert_equal,
         assert_greater_than,
@@ -24,7 +24,7 @@ from test_framework.util import (
         assert_raises_rpc_error
 )
 
-class ReorgsRestoreTest(BitcoinTestFramework):
+class ReorgsRestoreTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
 
@@ -104,7 +104,7 @@ class ReorgsRestoreTest(BitcoinTestFramework):
 
         # Disconnect tip and sync wallet state
         tip = wallet.getbestblockhash()
-        tip_height = wallet.getblockstats(hash_or_height=tip)["height"]
+        tip_height = wallet.getblockstats(hash_or_height=self.convert_to_json_for_cli(tip))["height"]
         wallet.invalidateblock(tip)
         wallet.syncwithvalidationinterfacequeue()
 

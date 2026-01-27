@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -48,7 +48,7 @@ std::vector<std::pair<fs::path, std::string>> ListDatabases(const fs::path& wall
                         paths.emplace_back(fs::path(), "sqlite");
                     }
                 } else if (IsBDBFile(it->path())) {
-                    // Found top-level btree file not called wallet.dat. Current bitcoin
+                    // Found top-level btree file not called wallet.dat. Current hypercoin
                     // software will never create these files but will allow them to be
                     // opened in a shared database environment for backwards compatibility.
                     // Add it to the list of available wallets.
@@ -102,7 +102,7 @@ bool IsBDBFile(const fs::path& path)
     if (ec) LogWarning("Error reading file_size: %s [%s]", ec.message(), fs::PathToString(path));
     if (size < 4096) return false;
 
-    std::ifstream file{path.std_path(), std::ios::binary};
+    std::ifstream file{path, std::ios::binary};
     if (!file.is_open()) return false;
 
     file.seekg(12, std::ios::beg); // Magic bytes start at offset 12
@@ -126,7 +126,7 @@ bool IsSQLiteFile(const fs::path& path)
     if (ec) LogWarning("Error reading file_size: %s [%s]", ec.message(), fs::PathToString(path));
     if (size < 512) return false;
 
-    std::ifstream file{path.std_path(), std::ios::binary};
+    std::ifstream file{path, std::ios::binary};
     if (!file.is_open()) return false;
 
     // Magic is at beginning and is 16 bytes long

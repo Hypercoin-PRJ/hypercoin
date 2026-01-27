@@ -1,9 +1,9 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UTIL_RESULT_H
-#define BITCOIN_UTIL_RESULT_H
+#ifndef HYPERCOIN_UTIL_RESULT_H
+#define HYPERCOIN_UTIL_RESULT_H
 
 #include <attributes.h>
 #include <util/translation.h>
@@ -21,8 +21,8 @@ struct Error {
 //!
 //! It is intended for high-level functions that need to report error strings to
 //! end users. Lower-level functions that don't need this error-reporting and
-//! that only need error-handling should avoid util::Result and instead use
-//! util::Expected, std::optional, std::variant, or custom structs
+//! only need error-handling should avoid util::Result and instead use standard
+//! classes like std::optional, std::variant, and std::tuple, or custom structs
 //! and enum types to return function results.
 //!
 //! Usage examples can be found in \example ../test/result_tests.cpp, but in
@@ -96,4 +96,4 @@ bilingual_str ErrorString(const Result<T>& result)
 }
 } // namespace util
 
-#endif // BITCOIN_UTIL_RESULT_H
+#endif // HYPERCOIN_UTIL_RESULT_H

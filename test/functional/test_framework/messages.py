@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # Copyright (c) 2010 ArtForz -- public domain half-a-node
 # Copyright (c) 2012 Jeff Garzik
-# Copyright (c) 2010-present The Bitcoin Core developers
+# Copyright (c) 2010-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Bitcoin test framework primitive and message structures
+"""Hypercoin test framework primitive and message structures
 
 CBlock, CTransaction, CBlockHeader, CTxIn, CTxOut, etc....:
     data structures that should map to corresponding structures in
-    bitcoin/primitives
+    hypercoin/primitives
 
 msg_block, msg_tx, msg_headers, etc.:
     data structures that represent network messages
@@ -29,10 +29,7 @@ import time
 import unittest
 
 from test_framework.crypto.siphash import siphash256
-from test_framework.util import (
-    assert_equal,
-    assert_not_equal,
-)
+from test_framework.util import assert_equal
 
 MAX_LOCATOR_SZ = 101
 MAX_BLOCK_WEIGHT = 4000000
@@ -41,7 +38,7 @@ MINIMUM_BLOCK_RESERVED_WEIGHT = 2000
 MAX_BLOOM_FILTER_SIZE = 36000
 MAX_BLOOM_HASH_FUNCS = 50
 
-COIN = 100000000  # 1 btc in satoshis
+COIN = 100000000  # 1 hrc in satoshis
 MAX_MONEY = 21000000 * COIN
 
 MAX_BIP125_RBF_SEQUENCE = 0xfffffffd  # Sequence number that is rbf-opt-in (BIP 125) and csv-opt-out (BIP 68)
@@ -75,7 +72,6 @@ WITNESS_SCALE_FACTOR = 4
 
 DEFAULT_ANCESTOR_LIMIT = 25    # default max number of in-mempool ancestors
 DEFAULT_DESCENDANT_LIMIT = 25  # default max number of in-mempool descendants
-DEFAULT_CLUSTER_LIMIT = 64     # default max number of transactions in a cluster
 
 
 # Default setting for -datacarriersize.
@@ -257,23 +253,6 @@ def tx_from_hex(hex_string):
     return from_hex(CTransaction(), hex_string)
 
 
-def malleate_tx_to_invalid_witness(tx):
-    """
-    Create a malleated version of the tx where the witness is replaced with garbage data.
-    Returns a CTransaction object.
-    """
-    tx_bad_wit = tx_from_hex(tx["hex"])
-    tx_bad_wit.wit.vtxinwit = [CTxInWitness()]
-    # Add garbage data to witness 0. We cannot simply strip the witness, as the node would
-    # classify it as a transaction in which the witness was missing rather than wrong.
-    tx_bad_wit.wit.vtxinwit[0].scriptWitness.stack = [b'garbage']
-
-    assert_equal(tx["txid"], tx_bad_wit.txid_hex)
-    assert_not_equal(tx["wtxid"], tx_bad_wit.wtxid_hex)
-
-    return tx_bad_wit
-
-
 # like from_hex, but without the hex part
 def from_binary(cls, stream):
     """deserialize a binary stream (or bytes object) into an object"""
@@ -288,13 +267,13 @@ def from_binary(cls, stream):
     return obj
 
 
-# Objects that map to bitcoind objects, which can be serialized/deserialized
+# Objects that map to hypercoind objects, which can be serialized/deserialized
 
 
 class CAddress:
     __slots__ = ("net", "ip", "nServices", "port", "time")
 
-    # see https://github.com/bitcoin/bips/blob/master/bip-0155.mediawiki
+    # see https://github.com/hypercoin/bips/blob/master/bip-0155.mediawiki
     NET_IPV4 = 1
     NET_IPV6 = 2
     NET_TORV3 = 4
@@ -465,7 +444,7 @@ class CBlockLocator:
 
     def serialize(self):
         r = b""
-        r += (0).to_bytes(4, "little", signed=True)  # Bitcoin Core ignores the version field. Set it to 0.
+        r += (0).to_bytes(4, "little", signed=True)  # Hypercoin Core ignores the version field. Set it to 0.
         r += ser_uint256_vector(self.vHave)
         return r
 
@@ -637,7 +616,7 @@ class CTransaction:
         if len(self.vin) == 0:
             flags = int.from_bytes(f.read(1), "little")
             # Not sure why flags can't be zero, but this
-            # matches the implementation in bitcoind
+            # matches the implementation in hypercoind
             if (flags != 0):
                 self.vin = deser_vector(f, CTxIn)
                 self.vout = deser_vector(f, CTxOut)
@@ -1169,7 +1148,7 @@ class msg_version:
         self.nStartingHeight = int.from_bytes(f.read(4), "little", signed=True)
 
         # Relay field is optional for version 70001 onwards
-        # But, unconditionally check it to match behaviour in bitcoind
+        # But, unconditionally check it to match behaviour in hypercoind
         self.relay = int.from_bytes(f.read(1), "little")  # f.read(1) may return an empty b''
 
     def serialize(self):
@@ -1550,7 +1529,7 @@ class msg_headers:
         self.headers = headers if headers is not None else []
 
     def deserialize(self, f):
-        # comment in bitcoind indicates these should be deserialized as blocks
+        # comment in hypercoind indicates these should be deserialized as blocks
         blocks = deser_vector(f, CBlock)
         for x in blocks:
             self.headers.append(CBlockHeader(x))

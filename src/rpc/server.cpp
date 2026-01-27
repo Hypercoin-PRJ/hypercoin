@@ -1,9 +1,9 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <rpc/server.h>
 
@@ -26,7 +26,6 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
-#include <string_view>
 #include <unordered_map>
 
 using util::SplitString;
@@ -66,7 +65,7 @@ struct RPCCommandExecution
     }
 };
 
-std::string CRPCTable::help(std::string_view strCommand, const JSONRPCRequest& helpreq) const
+std::string CRPCTable::help(const std::string& strCommand, const JSONRPCRequest& helpreq) const
 {
     std::string strRet;
     std::string category;
@@ -131,13 +130,16 @@ static RPCHelpMan help()
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& jsonRequest) -> UniValue
 {
-    auto command{self.MaybeArg<std::string_view>("command")};
-    if (command == "dump_all_command_conversions") {
+    std::string strCommand;
+    if (jsonRequest.params.size() > 0) {
+        strCommand = jsonRequest.params[0].get_str();
+    }
+    if (strCommand == "dump_all_command_conversions") {
         // Used for testing only, undocumented
         return tableRPC.dumpArgMap(jsonRequest);
     }
 
-    return tableRPC.help(command.value_or(""), jsonRequest);
+    return tableRPC.help(strCommand, jsonRequest);
 },
     };
 }

@@ -1,11 +1,11 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <wallet/wallet.h>
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 #include <addresstype.h>
 #include <blockfilter.h>
 #include <chain.h>
@@ -22,8 +22,8 @@
 #include <interfaces/chain.h>
 #include <interfaces/handler.h>
 #include <interfaces/wallet.h>
+#include <kernel/chain.h>
 #include <kernel/mempool_removal_reason.h>
-#include <kernel/types.h>
 #include <key.h>
 #include <key_io.h>
 #include <logging.h>
@@ -87,7 +87,6 @@ using common::AmountErrMsg;
 using common::AmountHighWarn;
 using common::PSBTError;
 using interfaces::FoundBlock;
-using kernel::ChainstateRole;
 using util::ReplaceAll;
 using util::ToString;
 
@@ -266,7 +265,7 @@ void WaitForDeleteWallet(std::shared_ptr<CWallet>&& wallet)
     wallet.reset();
     {
         WAIT_LOCK(g_wallet_release_mutex, lock);
-        while (g_unloading_wallet_set.contains(name)) {
+        while (g_unloading_wallet_set.count(name) == 1) {
             g_wallet_release_cv.wait(lock);
         }
     }
@@ -794,7 +793,7 @@ bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
     // Only descriptor wallets can be encrypted
     Assert(IsWalletFlagSet(WALLET_FLAG_DESCRIPTORS));
 
-    if (HasEncryptionKeys())
+    if (IsCrypted())
         return false;
 
     CKeyingMaterial plain_master_key;
@@ -954,7 +953,7 @@ bool CWallet::MarkReplaced(const Txid& originalHash, const Txid& newHash)
     CWalletTx& wtx = (*mi).second;
 
     // Ensure for now that we're not overwriting data
-    assert(!wtx.mapValue.contains("replaced_by_txid"));
+    assert(wtx.mapValue.count("replaced_by_txid") == 0);
 
     wtx.mapValue["replaced_by_txid"] = newHash.ToString();
 
@@ -1124,9 +1123,9 @@ CWalletTx* CWallet::AddToWallet(CTransactionRef tx, const TxState& state, const 
 #ifndef WIN32
         // Substituting the wallet name isn't currently supported on windows
         // because windows shell escaping has not been implemented yet:
-        // https://github.com/bitcoin/bitcoin/pull/13339#issuecomment-537384875
+        // https://github.com/hypercoin/hypercoin/pull/13339#issuecomment-537384875
         // A few ways it could be implemented in the future are described in:
-        // https://github.com/bitcoin/bitcoin/pull/13339#issuecomment-461288094
+        // https://github.com/hypercoin/hypercoin/pull/13339#issuecomment-461288094
         ReplaceAll(strCmd, "%w", ShellEscape(GetName()));
 #endif
         std::thread t(runCommand, strCmd);
@@ -1144,7 +1143,7 @@ bool CWallet::LoadToWallet(const Txid& hash, const UpdateWalletTxFn& fill_wtx)
     if (!fill_wtx(wtx, ins.second)) {
         return false;
     }
-    // If wallet doesn't have a chain (e.g when using bitcoin-wallet tool),
+    // If wallet doesn't have a chain (e.g when using hypercoin-wallet tool),
     // don't bother to update txn.
     if (HaveChain()) {
       wtx.updateState(chain());
@@ -1190,7 +1189,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef& ptx, const SyncTxS
             }
         }
 
-        bool fExisted = mapWallet.contains(tx.GetHash());
+        bool fExisted = mapWallet.count(tx.GetHash()) != 0;
         if (fExisted && !fUpdate) return false;
         if (fExisted || IsMine(tx) || IsFromMe(tx))
         {
@@ -1366,7 +1365,7 @@ void CWallet::RecursiveUpdateTxState(WalletBatch* batch, const Txid& tx_hash, co
             for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
                 std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range = mapTxSpends.equal_range(COutPoint(now, i));
                 for (TxSpends::const_iterator iter = range.first; iter != range.second; ++iter) {
-                    if (!done.contains(iter->second)) {
+                    if (!done.count(iter->second)) {
                         todo.insert(iter->second);
                     }
                 }
@@ -1454,7 +1453,7 @@ void CWallet::transactionRemovedFromMempool(const CTransactionRef& tx, MemPoolRe
         //    provide the conflicting block's hash and height, and for backwards
         //    compatibility reasons it may not be not safe to store conflicted
         //    wallet transactions with a null block hash. See
-        //    https://github.com/bitcoin/bitcoin/pull/18600#discussion_r420195993.
+        //    https://github.com/hypercoin/hypercoin/pull/18600#discussion_r420195993.
         // 2. For most of these transactions, the wallet's internal conflict
         //    detection in the blockConnected handler will subsequently call
         //    MarkConflicted and update them with CONFLICTED status anyway. This
@@ -1462,7 +1461,7 @@ void CWallet::transactionRemovedFromMempool(const CTransactionRef& tx, MemPoolRe
         //    block, or that has ancestors in the wallet with inputs spent by
         //    the block.
         // 3. Longstanding behavior since the sync implementation in
-        //    https://github.com/bitcoin/bitcoin/pull/9371 and the prior sync
+        //    https://github.com/hypercoin/hypercoin/pull/9371 and the prior sync
         //    implementation before that was to mark these transactions
         //    unconfirmed rather than conflicted.
         //
@@ -1470,7 +1469,7 @@ void CWallet::transactionRemovedFromMempool(const CTransactionRef& tx, MemPoolRe
         // when improving this code in the future. The wallet's heuristics for
         // distinguishing between conflicted and unconfirmed transactions are
         // imperfect, and could be improved in general, see
-        // https://github.com/bitcoin-core/bitcoin-devwiki/wiki/Wallet-Transaction-Conflict-Tracking
+        // https://github.com/hypercoin-core/hypercoin-devwiki/wiki/Wallet-Transaction-Conflict-Tracking
         SyncTransaction(tx, TxStateInactive{});
     }
 
@@ -1507,9 +1506,9 @@ void CWallet::transactionRemovedFromMempool(const CTransactionRef& tx, MemPoolRe
     }
 }
 
-void CWallet::blockConnected(const ChainstateRole& role, const interfaces::BlockInfo& block)
+void CWallet::blockConnected(ChainstateRole role, const interfaces::BlockInfo& block)
 {
-    if (role.historical) {
+    if (role == ChainstateRole::BACKGROUND) {
         return;
     }
     assert(block.data);
@@ -1555,7 +1554,7 @@ void CWallet::blockDisconnected(const interfaces::BlockInfo& block)
 
         for (const CTxIn& tx_in : ptx->vin) {
             // No other wallet transactions conflicted with this transaction
-            if (!mapTxSpends.contains(tx_in.prevout)) continue;
+            if (mapTxSpends.count(tx_in.prevout) < 1) continue;
 
             std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range = mapTxSpends.equal_range(tx_in.prevout);
 
@@ -1989,9 +1988,7 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
     return result;
 }
 
-bool CWallet::SubmitTxMemoryPoolAndRelay(CWalletTx& wtx,
-                                         std::string& err_string,
-                                         node::TxBroadcast broadcast_method) const
+bool CWallet::SubmitTxMemoryPoolAndRelay(CWalletTx& wtx, std::string& err_string, bool relay) const
 {
     AssertLockHeld(cs_wallet);
 
@@ -2005,19 +2002,8 @@ bool CWallet::SubmitTxMemoryPoolAndRelay(CWalletTx& wtx,
     // Don't try to submit conflicted or confirmed transactions.
     if (GetTxDepthInMainChain(wtx) != 0) return false;
 
-    const char* what{""};
-    switch (broadcast_method) {
-    case node::TxBroadcast::MEMPOOL_AND_BROADCAST_TO_ALL:
-        what = "to mempool and for broadcast to peers";
-        break;
-    case node::TxBroadcast::MEMPOOL_NO_BROADCAST:
-        what = "to mempool without broadcast";
-        break;
-    case node::TxBroadcast::NO_MEMPOOL_PRIVATE_BROADCAST:
-        what = "for private broadcast without adding to the mempool";
-        break;
-    }
-    WalletLogPrintf("Submitting wtx %s %s\n", wtx.GetHash().ToString(), what);
+    // Submit transaction to mempool for relay
+    WalletLogPrintf("Submitting wtx %s to mempool for relay\n", wtx.GetHash().ToString());
     // We must set TxStateInMempool here. Even though it will also be set later by the
     // entered-mempool callback, if we did not there would be a race where a
     // user could call sendmoney in a loop and hit spurious out of funds errors
@@ -2027,7 +2013,7 @@ bool CWallet::SubmitTxMemoryPoolAndRelay(CWalletTx& wtx,
     // If broadcast fails for any reason, trying to set wtx.m_state here would be incorrect.
     // If transaction was previously in the mempool, it should be updated when
     // TransactionRemovedFromMempool fires.
-    bool ret = chain().broadcastTransaction(wtx.tx, m_default_max_tx_fee, broadcast_method, err_string);
+    bool ret = chain().broadcastTransaction(wtx.tx, m_default_max_tx_fee, relay, err_string);
     if (ret) wtx.m_state = TxStateInMempool{};
     return ret;
 }
@@ -2082,11 +2068,10 @@ NodeClock::time_point CWallet::GetDefaultNextResend() { return FastRandomContext
 //
 // The `force` option results in all unconfirmed transactions being submitted to
 // the mempool. This does not necessarily result in those transactions being relayed,
-// that depends on the `broadcast_method` option. Periodic rebroadcast uses the pattern
-// broadcast_method=TxBroadcast::MEMPOOL_AND_BROADCAST_TO_ALL force=false, while loading into
-// the mempool (on start, or after import) uses
-// broadcast_method=TxBroadcast::MEMPOOL_NO_BROADCAST force=true.
-void CWallet::ResubmitWalletTransactions(node::TxBroadcast broadcast_method, bool force)
+// that depends on the `relay` option. Periodic rebroadcast uses the pattern
+// relay=true force=false, while loading into the mempool
+// (on start, or after import) uses relay=false force=true.
+void CWallet::ResubmitWalletTransactions(bool relay, bool force)
 {
     // Don't attempt to resubmit if the wallet is configured to not broadcast,
     // even if forcing.
@@ -2112,7 +2097,7 @@ void CWallet::ResubmitWalletTransactions(node::TxBroadcast broadcast_method, boo
         // Now try submitting the transactions to the memory pool and (optionally) relay them.
         for (auto wtx : to_submit) {
             std::string unused_err_string;
-            if (SubmitTxMemoryPoolAndRelay(*wtx, unused_err_string, broadcast_method)) ++submitted_tx_count;
+            if (SubmitTxMemoryPoolAndRelay(*wtx, unused_err_string, relay)) ++submitted_tx_count;
         }
     } // cs_wallet
 
@@ -2127,7 +2112,7 @@ void MaybeResendWalletTxs(WalletContext& context)
 {
     for (const std::shared_ptr<CWallet>& pwallet : GetWallets(context)) {
         if (!pwallet->ShouldResend()) continue;
-        pwallet->ResubmitWalletTransactions(node::TxBroadcast::MEMPOOL_AND_BROADCAST_TO_ALL, /*force=*/false);
+        pwallet->ResubmitWalletTransactions(/*relay=*/true, /*force=*/false);
         pwallet->SetNextResend();
     }
 }
@@ -2328,7 +2313,7 @@ void CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
     }
 
     std::string err_string;
-    if (!SubmitTxMemoryPoolAndRelay(*wtx, err_string, node::TxBroadcast::MEMPOOL_AND_BROADCAST_TO_ALL)) {
+    if (!SubmitTxMemoryPoolAndRelay(*wtx, err_string, true)) {
         WalletLogPrintf("CommitTransaction(): Transaction cannot be broadcast immediately, %s\n", err_string);
         // TODO: if we expect the failure to be long term or permanent, instead delete wtx from the wallet and return failure.
     }
@@ -2534,7 +2519,7 @@ bool CWallet::TopUpKeyPool(unsigned int kpSize)
     return res;
 }
 
-util::Result<CTxDestination> CWallet::GetNewDestination(const OutputType type, const std::string& label)
+util::Result<CTxDestination> CWallet::GetNewDestination(const OutputType type, const std::string label)
 {
     LOCK(cs_wallet);
     auto spk_man = GetScriptPubKeyMan(type, /*internal=*/false);
@@ -2567,7 +2552,7 @@ void CWallet::MarkDestinationsDirty(const std::set<CTxDestination>& destinations
         if (wtx.m_is_cache_empty) continue;
         for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
             CTxDestination dst;
-            if (ExtractDestination(wtx.tx->vout[i].scriptPubKey, dst) && destinations.contains(dst)) {
+            if (ExtractDestination(wtx.tx->vout[i].scriptPubKey, dst) && destinations.count(dst)) {
                 wtx.MarkDirty();
                 break;
             }
@@ -2711,7 +2696,7 @@ bool CWallet::UnlockAllCoins()
 bool CWallet::IsLockedCoin(const COutPoint& output) const
 {
     AssertLockHeld(cs_wallet);
-    return m_locked_coins.contains(output);
+    return m_locked_coins.count(output) > 0;
 }
 
 void CWallet::ListLockedCoins(std::vector<COutPoint>& vOutpts) const
@@ -2742,8 +2727,8 @@ void CWallet::ListLockedCoins(std::vector<COutPoint>& vOutpts) const
  *   the block time.
  *
  * For more information see CWalletTx::nTimeSmart,
- * https://bitcointalk.org/?topic=54527, or
- * https://github.com/bitcoin/bitcoin/pull/1393.
+ * https://hypercointalk.org/?topic=54527, or
+ * https://github.com/hypercoin/hypercoin/pull/1393.
  */
 unsigned int CWallet::ComputeTimeSmart(const CWalletTx& wtx, bool rescanning_old_block) const
 {
@@ -3158,7 +3143,7 @@ bool CWallet::AttachChain(const std::shared_ptr<CWallet>& walletInstance, interf
             // Wallet is assumed to be from another chain, if genesis block in the active
             // chain differs from the genesis block known to the wallet.
             if (chain.getBlockHash(0) != locator.vHave.back()) {
-                error = Untranslated("Wallet files should not be reused across chains. Restart bitcoind with -walletcrosschain to override.");
+                error = Untranslated("Wallet files should not be reused across chains. Restart hypercoind with -walletcrosschain to override.");
                 return false;
             }
         }
@@ -3277,7 +3262,7 @@ void CWallet::postInitProcess()
 {
     // Add wallet transactions that aren't already in a block to mempool
     // Do this here as mempool requires genesis block to be loaded
-    ResubmitWalletTransactions(node::TxBroadcast::MEMPOOL_NO_BROADCAST, /*force=*/true);
+    ResubmitWalletTransactions(/*relay=*/false, /*force=*/true);
 
     // Update wallet transactions with current mempool transactions.
     WITH_LOCK(cs_wallet, chain().requestMempoolTransactions(*this));
@@ -3323,9 +3308,14 @@ bool CWallet::IsTxImmatureCoinBase(const CWalletTx& wtx) const
     return GetTxBlocksToMaturity(wtx) > 0;
 }
 
+bool CWallet::IsCrypted() const
+{
+    return HasEncryptionKeys();
+}
+
 bool CWallet::IsLocked() const
 {
-    if (!HasEncryptionKeys()) {
+    if (!IsCrypted()) {
         return false;
     }
     LOCK(cs_wallet);
@@ -3334,7 +3324,7 @@ bool CWallet::IsLocked() const
 
 bool CWallet::Lock()
 {
-    if (!HasEncryptionKeys())
+    if (!IsCrypted())
         return false;
 
     {
@@ -3425,7 +3415,7 @@ std::set<ScriptPubKeyMan*> CWallet::GetScriptPubKeyMans(const CScript& script) c
 
 ScriptPubKeyMan* CWallet::GetScriptPubKeyMan(const uint256& id) const
 {
-    if (m_spk_managers.contains(id)) {
+    if (m_spk_managers.count(id) > 0) {
         return m_spk_managers.at(id).get();
     }
     return nullptr;
@@ -3548,7 +3538,7 @@ DescriptorScriptPubKeyMan& CWallet::SetupDescriptorScriptPubKeyMan(WalletBatch& 
 {
     AssertLockHeld(cs_wallet);
     auto spk_manager = std::unique_ptr<DescriptorScriptPubKeyMan>(new DescriptorScriptPubKeyMan(*this, m_keypool_size));
-    if (HasEncryptionKeys()) {
+    if (IsCrypted()) {
         if (IsLocked()) {
             throw std::runtime_error(std::string(__func__) + ": Wallet is locked, cannot setup new descriptors");
         }
@@ -3710,7 +3700,7 @@ DescriptorScriptPubKeyMan* CWallet::GetDescriptorScriptPubKeyMan(const WalletDes
 std::optional<bool> CWallet::IsInternalScriptPubKeyMan(ScriptPubKeyMan* spk_man) const
 {
     // only active ScriptPubKeyMan can be internal
-    if (!GetActiveScriptPubKeyMans().contains(spk_man)) {
+    if (!GetActiveScriptPubKeyMans().count(spk_man)) {
         return std::nullopt;
     }
 
@@ -3730,7 +3720,9 @@ util::Result<std::reference_wrapper<DescriptorScriptPubKeyMan>> CWallet::AddWall
 {
     AssertLockHeld(cs_wallet);
 
-    Assert(IsWalletFlagSet(WALLET_FLAG_DESCRIPTORS));
+    if (!IsWalletFlagSet(WALLET_FLAG_DESCRIPTORS)) {
+        return util::Error{_("Cannot add WalletDescriptor to a non-descriptor wallet")};
+    }
 
     auto spk_man = GetDescriptorScriptPubKeyMan(desc);
     if (spk_man) {
@@ -3905,7 +3897,7 @@ util::Result<void> CWallet::ApplyMigrationData(WalletBatch& local_wallet_batch, 
     if (!data.solvable_descs.empty()) Assume(!data.solvable_wallet->m_cached_spks.empty());
 
     for (auto& desc_spkm : data.desc_spkms) {
-        if (m_spk_managers.contains(desc_spkm->GetID())) {
+        if (m_spk_managers.count(desc_spkm->GetID()) > 0) {
             return util::Error{_("Error: Duplicate descriptors created during migration. Your wallet may be corrupted.")};
         }
         uint256 id = desc_spkm->GetID();
@@ -3923,7 +3915,7 @@ util::Result<void> CWallet::ApplyMigrationData(WalletBatch& local_wallet_batch, 
     m_internal_spk_managers.clear();
 
     // Setup new descriptors (only if we are migrating any key material)
-    SetWalletFlagWithDB(local_wallet_batch, WALLET_FLAG_DESCRIPTORS | WALLET_FLAG_LAST_HARDENED_XPUB_CACHED);
+    SetWalletFlagWithDB(local_wallet_batch, WALLET_FLAG_DESCRIPTORS);
     if (has_spendable_material && !IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
         // Use the existing master key if we have it
         if (data.master_key.key.IsValid()) {
@@ -4053,7 +4045,7 @@ util::Result<void> CWallet::ApplyMigrationData(WalletBatch& local_wallet_batch, 
         if (require_transfer && !copied) {
 
             // Skip invalid/non-watched scripts that will not be migrated
-            if (not_migrated_dests.contains(dest)) {
+            if (not_migrated_dests.count(dest) > 0) {
                 dests_to_delete.push_back(dest);
                 continue;
             }

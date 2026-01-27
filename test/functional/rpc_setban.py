@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-present The Bitcoin Core developers
+# Copyright (c) 2015-2021 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the setban rpc call."""
 
 from contextlib import ExitStack
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     p2p_port,
     assert_equal,
 )
 
-class SetBanTests(BitcoinTestFramework):
+class SetBanTests(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
@@ -24,7 +24,7 @@ class SetBanTests(BitcoinTestFramework):
         # Node 0 connects to Node 1, check that the noban permission is not granted
         self.connect_nodes(0, 1)
         peerinfo = self.nodes[1].getpeerinfo()[0]
-        assert "noban" not in peerinfo["permissions"]
+        assert not "noban" in peerinfo["permissions"]
 
         # Node 0 get banned by Node 1
         self.nodes[1].setban("127.0.0.1", "add")
@@ -51,7 +51,7 @@ class SetBanTests(BitcoinTestFramework):
         self.restart_node(1, [])
         self.connect_nodes(0, 1)
         peerinfo = self.nodes[1].getpeerinfo()[0]
-        assert "noban" not in peerinfo["permissions"]
+        assert not "noban" in peerinfo["permissions"]
 
         self.log.info("Test that a non-IP address can be banned/unbanned")
         node = self.nodes[1]

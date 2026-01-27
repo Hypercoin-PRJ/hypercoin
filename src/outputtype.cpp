@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -20,7 +20,7 @@ static const std::string OUTPUT_TYPE_STRING_BECH32 = "bech32";
 static const std::string OUTPUT_TYPE_STRING_BECH32M = "bech32m";
 static const std::string OUTPUT_TYPE_STRING_UNKNOWN = "unknown";
 
-std::optional<OutputType> ParseOutputType(std::string_view type)
+std::optional<OutputType> ParseOutputType(const std::string& type)
 {
     if (type == OUTPUT_TYPE_STRING_LEGACY) {
         return OutputType::LEGACY;

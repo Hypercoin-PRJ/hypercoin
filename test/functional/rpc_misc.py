@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019-present The Bitcoin Core developers
+# Copyright (c) 2019-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test RPC misc output."""
 import xml.etree.ElementTree as ET
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_raises_rpc_error,
     assert_equal,
@@ -15,11 +15,8 @@ from test_framework.util import (
 
 from test_framework.authproxy import JSONRPCException
 
-import http
-import subprocess
 
-
-class RpcMiscTest(BitcoinTestFramework):
+class RpcMiscTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
 
@@ -27,22 +24,11 @@ class RpcMiscTest(BitcoinTestFramework):
         node = self.nodes[0]
 
         self.log.info("test CHECK_NONFATAL")
-        msg_internal_bug = 'request.params[9].get_str() != "trigger_internal_bug"'
-        self.restart_node(0)  # Required to flush the chainstate
-        try:
-            node.echo(arg9="trigger_internal_bug")
-            assert False  # Must hit one of the exceptions below
-        except (
-                subprocess.CalledProcessError,
-                http.client.CannotSendRequest,
-                http.client.RemoteDisconnected,
-        ):
-            self.log.info("Restart node after crash")
-            assert_equal(-6, node.process.wait(timeout=10))
-            self.start_node(0)
-        except JSONRPCException as e:
-            assert_equal(e.error["code"], -1)
-            assert f"Internal bug detected: {msg_internal_bug}" in e.error["message"]
+        assert_raises_rpc_error(
+            -1,
+            'Internal bug detected: request.params[9].get_str() != "trigger_internal_bug"',
+            lambda: node.echo(arg9='trigger_internal_bug'),
+        )
 
         self.log.info("test max arg size")
         ARG_SZ_COMMON = 131071  # Common limit, used previously in the test framework, serves as a regression test

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-present The Bitcoin Core developers
+# Copyright (c) 2014-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the wallet backup features.
@@ -35,7 +35,7 @@ import os
 from random import randint
 
 from test_framework.blocktools import COINBASE_MATURITY
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
@@ -43,7 +43,7 @@ from test_framework.util import (
 )
 
 
-class WalletBackupTest(BitcoinTestFramework):
+class WalletBackupTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
@@ -113,7 +113,7 @@ class WalletBackupTest(BitcoinTestFramework):
     def restore_invalid_wallet(self):
         node = self.nodes[3]
         invalid_wallet_file = self.nodes[0].datadir_path / 'invalid_wallet_file.bak'
-        open(invalid_wallet_file, "a").write("invalid_wallet_content")
+        open(invalid_wallet_file, 'a', encoding="utf8").write('invald wallet')
         wallet_name = "res0"
         not_created_wallet_file = node.wallets_path / wallet_name
         error_message = "Wallet file verification failed. Failed to load database path '{}'. Data is not in recognized format.".format(not_created_wallet_file)

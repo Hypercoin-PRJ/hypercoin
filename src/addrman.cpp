@@ -1,9 +1,9 @@
 // Copyright (c) 2012 Pieter Wuille
-// Copyright (c) 2012-present The Bitcoin Core developers
+// Copyright (c) 2012-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <addrman.h>
 #include <addrman_impl.h>
@@ -139,12 +139,12 @@ void AddrManImpl::Serialize(Stream& s_) const
      * * format version byte (@see `Format`)
      * * lowest compatible format version byte. This is used to help old software decide
      *   whether to parse the file. For example:
-     *   * Bitcoin Core version N knows how to parse up to format=3. If a new format=4 is
+     *   * Hypercoin Core version N knows how to parse up to format=3. If a new format=4 is
      *     introduced in version N+1 that is compatible with format=3 and it is known that
      *     version N will be able to parse it, then version N+1 will write
      *     (format=4, lowest_compatible=3) in the first two bytes of the file, and so
      *     version N will still try to parse it.
-     *   * Bitcoin Core version N+2 introduces a new incompatible format=5. It will write
+     *   * Hypercoin Core version N+2 introduces a new incompatible format=5. It will write
      *     (format=5, lowest_compatible=5) and so any versions that do not know how to parse
      *     format=5 will not try to read the file.
      * * nKey
@@ -457,7 +457,7 @@ void AddrManImpl::Delete(nid_type nId)
 {
     AssertLockHeld(cs);
 
-    assert(mapInfo.contains(nId));
+    assert(mapInfo.count(nId) != 0);
     AddrInfo& info = mapInfo[nId];
     assert(!info.fInTried);
     assert(info.nRefCount == 0);
@@ -516,7 +516,7 @@ void AddrManImpl::MakeTried(AddrInfo& info, nid_type nId)
     if (vvTried[nKBucket][nKBucketPos] != -1) {
         // find an item to evict
         nid_type nIdEvict = vvTried[nKBucket][nKBucketPos];
-        assert(mapInfo.contains(nIdEvict));
+        assert(mapInfo.count(nIdEvict) == 1);
         AddrInfo& infoOld = mapInfo[nIdEvict];
 
         // Remove the to-be-evicted item from the tried set.
@@ -919,7 +919,7 @@ void AddrManImpl::ResolveCollisions_()
         bool erase_collision = false;
 
         // If id_new not found in mapInfo remove it from m_tried_collisions
-        if (!mapInfo.contains(id_new)) {
+        if (mapInfo.count(id_new) != 1) {
             erase_collision = true;
         } else {
             AddrInfo& info_new = mapInfo[id_new];
@@ -985,7 +985,7 @@ std::pair<CAddress, NodeSeconds> AddrManImpl::SelectTriedCollision_()
     nid_type id_new = *it;
 
     // If id_new not found in mapInfo remove it from m_tried_collisions
-    if (!mapInfo.contains(id_new)) {
+    if (mapInfo.count(id_new) != 1) {
         m_tried_collisions.erase(it);
         return {};
     }
@@ -1055,7 +1055,7 @@ void AddrManImpl::Check() const
 
     const int err{CheckAddrman()};
     if (err) {
-        LogError("ADDRMAN CONSISTENCY CHECK FAILED!!! err=%i", err);
+        LogPrintf("ADDRMAN CONSISTENCY CHECK FAILED!!! err=%i\n", err);
         assert(false);
     }
 }
@@ -1115,7 +1115,7 @@ int AddrManImpl::CheckAddrman() const
     for (int n = 0; n < ADDRMAN_TRIED_BUCKET_COUNT; n++) {
         for (int i = 0; i < ADDRMAN_BUCKET_SIZE; i++) {
             if (vvTried[n][i] != -1) {
-                if (!setTried.contains(vvTried[n][i]))
+                if (!setTried.count(vvTried[n][i]))
                     return -11;
                 const auto it{mapInfo.find(vvTried[n][i])};
                 if (it == mapInfo.end() || it->second.GetTriedBucket(nKey, m_netgroupman) != n) {
@@ -1132,7 +1132,7 @@ int AddrManImpl::CheckAddrman() const
     for (int n = 0; n < ADDRMAN_NEW_BUCKET_COUNT; n++) {
         for (int i = 0; i < ADDRMAN_BUCKET_SIZE; i++) {
             if (vvNew[n][i] != -1) {
-                if (!mapNew.contains(vvNew[n][i]))
+                if (!mapNew.count(vvNew[n][i]))
                     return -12;
                 const auto it{mapInfo.find(vvNew[n][i])};
                 if (it == mapInfo.end() || it->second.GetBucketPosition(nKey, true, n) != i) {

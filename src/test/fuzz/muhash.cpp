@@ -1,4 +1,4 @@
-// Copyright (c) 2020-present The Bitcoin Core developers
+// Copyright (c) 2020-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -199,7 +199,19 @@ FUZZ_TARGET(muhash)
         },
         [&] {
             // Test that dividing a MuHash by itself brings it back to its initial state
+
+            // See note about clang + self-assignment in test/uint256_tests.cpp
+            #if defined(__clang__)
+            #    pragma clang diagnostic push
+            #    pragma clang diagnostic ignored "-Wself-assign-overloaded"
+            #endif
+
             muhash /= muhash;
+
+            #if defined(__clang__)
+            #    pragma clang diagnostic pop
+            #endif
+
             muhash.Finalize(out);
             out2 = initial_state_hash;
         },

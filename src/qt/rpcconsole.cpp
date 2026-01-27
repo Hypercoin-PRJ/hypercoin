@@ -1,8 +1,8 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <qt/rpcconsole.h>
 #include <qt/forms/ui_debugwindow.h>
@@ -484,10 +484,7 @@ RPCConsole::RPCConsole(interfaces::Node& node, const PlatformStyle *_platformSty
         tr("Outbound Feeler: short-lived, for testing addresses"),
         /*: Explanatory text for a short-lived outbound peer connection that is used
             to request addresses from a peer. */
-        tr("Outbound Address Fetch: short-lived, for soliciting addresses"),
-        /*: Explanatory text for a short-lived outbound peer connection that is used
-            to broadcast privacy-sensitive data (like our transactions). */
-        tr("Private broadcast: short-lived, for broadcasting privacy-sensitive transactions")};
+        tr("Outbound Address Fetch: short-lived, for soliciting addresses")};
     const QString connection_types_list{"<ul><li>" + Join(CONNECTION_TYPE_DOC, QString("</li><li>")) + "</li></ul>"};
     ui->peerConnectionTypeLabel->setToolTip(ui->peerConnectionTypeLabel->toolTip().arg(connection_types_list));
     const std::vector<QString> TRANSPORT_TYPE_DOC{
@@ -1220,6 +1217,7 @@ void RPCConsole::updateDetailWidget()
         } else {
             ui->peerCommonHeight->setText(ts.unknown);
         }
+        ui->peerHeight->setText(QString::number(stats->nodeStateStats.m_starting_height));
         ui->peerPingWait->setText(GUIUtil::formatPingTime(stats->nodeStateStats.m_ping_wait));
         ui->peerAddrRelayEnabled->setText(stats->nodeStateStats.m_addr_relay_enabled ? ts.yes : ts.no);
         ui->peerAddrProcessed->setText(QString::number(stats->nodeStateStats.m_addr_processed));

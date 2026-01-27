@@ -1,9 +1,9 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <common/system.h>
 
@@ -12,7 +12,6 @@
 #include <util/time.h>
 
 #ifdef WIN32
-#include <cassert>
 #include <codecvt>
 #include <compat/compat.h>
 #include <windows.h>
@@ -58,9 +57,8 @@ void runCommand(const std::string& strCommand)
 #else
     int nErr = ::_wsystem(std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,wchar_t>().from_bytes(strCommand).c_str());
 #endif
-    if (nErr) {
-        LogWarning("runCommand error: system(%s) returned %d", strCommand, nErr);
-    }
+    if (nErr)
+        LogPrintf("runCommand error: system(%s) returned %d\n", strCommand, nErr);
 }
 #endif
 
@@ -85,7 +83,6 @@ void SetupEnvironment()
         setenv("LC_ALL", "C.UTF-8", 1);
     }
 #elif defined(WIN32)
-    assert(GetACP() == CP_UTF8);
     // Set the default input/output charset is utf-8
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);

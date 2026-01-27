@@ -1,13 +1,8 @@
-// Copyright (c) 2023-present The Bitcoin Core developers
+// Copyright (c) 2023-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <test/fuzz/util/descriptor.h>
-
-#include <key.h>
-#include <key_io.h>
-#include <pubkey.h>
-#include <util/strencodings.h>
 
 #include <ranges>
 #include <stack>
@@ -79,7 +74,7 @@ std::optional<std::string> MockedDescriptorConverter::GetDescriptor(std::string_
     return desc;
 }
 
-bool HasDeepDerivPath(std::span<const uint8_t> buff, const int max_depth)
+bool HasDeepDerivPath(const FuzzBufferType& buff, const int max_depth)
 {
     auto depth{0};
     for (const auto& ch: buff) {
@@ -93,7 +88,7 @@ bool HasDeepDerivPath(std::span<const uint8_t> buff, const int max_depth)
     return false;
 }
 
-bool HasTooManySubFrag(std::span<const uint8_t> buff, const int max_subs, const size_t max_nested_subs)
+bool HasTooManySubFrag(const FuzzBufferType& buff, const int max_subs, const size_t max_nested_subs)
 {
     // We use a stack because there may be many nested sub-frags.
     std::stack<int> counts;
@@ -117,7 +112,7 @@ bool HasTooManySubFrag(std::span<const uint8_t> buff, const int max_subs, const 
     return false;
 }
 
-bool HasTooManyWrappers(std::span<const uint8_t> buff, const int max_wrappers)
+bool HasTooManyWrappers(const FuzzBufferType& buff, const int max_wrappers)
 {
     // The number of nested wrappers. Nested wrappers are always characters which follow each other so we don't have to
     // use a stack as we do above when counting the number of sub-fragments.
@@ -146,25 +141,5 @@ bool HasTooManyWrappers(std::span<const uint8_t> buff, const int max_wrappers)
         }
     }
 
-    return false;
-}
-
-bool HasTooLargeLeafSize(std::span<const uint8_t> buff, const uint32_t max_leaf_size)
-{
-    uint32_t leaf_len{0};
-    for (auto c : buff) {
-        if (c == '(' || c == ')' || c == ',' || c == '{' || c == '}') {
-            // Possibly start a fresh leaf, or a fresh function name (with
-            // wrappers), or terminate a prior leaf.
-            leaf_len = 0;
-        } else {
-            // Just treat everything else as a leaf. This will also reject long
-            // function names, but this should be fine if the max_leaf_size is
-            // set large enough.
-            if (++leaf_len > max_leaf_size) {
-                return true;
-            }
-        }
-    }
     return false;
 }

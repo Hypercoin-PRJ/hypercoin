@@ -1,9 +1,9 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_WALLET_EXTERNAL_SIGNER_SCRIPTPUBKEYMAN_H
-#define BITCOIN_WALLET_EXTERNAL_SIGNER_SCRIPTPUBKEYMAN_H
+#ifndef HYPERCOIN_WALLET_EXTERNAL_SIGNER_SCRIPTPUBKEYMAN_H
+#define HYPERCOIN_WALLET_EXTERNAL_SIGNER_SCRIPTPUBKEYMAN_H
 
 #include <wallet/scriptpubkeyman.h>
 
@@ -39,4 +39,4 @@ class ExternalSignerScriptPubKeyMan : public DescriptorScriptPubKeyMan
   std::optional<common::PSBTError> FillPSBT(PartiallySignedTransaction& psbt, const PrecomputedTransactionData& txdata, std::optional<int> sighash_type = std::nullopt, bool sign = true, bool bip32derivs = false, int* n_signed = nullptr, bool finalize = true) const override;
 };
 } // namespace wallet
-#endif // BITCOIN_WALLET_EXTERNAL_SIGNER_SCRIPTPUBKEYMAN_H
+#endif // HYPERCOIN_WALLET_EXTERNAL_SIGNER_SCRIPTPUBKEYMAN_H

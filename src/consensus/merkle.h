@@ -1,9 +1,9 @@
-// Copyright (c) 2015-present The Bitcoin Core developers
+// Copyright (c) 2015-2019 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CONSENSUS_MERKLE_H
-#define BITCOIN_CONSENSUS_MERKLE_H
+#ifndef HYPERCOIN_CONSENSUS_MERKLE_H
+#define HYPERCOIN_CONSENSUS_MERKLE_H
 
 #include <vector>
 
@@ -20,8 +20,9 @@ uint256 BlockMerkleRoot(const CBlock& block, bool* mutated = nullptr);
 
 /*
  * Compute the Merkle root of the witness transactions in a block.
+ * *mutated is set to true if a duplicated subtree was found.
  */
-uint256 BlockWitnessMerkleRoot(const CBlock& block);
+uint256 BlockWitnessMerkleRoot(const CBlock& block, bool* mutated = nullptr);
 
 /**
  * Compute merkle path to the specified transaction
@@ -33,4 +34,4 @@ uint256 BlockWitnessMerkleRoot(const CBlock& block);
  */
 std::vector<uint256> TransactionMerklePath(const CBlock& block, uint32_t position);
 
-#endif // BITCOIN_CONSENSUS_MERKLE_H
+#endif // HYPERCOIN_CONSENSUS_MERKLE_H

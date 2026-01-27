@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-present The Bitcoin Core developers
+# Copyright (c) 2017-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Class for bitcoind node under test"""
+"""Class for hypercoind node under test"""
 
 import contextlib
 import decimal
@@ -44,20 +44,20 @@ from .util import (
     tor_port,
 )
 
-BITCOIND_PROC_WAIT_TIMEOUT = 60
+HYPERCOIND_PROC_WAIT_TIMEOUT = 60
 # The size of the blocks xor key
 # from InitBlocksdirXorKey::xor_key.size()
 NUM_XOR_BYTES = 8
 # Many systems have a 128kB limit for a command size. Depending on the
 # platform, this limit may be larger or smaller. Moreover, when using the
-# 'bitcoin' command, it may internally insert more args, which must be
+# 'hypercoin' command, it may internally insert more args, which must be
 # accounted for. There is no need to pick the largest possible value here
 # anyway and it should be fine to set it to 1kB in tests.
 TEST_CLI_MAX_ARG_SIZE = 1024
 
 # The null blocks key (all 0s)
 NULL_BLK_XOR_KEY = bytes([0] * NUM_XOR_BYTES)
-BITCOIN_PID_FILENAME_DEFAULT = "bitcoind.pid"
+HYPERCOIN_PID_FILENAME_DEFAULT = "hypercoind.pid"
 
 if sys.platform.startswith("linux"):
     UNIX_PATH_MAX = 108          # includes the trailing NUL
@@ -78,7 +78,7 @@ class ErrorMatch(Enum):
 
 
 class TestNode():
-    """A class for representing a bitcoind node under test.
+    """A class for representing a hypercoind node under test.
 
     This class contains:
 
@@ -101,13 +101,12 @@ class TestNode():
         self.index = i
         self.p2p_conn_index = 1
         self.datadir_path = datadir_path
-        self.bitcoinconf = self.datadir_path / "bitcoin.conf"
+        self.hypercoinconf = self.datadir_path / "hypercoin.conf"
         self.stdout_dir = self.datadir_path / "stdout"
         self.stderr_dir = self.datadir_path / "stderr"
         self.chain = chain
         self.rpchost = rpchost
-        self.rpc_timeout = timewait  # Already multiplied by timeout_factor
-        self.timeout_factor = timeout_factor
+        self.rpc_timeout = timewait
         self.binaries = binaries
         self.coverage_dir = coverage_dir
         self.cwd = cwd
@@ -121,8 +120,8 @@ class TestNode():
         # Note that common args are set in the config file (see initialize_datadir)
         self.extra_args = extra_args
         self.version = version
-        # Configuration for logging is set as command-line args rather than in the bitcoin.conf file.
-        # This means that starting a bitcoind using the temp dir to debug a failed test won't
+        # Configuration for logging is set as command-line args rather than in the hypercoin.conf file.
+        # This means that starting a hypercoind using the temp dir to debug a failed test won't
         # spam debug.log.
         self.args = self.binaries.node_argv(need_ipc=ipcbind) + [
             f"-datadir={self.datadir_path}",
@@ -176,11 +175,7 @@ class TestNode():
                 self.args.append("-v2transport=0")
         # if v2transport is requested via global flag but not supported for node version, ignore it
 
-        self.cli = TestNodeCLI(
-            binaries,
-            self.datadir_path,
-            self.rpc_timeout // 2,  # timeout identical to the one used in self._rpc
-        )
+        self.cli = TestNodeCLI(binaries, self.datadir_path)
         self.use_cli = use_cli
         self.start_perf = start_perf
 
@@ -195,6 +190,7 @@ class TestNode():
         self.perf_subprocesses = {}
 
         self.p2ps = []
+        self.timeout_factor = timeout_factor
 
         self.mocktime = None
 
@@ -229,7 +225,7 @@ class TestNode():
         raise AssertionError(self._node_msg(msg))
 
     def __del__(self):
-        # Ensure that we don't leave any bitcoind processes lying around after
+        # Ensure that we don't leave any hypercoind processes lying around after
         # the test ends
         if self.process:
             # Should only happen on test failure
@@ -254,10 +250,10 @@ class TestNode():
         if extra_args is None:
             extra_args = self.extra_args
 
-        # If listening and no -bind is given, then bitcoind would bind P2P ports on
+        # If listening and no -bind is given, then hypercoind would bind P2P ports on
         # 0.0.0.0:P and 127.0.0.1:P+1 (for incoming Tor connections), where P is
         # a unique port chosen by the test framework and configured as port=P in
-        # bitcoin.conf. To avoid collisions, change it to 127.0.0.1:tor_port().
+        # hypercoin.conf. To avoid collisions, change it to 127.0.0.1:tor_port().
         will_listen = all(e != "-nolisten" and e != "-listen=0" for e in extra_args)
         has_explicit_bind = self.has_explicit_bind or any(e.startswith("-bind=") for e in extra_args)
         if will_listen and not has_explicit_bind:
@@ -266,7 +262,7 @@ class TestNode():
 
         self.use_v2transport = "-v2transport=1" in extra_args or (self.default_to_v2 and "-v2transport=0" not in extra_args)
 
-        # Add a new stdout and stderr file each time bitcoind is started
+        # Add a new stdout and stderr file each time hypercoind is started
         if stderr is None:
             stderr = tempfile.NamedTemporaryFile(dir=self.stderr_dir, delete=False)
         if stdout is None:
@@ -278,7 +274,7 @@ class TestNode():
             cwd = self.cwd
 
         # Delete any existing cookie file -- if such a file exists (eg due to
-        # unclean shutdown), it will get overwritten anyway by bitcoind, and
+        # unclean shutdown), it will get overwritten anyway by hypercoind, and
         # potentially interfere with our attempt to authenticate
         delete_cookie_file(self.datadir_path, self.chain)
 
@@ -290,13 +286,13 @@ class TestNode():
         self.process = subprocess.Popen(self.args + extra_args, env=subp_env, stdout=stdout, stderr=stderr, cwd=cwd, **kwargs)
 
         self.running = True
-        self.log.debug("bitcoind started, waiting for RPC to come up")
+        self.log.debug("hypercoind started, waiting for RPC to come up")
 
         if self.start_perf:
             self._start_perf()
 
     def wait_for_rpc_connection(self, *, wait_for_import=True):
-        """Sets up an RPC connection to the bitcoind process. Returns False if unable to connect."""
+        """Sets up an RPC connection to the hypercoind process. Returns False if unable to connect."""
         # Poll at a rate of four times per second
         poll_per_s = 4
 
@@ -314,7 +310,7 @@ class TestNode():
                 str_error += "************************\n" if str_error else ''
 
                 raise FailedToStartError(self._node_msg(
-                    f'bitcoind exited with status {self.process.returncode} during initialization. {str_error}'))
+                    f'hypercoind exited with status {self.process.returncode} during initialization. {str_error}'))
             try:
                 rpc = get_rpc_proxy(
                     rpc_url(self.datadir_path, self.index, self.chain, self.rpchost),
@@ -363,15 +359,10 @@ class TestNode():
                 latest_error = suppress_error(f"JSONRPCException {e.error['code']}", e)
             except OSError as e:
                 error_num = e.errno
-                if error_num is None:
-                    # Work around issue where socket timeouts don't have errno set.
-                    # https://github.com/python/cpython/issues/109601
-                    if isinstance(e, TimeoutError):
-                        error_num = errno.ETIMEDOUT
-                    # http.client.RemoteDisconnected inherits from this type and
-                    # doesn't specify errno.
-                    elif isinstance(e, ConnectionResetError):
-                        error_num = errno.ECONNRESET
+                # Work around issue where socket timeouts don't have errno set.
+                # https://github.com/python/cpython/issues/109601
+                if error_num is None and isinstance(e, TimeoutError):
+                    error_num = errno.ETIMEDOUT
 
                 # Suppress similarly to the above JSONRPCException errors.
                 if error_num not in [
@@ -383,12 +374,12 @@ class TestNode():
                     raise  # unknown OS error
                 latest_error = suppress_error(f"OSError {errno.errorcode[error_num]}", e)
             except ValueError as e:
-                # Suppress if cookie file isn't generated yet and no rpcuser or rpcpassword; bitcoind may be starting.
+                # Suppress if cookie file isn't generated yet and no rpcuser or rpcpassword; hypercoind may be starting.
                 if "No RPC credentials" not in str(e):
                     raise
                 latest_error = suppress_error("missing_credentials", e)
             time.sleep(1.0 / poll_per_s)
-        self._raise_assertion_error(f"Unable to connect to bitcoind after {self.rpc_timeout}s (ignored errors: {dict(suppressed_errors)!s}{'' if latest_error is None else f', latest: {latest_error[0]!r}/{latest_error[1]}'})")
+        self._raise_assertion_error(f"Unable to connect to hypercoind after {self.rpc_timeout}s (ignored errors: {dict(suppressed_errors)!s}{'' if latest_error is None else f', latest: {latest_error[0]!r}/{latest_error[1]}'})")
 
     def wait_for_cookie_credentials(self):
         """Ensures auth cookie credentials can be read, e.g. for testing CLI with -rpcwait before RPC connection is up."""
@@ -400,7 +391,7 @@ class TestNode():
                 get_auth_cookie(self.datadir_path, self.chain)
                 self.log.debug("Cookie credentials successfully retrieved")
                 return
-            except ValueError:  # cookie file not found and no rpcuser or rpcpassword; bitcoind is still starting
+            except ValueError:  # cookie file not found and no rpcuser or rpcpassword; hypercoind is still starting
                 pass            # so we continue polling until RPC credentials are retrieved
             time.sleep(1.0 / poll_per_s)
         self._raise_assertion_error("Unable to retrieve cookie credentials after {}s".format(self.rpc_timeout))
@@ -495,7 +486,7 @@ class TestNode():
         self.log.debug("Node stopped")
         return True
 
-    def wait_until_stopped(self, *, timeout=BITCOIND_PROC_WAIT_TIMEOUT, expect_error=False, **kwargs):
+    def wait_until_stopped(self, *, timeout=HYPERCOIND_PROC_WAIT_TIMEOUT, expect_error=False, **kwargs):
         if "expected_ret_code" not in kwargs:
             kwargs["expected_ret_code"] = 1 if expect_error else 0  # Whether node shutdown return EXIT_FAILURE or EXIT_SUCCESS
         self.wait_until(lambda: self.is_node_stopped(**kwargs), timeout=timeout)
@@ -511,13 +502,13 @@ class TestNode():
         The substitutions are passed as a list of search-replace-tuples, e.g.
             [("old", "new"), ("foo", "bar"), ...]
         """
-        with open(self.bitcoinconf, 'r') as conf:
+        with open(self.hypercoinconf, 'r', encoding='utf8') as conf:
             conf_data = conf.read()
         for replacement in replacements:
             assert_equal(len(replacement), 2)
             old, new = replacement[0], replacement[1]
             conf_data = conf_data.replace(old, new)
-        with open(self.bitcoinconf, 'w') as conf:
+        with open(self.hypercoinconf, 'w', encoding='utf8') as conf:
             conf.write(conf_data)
 
     @property
@@ -555,54 +546,54 @@ class TestNode():
             unexpected_msgs = []
         assert_equal(type(expected_msgs), list)
         assert_equal(type(unexpected_msgs), list)
-        remaining_expected = list(expected_msgs)
 
         time_end = time.time() + timeout * self.timeout_factor
         prev_size = self.debug_log_size(encoding="utf-8")  # Must use same encoding that is used to read() below
 
-        def join_log(log):
-            return " - " + "\n - ".join(log.splitlines())
-
         yield
 
         while True:
+            found = True
             with open(self.debug_log_path, encoding="utf-8", errors="replace") as dl:
                 dl.seek(prev_size)
                 log = dl.read()
+            print_log = " - " + "\n - ".join(log.splitlines())
             for unexpected_msg in unexpected_msgs:
-                if unexpected_msg in log:
-                    self._raise_assertion_error(f'Unexpected message "{unexpected_msg}" '
-                                                f'found in log:\n\n{join_log(log)}\n\n')
-            while remaining_expected and remaining_expected[-1] in log:
-                remaining_expected.pop()
-            if not remaining_expected:
+                if re.search(re.escape(unexpected_msg), log, flags=re.MULTILINE):
+                    self._raise_assertion_error('Unexpected message "{}" partially matches log:\n\n{}\n\n'.format(unexpected_msg, print_log))
+            for expected_msg in expected_msgs:
+                if re.search(re.escape(expected_msg), log, flags=re.MULTILINE) is None:
+                    found = False
+            if found:
                 return
             if time.time() >= time_end:
                 break
             time.sleep(0.05)
-        remaining_expected = [e for e in remaining_expected if e not in log]
-        self._raise_assertion_error(f'Expected message(s) {remaining_expected!s} '
-                                    f'not found in log:\n\n{join_log(log)}\n\n')
+        self._raise_assertion_error('Expected messages "{}" does not partially match log:\n\n{}\n\n'.format(str(expected_msgs), print_log))
 
     @contextlib.contextmanager
     def busy_wait_for_debug_log(self, expected_msgs, timeout=60):
         """
         Block until we see a particular debug log message fragment or until we exceed the timeout.
+        Return:
+            the number of log lines we encountered when matching
         """
         time_end = time.time() + timeout * self.timeout_factor
         prev_size = self.debug_log_size(mode="rb")  # Must use same mode that is used to read() below
-        remaining_expected = list(expected_msgs)
 
         yield
 
         while True:
+            found = True
             with open(self.debug_log_path, "rb") as dl:
                 dl.seek(prev_size)
                 log = dl.read()
 
-            while remaining_expected and remaining_expected[-1] in log:
-                remaining_expected.pop()
-            if not remaining_expected:
+            for expected_msg in expected_msgs:
+                if expected_msg not in log:
+                    found = False
+
+            if found:
                 return
 
             if time.time() >= time_end:
@@ -612,9 +603,9 @@ class TestNode():
             # No sleep here because we want to detect the message fragment as fast as
             # possible.
 
-        remaining_expected = [e for e in remaining_expected if e not in log]
-        self._raise_assertion_error(f'Expected message(s) {remaining_expected!s} '
-                                    f'not found in log:\n\n{print_log}\n\n')
+        self._raise_assertion_error(
+            'Expected messages "{}" does not partially match log:\n\n{}\n\n'.format(
+                str(expected_msgs), print_log))
 
     @contextlib.contextmanager
     def wait_for_new_peer(self, timeout=5):
@@ -673,7 +664,7 @@ class TestNode():
 
         if not test_success('readelf -S {} | grep .debug_str'.format(shlex.quote(self.binary))):
             self.log.warning(
-                "perf output won't be very useful without debug symbols compiled into bitcoind")
+                "perf output won't be very useful without debug symbols compiled into hypercoind")
 
         output_path = tempfile.NamedTemporaryFile(
             dir=self.datadir_path,
@@ -714,19 +705,18 @@ class TestNode():
     def assert_start_raises_init_error(self, extra_args=None, expected_msg=None, match=ErrorMatch.FULL_TEXT, *args, **kwargs):
         """Attempt to start the node and expect it to raise an error.
 
-        extra_args: extra arguments to pass through to bitcoind
-        expected_msg: regex that stderr should match when bitcoind fails
+        extra_args: extra arguments to pass through to hypercoind
+        expected_msg: regex that stderr should match when hypercoind fails
 
-        Will raise if bitcoind starts without an error.
-        Will raise if an expected_msg is provided and it does not match bitcoind's stdout."""
+        Will throw if hypercoind starts without an error.
+        Will throw if an expected_msg is provided and it does not match hypercoind's stdout."""
         assert not self.running
         with tempfile.NamedTemporaryFile(dir=self.stderr_dir, delete=False) as log_stderr, \
              tempfile.NamedTemporaryFile(dir=self.stdout_dir, delete=False) as log_stdout:
-            assert_msg = None
             try:
                 self.start(extra_args, stdout=log_stdout, stderr=log_stderr, *args, **kwargs)
                 ret = self.process.wait(timeout=self.rpc_timeout)
-                self.log.debug(self._node_msg(f'bitcoind exited with status {ret} during initialization'))
+                self.log.debug(self._node_msg(f'hypercoind exited with status {ret} during initialization'))
                 assert_not_equal(ret, 0) # Exit code must indicate failure
                 self.running = False
                 self.process = None
@@ -746,19 +736,15 @@ class TestNode():
                         if expected_msg != stderr:
                             self._raise_assertion_error(
                                 'Expected message "{}" does not fully match stderr:\n"{}"'.format(expected_msg, stderr))
-            except subprocess.TimeoutExpired as e:
+            except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.running = False
                 self.process = None
-                assert_msg = f'bitcoind should have exited within {self.rpc_timeout}s '
+                assert_msg = f'hypercoind should have exited within {self.rpc_timeout}s '
                 if expected_msg is None:
                     assert_msg += "with an error"
                 else:
                     assert_msg += "with expected error " + expected_msg
-                assert_msg += f" (cmd: {e.cmd})"
-
-            # Raise assertion outside of except-block above in order for it not to be treated as a knock-on exception.
-            if assert_msg:
                 self._raise_assertion_error(assert_msg)
 
     def add_p2p_connection(self, p2p_conn, *, wait_for_verack=True, send_version=True, supports_v2_p2p=None, wait_for_v2_handshake=True, expect_success=True, **kwargs):
@@ -932,18 +918,17 @@ def arg_to_cli(arg):
 
 
 class TestNodeCLI():
-    """Interface to bitcoin-cli for an individual node"""
-    def __init__(self, binaries, datadir, rpc_timeout):
+    """Interface to hypercoin-cli for an individual node"""
+    def __init__(self, binaries, datadir):
         self.options = []
         self.binaries = binaries
         self.datadir = datadir
-        self.rpc_timeout = rpc_timeout
         self.input = None
-        self.log = logging.getLogger('TestFramework.bitcoincli')
+        self.log = logging.getLogger('TestFramework.hypercoincli')
 
     def __call__(self, *options, input=None):
-        # TestNodeCLI is callable with bitcoin-cli command-line options
-        cli = TestNodeCLI(self.binaries, self.datadir, self.rpc_timeout)
+        # TestNodeCLI is callable with hypercoin-cli command-line options
+        cli = TestNodeCLI(self.binaries, self.datadir)
         cli.options = [str(o) for o in options]
         cli.input = input
         return cli
@@ -961,13 +946,10 @@ class TestNodeCLI():
         return results
 
     def send_cli(self, clicommand=None, *args, **kwargs):
-        """Run bitcoin-cli command. Deserializes returned string as python object."""
+        """Run hypercoin-cli command. Deserializes returned string as python object."""
         pos_args = [arg_to_cli(arg) for arg in args]
         named_args = [key + "=" + arg_to_cli(value) for (key, value) in kwargs.items() if value is not None]
-        p_args = self.binaries.rpc_argv() + [
-            f"-datadir={self.datadir}",
-            f"-rpcclienttimeout={int(self.rpc_timeout)}",
-        ] + self.options
+        p_args = self.binaries.rpc_argv() + [f"-datadir={self.datadir}"] + self.options
         if named_args:
             p_args += ["-named"]
         base_arg_pos = len(p_args)
@@ -989,7 +971,7 @@ class TestNodeCLI():
                 stdin_data = rpc_args
             p_args = p_args[:base_arg_pos] + ['-stdin']
 
-        self.log.debug("Running bitcoin-cli {}".format(p_args[2:]))
+        self.log.debug("Running hypercoin-cli {}".format(p_args[2:]))
         process = subprocess.Popen(p_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         cli_stdout, cli_stderr = process.communicate(input=stdin_data)
         returncode = process.poll()

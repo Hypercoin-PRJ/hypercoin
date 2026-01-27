@@ -1,9 +1,9 @@
-// Copyright (c) 2021-present The Bitcoin Core developers
+// Copyright (c) 2021-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NODE_TXORPHANAGE_H
-#define BITCOIN_NODE_TXORPHANAGE_H
+#ifndef HYPERCOIN_NODE_TXORPHANAGE_H
+#define HYPERCOIN_NODE_TXORPHANAGE_H
 
 #include <consensus/validation.h>
 #include <net.h>
@@ -148,4 +148,4 @@ public:
 std::unique_ptr<TxOrphanage> MakeTxOrphanage() noexcept;
 std::unique_ptr<TxOrphanage> MakeTxOrphanage(TxOrphanage::Count max_global_latency_score, TxOrphanage::Usage reserved_peer_usage) noexcept;
 } // namespace node
-#endif // BITCOIN_NODE_TXORPHANAGE_H
+#endif // HYPERCOIN_NODE_TXORPHANAGE_H

@@ -1,8 +1,7 @@
-// Copyright (c) 2020-present The Bitcoin Core developers
+// Copyright (c) 2020-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <banman.h>
 #include <consensus/consensus.h>
 #include <net.h>
 #include <net_processing.h>
@@ -68,31 +67,27 @@ FUZZ_TARGET(process_message, .init = initialize_process_message)
     SeedRandomStateForTest(SeedRand::ZEROS);
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
 
-    auto& node{g_setup->m_node};
-    auto& connman{static_cast<ConnmanTestMsg&>(*node.connman)};
+    auto& connman = static_cast<ConnmanTestMsg&>(*g_setup->m_node.connman);
     connman.ResetAddrCache();
     connman.ResetMaxOutboundCycle();
-    auto& chainman{static_cast<TestChainstateManager&>(*node.chainman)};
+    auto& chainman = static_cast<TestChainstateManager&>(*g_setup->m_node.chainman);
     const auto block_index_size{WITH_LOCK(chainman.GetMutex(), return chainman.BlockIndex().size())};
     SetMockTime(1610000000); // any time to successfully reset ibd
     chainman.ResetIbd();
     chainman.DisableNextWrite();
 
-    // Reset, so that dangling pointers can be detected by sanitizers.
-    node.banman.reset();
-    node.addrman.reset();
-    node.peerman.reset();
-    node.addrman = std::make_unique<AddrMan>(*node.netgroupman, /*deterministic=*/true, /*consistency_check_ratio=*/0);
-    node.peerman = PeerManager::make(connman, *node.addrman,
+    node::Warnings warnings{};
+    NetGroupManager netgroupman{{}};
+    AddrMan addrman{netgroupman, /*deterministic=*/true, /*consistency_check_ratio=*/0};
+    auto peerman = PeerManager::make(connman, addrman,
                                      /*banman=*/nullptr, chainman,
-                                     *node.mempool, *node.warnings,
+                                     *g_setup->m_node.mempool, warnings,
                                      PeerManager::Options{
                                          .reconcile_txs = true,
                                          .deterministic_rng = true,
                                      });
 
-    connman.SetMsgProc(node.peerman.get());
-    connman.SetAddrman(*node.addrman);
+    connman.SetMsgProc(peerman.get());
     LOCK(NetEventsInterface::g_msgproc_mutex);
 
     const std::string random_message_type{fuzzed_data_provider.ConsumeBytesAsString(CMessageHeader::MESSAGE_TYPE_SIZE).c_str()};
@@ -121,10 +116,10 @@ FUZZ_TARGET(process_message, .init = initialize_process_message)
             more_work = connman.ProcessMessagesOnce(p2p_node);
         } catch (const std::ios_base::failure&) {
         }
-        node.peerman->SendMessages(&p2p_node);
+        g_setup->m_node.peerman->SendMessages(&p2p_node);
     }
-    node.validation_signals->SyncWithValidationInterfaceQueue();
-    node.connman->StopNodes();
+    g_setup->m_node.validation_signals->SyncWithValidationInterfaceQueue();
+    g_setup->m_node.connman->StopNodes();
     if (block_index_size != WITH_LOCK(chainman.GetMutex(), return chainman.BlockIndex().size())) {
         // Reuse the global chainman, but reset it when it is dirty
         ResetChainman(*g_setup);

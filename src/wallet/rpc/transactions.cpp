@@ -1,4 +1,4 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -7,7 +7,6 @@
 #include <policy/rbf.h>
 #include <primitives/transaction_identifier.h>
 #include <rpc/util.h>
-#include <rpc/rawtransaction_util.h>
 #include <rpc/blockchain.h>
 #include <util/vector.h>
 #include <wallet/receive.h>
@@ -418,11 +417,7 @@ RPCHelpMan listtransactions()
     return RPCHelpMan{
         "listtransactions",
         "If a label name is provided, this will return only incoming transactions paying to addresses with the specified label.\n"
-                "Returns up to 'count' most recent transactions ordered from oldest to newest while skipping the first number of \n"
-                "transactions specified in the 'skip' argument. A transaction can have multiple entries in this RPC response. \n"
-                "For instance, a wallet transaction that pays three addresses — one wallet-owned and two external — will produce \n"
-                "four entries. The payment to the wallet-owned address appears both as a send entry and as a receive entry. \n"
-                "As a result, the RPC response will contain one entry in the receive category and three entries in the send category.\n",
+                "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions.\n",
                 {
                     {"label", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "If set, should be a valid label name to return only incoming transactions\n"
                           "with the specified label, or \"*\" to disable filtering and return all transactions."},
@@ -435,7 +430,7 @@ RPCHelpMan listtransactions()
                     {
                         {RPCResult::Type::OBJ, "", "", Cat(Cat<std::vector<RPCResult>>(
                         {
-                            {RPCResult::Type::STR, "address",  /*optional=*/true, "The bitcoin address of the transaction (not returned if the output does not have an address, e.g. OP_RETURN null data)."},
+                            {RPCResult::Type::STR, "address",  /*optional=*/true, "The hypercoin address of the transaction (not returned if the output does not have an address, e.g. OP_RETURN null data)."},
                             {RPCResult::Type::STR, "category", "The transaction category.\n"
                                 "\"send\"                  Transactions sent.\n"
                                 "\"receive\"               Non-coinbase transactions received.\n"
@@ -544,7 +539,7 @@ RPCHelpMan listsinceblock()
                         {
                             {RPCResult::Type::OBJ, "", "", Cat(Cat<std::vector<RPCResult>>(
                             {
-                                {RPCResult::Type::STR, "address",  /*optional=*/true, "The bitcoin address of the transaction (not returned if the output does not have an address, e.g. OP_RETURN null data)."},
+                                {RPCResult::Type::STR, "address",  /*optional=*/true, "The hypercoin address of the transaction (not returned if the output does not have an address, e.g. OP_RETURN null data)."},
                                 {RPCResult::Type::STR, "category", "The transaction category.\n"
                                     "\"send\"                  Transactions sent.\n"
                                     "\"receive\"               Non-coinbase transactions received.\n"
@@ -684,7 +679,7 @@ RPCHelpMan gettransaction()
                         {
                             {RPCResult::Type::OBJ, "", "",
                             {
-                                {RPCResult::Type::STR, "address", /*optional=*/true, "The bitcoin address involved in the transaction."},
+                                {RPCResult::Type::STR, "address", /*optional=*/true, "The hypercoin address involved in the transaction."},
                                 {RPCResult::Type::STR, "category", "The transaction category.\n"
                                     "\"send\"                  Transactions sent.\n"
                                     "\"receive\"               Non-coinbase transactions received.\n"
@@ -705,7 +700,7 @@ RPCHelpMan gettransaction()
                         {RPCResult::Type::STR_HEX, "hex", "Raw data for transaction"},
                         {RPCResult::Type::OBJ, "decoded", /*optional=*/true, "The decoded transaction (only present when `verbose` is passed)",
                         {
-                            DecodeTxDoc(/*txid_field_doc=*/"The transaction id", /*wallet=*/true),
+                            {RPCResult::Type::ELISION, "", "Equivalent to the RPC decoderawtransaction method, or the RPC getrawtransaction method when `verbose` is passed."},
                         }},
                         RESULT_LAST_PROCESSED_BLOCK,
                     })
@@ -757,16 +752,7 @@ RPCHelpMan gettransaction()
 
     if (verbose) {
         UniValue decoded(UniValue::VOBJ);
-        TxToUniv(*wtx.tx,
-                /*block_hash=*/uint256(),
-                /*entry=*/decoded,
-                /*include_hex=*/false,
-                /*txundo=*/nullptr,
-                /*verbosity=*/TxVerbosity::SHOW_DETAILS,
-                /*is_change_func=*/[&pwallet](const CTxOut& txout) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet) {
-                                        AssertLockHeld(pwallet->cs_wallet);
-                                        return OutputIsChange(*pwallet, txout);
-                                    });
+        TxToUniv(*wtx.tx, /*block_hash=*/uint256(), /*entry=*/decoded, /*include_hex=*/false);
         entry.pushKV("decoded", std::move(decoded));
     }
 
@@ -806,7 +792,7 @@ RPCHelpMan abandontransaction()
 
     Txid hash{Txid::FromUint256(ParseHashV(request.params[0], "txid"))};
 
-    if (!pwallet->mapWallet.contains(hash)) {
+    if (!pwallet->mapWallet.count(hash)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
     }
     if (!pwallet->AbandonTransaction(hash)) {

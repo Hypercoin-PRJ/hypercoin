@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SCRIPT_SCRIPT_H
-#define BITCOIN_SCRIPT_SCRIPT_H
+#ifndef HYPERCOIN_SCRIPT_SCRIPT_H
+#define HYPERCOIN_SCRIPT_SCRIPT_H
 
 #include <attributes.h>
 #include <crypto/common.h>
@@ -270,10 +270,18 @@ public:
     }
 
     inline bool operator==(const int64_t& rhs) const    { return m_value == rhs; }
-    inline auto operator<=>(const int64_t& rhs) const    { return m_value <=> rhs; }
+    inline bool operator!=(const int64_t& rhs) const    { return m_value != rhs; }
+    inline bool operator<=(const int64_t& rhs) const    { return m_value <= rhs; }
+    inline bool operator< (const int64_t& rhs) const    { return m_value <  rhs; }
+    inline bool operator>=(const int64_t& rhs) const    { return m_value >= rhs; }
+    inline bool operator> (const int64_t& rhs) const    { return m_value >  rhs; }
 
     inline bool operator==(const CScriptNum& rhs) const { return operator==(rhs.m_value); }
-    inline auto operator<=>(const CScriptNum& rhs) const { return operator<=>(rhs.m_value); }
+    inline bool operator!=(const CScriptNum& rhs) const { return operator!=(rhs.m_value); }
+    inline bool operator<=(const CScriptNum& rhs) const { return operator<=(rhs.m_value); }
+    inline bool operator< (const CScriptNum& rhs) const { return operator< (rhs.m_value); }
+    inline bool operator>=(const CScriptNum& rhs) const { return operator>=(rhs.m_value); }
+    inline bool operator> (const CScriptNum& rhs) const { return operator> (rhs.m_value); }
 
     inline CScriptNum operator+(   const int64_t& rhs)    const { return CScriptNum(m_value + rhs);}
     inline CScriptNum operator-(   const int64_t& rhs)    const { return CScriptNum(m_value - rhs);}
@@ -520,7 +528,7 @@ public:
     }
 
     /**
-     * Pre-version-0.6, Bitcoin always counted CHECKMULTISIGs
+     * Pre-version-0.6, Hypercoin always counted CHECKMULTISIGs
      * as 20 sigops. With pay-to-script-hash, that changed:
      * CHECKMULTISIGs serialized in scriptSigs are
      * counted more accurately, assuming they are of the form
@@ -628,4 +636,4 @@ CScript BuildScript(Ts&&... inputs)
     return ret;
 }
 
-#endif // BITCOIN_SCRIPT_SCRIPT_H
+#endif // HYPERCOIN_SCRIPT_SCRIPT_H

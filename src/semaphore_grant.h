@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SEMAPHORE_GRANT_H
-#define BITCOIN_SEMAPHORE_GRANT_H
+#ifndef HYPERCOIN_SEMAPHORE_GRANT_H
+#define HYPERCOIN_SEMAPHORE_GRANT_H
 
 #include <semaphore>
 
@@ -90,4 +90,4 @@ public:
 
 using BinarySemaphoreGrant = CountingSemaphoreGrant<1>;
 
-#endif // BITCOIN_SEMAPHORE_GRANT_H
+#endif // HYPERCOIN_SEMAPHORE_GRANT_H

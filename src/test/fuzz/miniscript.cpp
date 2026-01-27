@@ -1,4 +1,4 @@
-// Copyright (c) 2021-present The Bitcoin Core developers
+// Copyright (c) 2021-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -11,7 +11,6 @@
 #include <test/fuzz/FuzzedDataProvider.h>
 #include <test/fuzz/fuzz.h>
 #include <test/fuzz/util.h>
-#include <test/fuzz/util/descriptor.h>
 #include <util/strencodings.h>
 
 #include <algorithm>
@@ -125,14 +124,10 @@ struct ParserContext {
         return a < b;
     }
 
-    std::optional<std::string> ToString(const Key& key, bool& has_priv_key) const
+    std::optional<std::string> ToString(const Key& key) const
     {
-        has_priv_key = false;
         auto it = TEST_DATA.dummy_key_idx_map.find(key);
-        if (it == TEST_DATA.dummy_key_idx_map.end()) {
-            return HexStr(key);
-        }
-        has_priv_key = true;
+        if (it == TEST_DATA.dummy_key_idx_map.end()) return {};
         uint8_t idx = it->second;
         return HexStr(std::span{&idx, 1});
     }
@@ -692,7 +687,7 @@ struct SmartInfo
         while (true) {
             size_t set_size = useful_types.size();
             for (const auto& [type, recipes] : table) {
-                if (useful_types.contains(type)) {
+                if (useful_types.count(type) != 0) {
                     for (const auto& [_, subtypes] : recipes) {
                         for (auto subtype : subtypes) useful_types.insert(subtype);
                     }
@@ -702,7 +697,7 @@ struct SmartInfo
         }
         // Remove all rules that construct uninteresting types.
         for (auto type_it = table.begin(); type_it != table.end();) {
-            if (!useful_types.contains(type_it->first)) {
+            if (useful_types.count(type_it->first) == 0) {
                 type_it = table.erase(type_it);
             } else {
                 ++type_it;
@@ -715,7 +710,7 @@ struct SmartInfo
          * because they can only be constructed using recipes that involve otherwise
          * non-constructible types, or because they require infinite recursion. */
         std::set<Type> constructible_types{};
-        auto known_constructible = [&](Type type) { return constructible_types.contains(type); };
+        auto known_constructible = [&](Type type) { return constructible_types.count(type) != 0; };
         // Find the transitive closure by adding types until the set of types does not change.
         while (true) {
             size_t set_size = constructible_types.size();
@@ -1125,7 +1120,7 @@ void TestNode(const MsCtx script_ctx, const NodeRef& node, FuzzedDataProvider& p
         assert(mal_success);
         assert(stack_nonmal == stack_mal);
         // Compute witness size (excluding script push, control block, and witness count encoding).
-        const uint64_t wit_size{GetSerializeSize(stack_nonmal) - GetSizeOfCompactSize(stack_nonmal.size())};
+        const size_t wit_size = GetSerializeSize(stack_nonmal) - GetSizeOfCompactSize(stack_nonmal.size());
         assert(wit_size <= *node->GetWitnessSize());
 
         // Test non-malleable satisfaction.
@@ -1182,13 +1177,13 @@ void TestNode(const MsCtx script_ctx, const NodeRef& node, FuzzedDataProvider& p
         case Fragment::AFTER:
             return node.k & 1;
         case Fragment::SHA256:
-            return TEST_DATA.sha256_preimages.contains(node.data);
+            return TEST_DATA.sha256_preimages.count(node.data);
         case Fragment::HASH256:
-            return TEST_DATA.hash256_preimages.contains(node.data);
+            return TEST_DATA.hash256_preimages.count(node.data);
         case Fragment::RIPEMD160:
-            return TEST_DATA.ripemd160_preimages.contains(node.data);
+            return TEST_DATA.ripemd160_preimages.count(node.data);
         case Fragment::HASH160:
-            return TEST_DATA.hash160_preimages.contains(node.data);
+            return TEST_DATA.hash160_preimages.count(node.data);
         default:
             assert(false);
         }
@@ -1239,12 +1234,9 @@ FUZZ_TARGET(miniscript_smart, .init = FuzzInitSmart)
 /* Fuzz tests that test parsing from a string, and roundtripping via string. */
 FUZZ_TARGET(miniscript_string, .init = FuzzInit)
 {
-    constexpr auto is_too_expensive{[](std::span<const uint8_t> buf) { return HasTooManySubFrag(buf) || HasTooManyWrappers(buf); }};
-
     if (buffer.empty()) return;
     FuzzedDataProvider provider(buffer.data(), buffer.size());
     auto str = provider.ConsumeBytesAsString(provider.remaining_bytes() - 1);
-    if (is_too_expensive(MakeUCharSpan(str))) return;
     const ParserContext parser_ctx{(MsCtx)provider.ConsumeBool()};
     auto parsed = miniscript::FromString(str, parser_ctx);
     if (!parsed) return;

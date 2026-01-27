@@ -1,14 +1,12 @@
-// Copyright (c) 2018-present The Bitcoin Core developers
+// Copyright (c) 2018-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_INTERFACES_CHAIN_H
-#define BITCOIN_INTERFACES_CHAIN_H
+#ifndef HYPERCOIN_INTERFACES_CHAIN_H
+#define HYPERCOIN_INTERFACES_CHAIN_H
 
 #include <blockfilter.h>
 #include <common/settings.h>
-#include <kernel/chain.h> // IWYU pragma: export
-#include <node/types.h>
 #include <primitives/transaction.h>
 #include <util/result.h>
 
@@ -31,12 +29,10 @@ class Coin;
 class uint256;
 enum class MemPoolRemovalReason;
 enum class RBFTransactionState;
+enum class ChainstateRole;
 struct bilingual_str;
 struct CBlockLocator;
 struct FeeCalculation;
-namespace kernel {
-struct ChainstateRole;
-} // namespace kernel
 namespace node {
 struct NodeContext;
 } // namespace node
@@ -79,6 +75,22 @@ public:
     mutable bool found = false;
 };
 
+//! Block data sent with blockConnected, blockDisconnected notifications.
+struct BlockInfo {
+    const uint256& hash;
+    const uint256* prev_hash = nullptr;
+    int height = -1;
+    int file_number = -1;
+    unsigned data_pos = 0;
+    const CBlock* data = nullptr;
+    const CBlockUndo* undo_data = nullptr;
+    // The maximum time in the chain up to and including this block.
+    // A timestamp that can only move forward.
+    unsigned int chain_time_max{0};
+
+    BlockInfo(const uint256& hash LIFETIMEBOUND) : hash(hash) {}
+};
+
 //! The action to be taken after updating a settings value.
 //! WRITE indicates that the updated value must be written to disk,
 //! while SKIP_WRITE indicates that the change will be kept in memory-only
@@ -95,13 +107,13 @@ using SettingsUpdate = std::function<std::optional<interfaces::SettingsAction>(c
 //! estimate fees, and submit transactions.
 //!
 //! TODO: Current chain methods are too low level, exposing too much of the
-//! internal workings of the bitcoin node, and not being very convenient to use.
+//! internal workings of the hypercoin node, and not being very convenient to use.
 //! Chain methods should be cleaned up and simplified over time. Examples:
 //!
 //! * The initMessages() and showProgress() methods which the wallet uses to send
 //!   notifications to the GUI should go away when GUI and wallet can directly
 //!   communicate with each other without going through the node
-//!   (https://github.com/bitcoin/bitcoin/pull/15288#discussion_r253321096).
+//!   (https://github.com/hypercoin/hypercoin/pull/15288#discussion_r253321096).
 //!
 //! * The handleRpc, registerRpcs, rpcEnableDeprecated methods and other RPC
 //!   methods can go away if wallets listen for HTTP requests on their own
@@ -113,7 +125,7 @@ using SettingsUpdate = std::function<std::optional<interfaces::SettingsAction>(c
 //!
 //! * `guessVerificationProgress` and similar methods can go away if rescan
 //!   logic moves out of the wallet, and the wallet just requests scans from the
-//!   node (https://github.com/bitcoin/bitcoin/issues/11756)
+//!   node (https://github.com/hypercoin/hypercoin/issues/11756)
 class Chain
 {
 public:
@@ -194,22 +206,16 @@ public:
     //! Check if transaction has descendants in mempool.
     virtual bool hasDescendantsInMempool(const Txid& txid) = 0;
 
-    //! Process a local transaction, optionally adding it to the mempool and
-    //! optionally broadcasting it to the network.
-    //! @param[in] tx Transaction to process.
-    //! @param[in] max_tx_fee Don't add the transaction to the mempool or
-    //! broadcast it if its fee is higher than this.
-    //! @param[in] broadcast_method Whether to add the transaction to the
-    //! mempool and how/whether to broadcast it.
-    //! @param[out] err_string Set if an error occurs.
-    //! @return False if the transaction could not be added due to the fee or for another reason.
+    //! Transaction is added to memory pool, if the transaction fee is below the
+    //! amount specified by max_tx_fee, and broadcast to all peers if relay is set to true.
+    //! Return false if the transaction could not be added due to the fee or for another reason.
     virtual bool broadcastTransaction(const CTransactionRef& tx,
-                                      const CAmount& max_tx_fee,
-                                      node::TxBroadcast broadcast_method,
-                                      std::string& err_string) = 0;
+        const CAmount& max_tx_fee,
+        bool relay,
+        std::string& err_string) = 0;
 
-    //! Calculate mempool ancestor and cluster counts for the given transaction.
-    virtual void getTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize = nullptr, CAmount* ancestorfees = nullptr) = 0;
+    //! Calculate mempool ancestor and descendant counts for the given transaction.
+    virtual void getTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& descendants, size_t* ancestorsize = nullptr, CAmount* ancestorfees = nullptr) = 0;
 
     //! For each outpoint, calculate the fee-bumping cost to spend this outpoint at the specified
     //  feerate, including bumping its ancestors. For example, if the target feerate is 10sat/vbyte
@@ -308,10 +314,10 @@ public:
         virtual ~Notifications() = default;
         virtual void transactionAddedToMempool(const CTransactionRef& tx) {}
         virtual void transactionRemovedFromMempool(const CTransactionRef& tx, MemPoolRemovalReason reason) {}
-        virtual void blockConnected(const kernel::ChainstateRole& role, const BlockInfo& block) {}
+        virtual void blockConnected(ChainstateRole role, const BlockInfo& block) {}
         virtual void blockDisconnected(const BlockInfo& block) {}
         virtual void updatedBlockTip() {}
-        virtual void chainStateFlushed(const kernel::ChainstateRole& role, const CBlockLocator& locator) {}
+        virtual void chainStateFlushed(ChainstateRole role, const CBlockLocator& locator) {}
     };
 
     //! Options specifying which chain notifications are required.
@@ -376,9 +382,7 @@ public:
     //! removed transactions and already added new transactions.
     virtual void requestMempoolTransactions(Notifications& notifications) = 0;
 
-    //! Return true if an assumed-valid snapshot is in use. Note that this
-    //! returns true even after the snapshot is validated, until the next node
-    //! restart.
+    //! Return true if an assumed-valid chain is in use.
     virtual bool hasAssumedValidChain() = 0;
 
     //! Get internal node context. Useful for testing, but not
@@ -420,4 +424,4 @@ std::unique_ptr<Chain> MakeChain(node::NodeContext& node);
 
 } // namespace interfaces
 
-#endif // BITCOIN_INTERFACES_CHAIN_H
+#endif // HYPERCOIN_INTERFACES_CHAIN_H

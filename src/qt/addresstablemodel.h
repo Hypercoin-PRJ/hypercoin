@@ -1,9 +1,9 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_ADDRESSTABLEMODEL_H
-#define BITCOIN_QT_ADDRESSTABLEMODEL_H
+#ifndef HYPERCOIN_QT_ADDRESSTABLEMODEL_H
+#define HYPERCOIN_QT_ADDRESSTABLEMODEL_H
 
 #include <optional>
 
@@ -35,7 +35,7 @@ public:
 
     enum ColumnIndex {
         Label = 0,   /**< User specified label */
-        Address = 1  /**< Bitcoin address */
+        Address = 1  /**< Hypercoin address */
     };
 
     enum RoleIndex {
@@ -70,7 +70,7 @@ public:
     /* Add an address to the model.
        Returns the added address on success, and an empty string otherwise.
      */
-    QString addRow(const QString& type, const QString& label, const QString& address, OutputType address_type);
+    QString addRow(const QString &type, const QString &label, const QString &address, const OutputType address_type);
 
     /** Look up label for address in address book, if not found return empty string. */
     QString labelForAddress(const QString &address) const;
@@ -109,4 +109,4 @@ public Q_SLOTS:
     friend class AddressTablePriv;
 };
 
-#endif // BITCOIN_QT_ADDRESSTABLEMODEL_H
+#endif // HYPERCOIN_QT_ADDRESSTABLEMODEL_H

@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -86,7 +86,7 @@ static RPCHelpMan gettxoutproof()
             }
 
             if (pblockindex == nullptr) {
-                const CTransactionRef tx = GetTransaction(/*block_index=*/nullptr, /*mempool=*/nullptr, *setTxids.begin(), chainman.m_blockman, hashBlock);
+                const CTransactionRef tx = GetTransaction(/*block_index=*/nullptr, /*mempool=*/nullptr, *setTxids.begin(), hashBlock, chainman.m_blockman);
                 if (!tx || hashBlock.IsNull()) {
                     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not yet in block");
                 }
@@ -109,7 +109,7 @@ static RPCHelpMan gettxoutproof()
 
             unsigned int ntxFound = 0;
             for (const auto& tx : block.vtx) {
-                if (setTxids.contains(tx->GetHash())) {
+                if (setTxids.count(tx->GetHash())) {
                     ntxFound++;
                 }
             }

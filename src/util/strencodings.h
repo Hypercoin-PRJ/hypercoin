@@ -1,15 +1,15 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 /**
  * Utilities for converting data from/to strings.
  */
-#ifndef BITCOIN_UTIL_STRENCODINGS_H
-#define BITCOIN_UTIL_STRENCODINGS_H
+#ifndef HYPERCOIN_UTIL_STRENCODINGS_H
+#define HYPERCOIN_UTIL_STRENCODINGS_H
 
-#include <crypto/hex_base.h>
+#include <crypto/hex_base.h> // IWYU pragma: export
 #include <span.h>
 #include <util/string.h>
 
@@ -20,8 +20,8 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
-#include <string>
-#include <string_view>
+#include <string>      // IWYU pragma: export
+#include <string_view> // IWYU pragma: export
 #include <system_error>
 #include <type_traits>
 #include <vector>
@@ -398,4 +398,4 @@ inline auto operator""_hex_v_u8() { return std::vector<uint8_t>{UCharCast(str.by
 } // inline namespace hex_literals
 } // namespace util
 
-#endif // BITCOIN_UTIL_STRENCODINGS_H
+#endif // HYPERCOIN_UTIL_STRENCODINGS_H

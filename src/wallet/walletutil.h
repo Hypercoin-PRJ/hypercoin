@@ -1,9 +1,9 @@
-// Copyright (c) 2017-present The Bitcoin Core developers
+// Copyright (c) 2017-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_WALLET_WALLETUTIL_H
-#define BITCOIN_WALLET_WALLETUTIL_H
+#ifndef HYPERCOIN_WALLET_WALLETUTIL_H
+#define HYPERCOIN_WALLET_WALLETUTIL_H
 
 #include <script/descriptor.h>
 #include <util/fs.h>
@@ -45,7 +45,7 @@ enum WalletFlags : uint64_t {
     //! imported.
     //!
     //! This flag is also a mandatory flag to prevent previous versions of
-    //! bitcoin from opening the wallet, thinking it was newly created, and
+    //! hypercoin from opening the wallet, thinking it was newly created, and
     //! then improperly reinitializing it.
     WALLET_FLAG_BLANK_WALLET = (1ULL << 33),
 
@@ -101,4 +101,4 @@ public:
 WalletDescriptor GenerateWalletDescriptor(const CExtPubKey& master_key, const OutputType& output_type, bool internal);
 } // namespace wallet
 
-#endif // BITCOIN_WALLET_WALLETUTIL_H
+#endif // HYPERCOIN_WALLET_WALLETUTIL_H

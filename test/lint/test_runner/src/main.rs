@@ -1,4 +1,4 @@
-// Copyright (c) The Bitcoin Core developers
+// Copyright (c) The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://opensource.org/license/mit/.
 
@@ -29,7 +29,7 @@ fn get_linter_list() -> Vec<&'static Linter> {
             lint_fn: lint_doc
         },
         &Linter {
-            description: "Check that no symbol from bitcoin-build-config.h is used without the header being included",
+            description: "Check that no symbol from hypercoin-build-config.h is used without the header being included",
             name: "includes_build_config",
             lint_fn: lint_includes_build_config
         },
@@ -223,7 +223,7 @@ fn get_pathspecs_default_excludes() -> Vec<String> {
         .chain(&[
             "doc/release-notes/release-notes-*", // archived notes
         ])
-        .map(|s| format!(":(exclude){s}"))
+        .map(|s| format!(":(exclude){}", s))
         .collect()
 }
 
@@ -280,7 +280,8 @@ fn lint_commit_msg() -> LintResult {
         if let Some(line) = commit_info.lines().nth(1) {
             if !line.is_empty() {
                 println!(
-                        "The subject line of commit hash {hash} is followed by a non-empty line. Subject lines should always be followed by a blank line."
+                        "The subject line of commit hash {} is followed by a non-empty line. Subject lines should always be followed by a blank line.",
+                        hash
                     );
                 good = false;
             }
@@ -307,7 +308,6 @@ fn lint_py_lint() -> LintResult {
             "E702", // multiple statements on one line (semicolon)
             "E703", // statement ends with a semicolon
             "E711", // comparison to None should be 'if cond is None:'
-            "E713", // test for membership should be "not in"
             "E714", // test for object identity should be "is not"
             "E721", // do not compare types, use "isinstance()"
             "E722", // do not use bare 'except'
@@ -351,14 +351,15 @@ fn lint_py_lint() -> LintResult {
 
     match cmd.status() {
         Ok(status) if status.success() => Ok(()),
-        Ok(_) => Err(format!("`{bin_name}` found errors!")),
+        Ok(_) => Err(format!("`{}` found errors!", bin_name)),
         Err(e) if e.kind() == ErrorKind::NotFound => {
             println!(
-                "`{bin_name}` was not found in $PATH, skipping those checks."
+                "`{}` was not found in $PATH, skipping those checks.",
+                bin_name
             );
             Ok(())
         }
-        Err(e) => Err(format!("Error running `{bin_name}`: {e}")),
+        Err(e) => Err(format!("Error running `{}`: {}", bin_name, e)),
     }
 }
 
@@ -372,8 +373,6 @@ fn lint_std_filesystem() -> LintResult {
             "./src/",
             ":(exclude)src/ipc/libmultiprocess/",
             ":(exclude)src/util/fs.h",
-            ":(exclude)src/test/kernel/test_kernel.cpp",
-            ":(exclude)src/bitcoin-chainstate.cpp",
         ])
         .status()
         .expect("command error")
@@ -479,7 +478,7 @@ fn get_pathspecs_exclude_whitespace() -> Vec<String> {
             "contrib/windeploy/win-codesign.cert",
             "doc/README_windows.txt",
             // Temporary excludes, or existing violations
-            "contrib/init/bitcoind.openrc",
+            "contrib/init/hypercoind.openrc",
             "contrib/macdeploy/macdeployqtplus",
             "src/crypto/sha256_sse4.cpp",
             "src/qt/res/src/*.svg",
@@ -492,7 +491,7 @@ fn get_pathspecs_exclude_whitespace() -> Vec<String> {
             "test/lint/git-subtree-check.sh",
         ]
         .iter()
-        .map(|s| format!(":(exclude){s}")),
+        .map(|s| format!(":(exclude){}", s)),
     );
     list
 }
@@ -585,7 +584,7 @@ Please add any false positives, such as subtrees, or externally sourced files to
 }
 
 fn lint_includes_build_config() -> LintResult {
-    let config_path = "./cmake/bitcoin-build-config.h.in";
+    let config_path = "./cmake/hypercoin-build-config.h.in";
     let defines_regex = format!(
         r"^\s*(?!//).*({})",
         check_output(Command::new("grep").args(["define", "--", config_path]))
@@ -629,9 +628,9 @@ fn lint_includes_build_config() -> LintResult {
                     "--files-with-matches"
                 },
                 if mode {
-                    "^#include <bitcoin-build-config.h> // IWYU pragma: keep$"
+                    "^#include <hypercoin-build-config.h> // IWYU pragma: keep$"
                 } else {
-                    "#include <bitcoin-build-config.h>" // Catch redundant includes with and without the IWYU pragma
+                    "#include <hypercoin-build-config.h>" // Catch redundant includes with and without the IWYU pragma
                 },
                 "--",
             ])
@@ -644,20 +643,21 @@ fn lint_includes_build_config() -> LintResult {
     if missing {
         return Err(format!(
             r#"
-One or more files use a symbol declared in the bitcoin-build-config.h header. However, they are not
+One or more files use a symbol declared in the hypercoin-build-config.h header. However, they are not
 including the header. This is problematic, because the header may or may not be indirectly
 included. If the indirect include were to be intentionally or accidentally removed, the build could
 still succeed, but silently be buggy. For example, a slower fallback algorithm could be picked,
-even though bitcoin-build-config.h indicates that a faster feature is available and should be used.
+even though hypercoin-build-config.h indicates that a faster feature is available and should be used.
 
 If you are unsure which symbol is used, you can find it with this command:
-git grep --perl-regexp '{defines_regex}' -- file_name
+git grep --perl-regexp '{}' -- file_name
 
 Make sure to include it with the IWYU pragma. Otherwise, IWYU may falsely instruct to remove the
 include again.
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
-            "#
+#include <hypercoin-build-config.h> // IWYU pragma: keep
+            "#,
+            defines_regex
         )
         .trim()
         .to_string());
@@ -665,7 +665,7 @@ include again.
     let redundant = print_affected_files(false);
     if redundant {
         return Err(r#"
-None of the files use a symbol declared in the bitcoin-build-config.h header. However, they are including
+None of the files use a symbol declared in the hypercoin-build-config.h header. However, they are including
 the header. Consider removing the unused include.
             "#
         .to_string());
@@ -714,8 +714,9 @@ One or more markdown links are broken.
 Note: relative links are preferred as jump-to-file works natively within Emacs, but they are not required.
 
 Markdown link errors found:
-{stderr}
-                "#
+{}
+                "#,
+                stderr
             )
             .trim()
             .to_string())
@@ -724,7 +725,7 @@ Markdown link errors found:
             println!("`mlc` was not found in $PATH, skipping markdown lint check.");
             Ok(())
         }
-        Err(e) => Err(format!("Error running mlc: {e}")), // Misc errors
+        Err(e) => Err(format!("Error running mlc: {}", e)), // Misc errors
     }
 }
 
@@ -743,7 +744,7 @@ fn run_all_python_linters() -> LintResult {
                 .success()
         {
             good = false;
-            println!("^---- ⚠️ Failure generated from {entry_fn}");
+            println!("^---- ⚠️ Failure generated from {}", entry_fn);
         }
     }
     if good {

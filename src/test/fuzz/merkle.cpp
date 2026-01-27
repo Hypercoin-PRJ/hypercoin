@@ -1,4 +1,4 @@
-// Copyright (c) 2025-present The Bitcoin Core developers
+// Copyright (c) 2025 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -51,8 +51,8 @@ FUZZ_TARGET(merkle)
     }
 
     // Test ComputeMerkleRoot
-    bool mutated = fuzzed_data_provider.ConsumeBool(); // output param, initial value shouldn't matter
-    const uint256 merkle_root = ComputeMerkleRoot(tx_hashes, fuzzed_data_provider.ConsumeBool() ? &mutated : nullptr);
+    bool mutated = fuzzed_data_provider.ConsumeBool();
+    const uint256 merkle_root = ComputeMerkleRoot(tx_hashes, &mutated);
 
     // Basic sanity checks for ComputeMerkleRoot
     if (tx_hashes.size() == 1) {
@@ -66,7 +66,7 @@ FUZZ_TARGET(merkle)
     }
 
     if (!block->vtx.empty()){
-        const uint256 block_witness_merkle_root = BlockWitnessMerkleRoot(*block);
+        const uint256 block_witness_merkle_root = BlockWitnessMerkleRoot(*block, &mutated);
         if (tx_hashes.size() == 1) {
             assert(block_witness_merkle_root == uint256());
         }

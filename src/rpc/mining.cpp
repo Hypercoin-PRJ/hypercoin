@@ -1,9 +1,9 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bitcoin-build-config.h> // IWYU pragma: keep
+#include <hypercoin-build-config.h> // IWYU pragma: keep
 
 #include <chain.h>
 #include <chainparams.h>
@@ -181,7 +181,7 @@ static UniValue generateBlocks(ChainstateManager& chainman, Mining& miner, const
     return blockHashes;
 }
 
-static bool getScriptFromDescriptor(std::string_view descriptor, CScript& script, std::string& error)
+static bool getScriptFromDescriptor(const std::string& descriptor, CScript& script, std::string& error)
 {
     FlatSigningProvider key_provider;
     const auto descs = Parse(descriptor, key_provider, error, /* require_checksum = */ false);
@@ -223,7 +223,7 @@ static RPCHelpMan generatetodescriptor()
         "Mine to a specified descriptor and return the block hashes.",
         {
             {"num_blocks", RPCArg::Type::NUM, RPCArg::Optional::NO, "How many blocks are generated."},
-            {"descriptor", RPCArg::Type::STR, RPCArg::Optional::NO, "The descriptor to send the newly generated bitcoin to."},
+            {"descriptor", RPCArg::Type::STR, RPCArg::Optional::NO, "The descriptor to send the newly generated hypercoin to."},
             {"maxtries", RPCArg::Type::NUM, RPCArg::Default{DEFAULT_MAX_TRIES}, "How many iterations to try."},
         },
         RPCResult{
@@ -241,7 +241,7 @@ static RPCHelpMan generatetodescriptor()
 
     CScript coinbase_output_script;
     std::string error;
-    if (!getScriptFromDescriptor(self.Arg<std::string_view>("descriptor"), coinbase_output_script, error)) {
+    if (!getScriptFromDescriptor(self.Arg<std::string>("descriptor"), coinbase_output_script, error)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, error);
     }
 
@@ -267,7 +267,7 @@ static RPCHelpMan generatetoaddress()
         "Mine to a specified address and return the block hashes.",
          {
              {"nblocks", RPCArg::Type::NUM, RPCArg::Optional::NO, "How many blocks are generated."},
-             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The address to send the newly generated bitcoin to."},
+             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The address to send the newly generated hypercoin to."},
              {"maxtries", RPCArg::Type::NUM, RPCArg::Default{DEFAULT_MAX_TRIES}, "How many iterations to try."},
          },
          RPCResult{
@@ -278,7 +278,7 @@ static RPCHelpMan generatetoaddress()
          RPCExamples{
             "\nGenerate 11 blocks to myaddress\n"
             + HelpExampleCli("generatetoaddress", "11 \"myaddress\"")
-            + "If you are using the " CLIENT_NAME " wallet, you can get a new address to send the newly generated bitcoin to with:\n"
+            + "If you are using the " CLIENT_NAME " wallet, you can get a new address to send the newly generated hypercoin to with:\n"
             + HelpExampleCli("getnewaddress", "")
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
@@ -307,7 +307,7 @@ static RPCHelpMan generateblock()
     return RPCHelpMan{"generateblock",
         "Mine a set of ordered transactions to a specified address or descriptor and return the block hash.",
         {
-            {"output", RPCArg::Type::STR, RPCArg::Optional::NO, "The address or descriptor to send the newly generated bitcoin to."},
+            {"output", RPCArg::Type::STR, RPCArg::Optional::NO, "The address or descriptor to send the newly generated hypercoin to."},
             {"transactions", RPCArg::Type::ARR, RPCArg::Optional::NO, "An array of hex strings which are either txids or raw transactions.\n"
                 "Txids must reference transactions currently in the mempool.\n"
                 "All transactions must be valid and in valid order, otherwise the block will be rejected.",
@@ -469,7 +469,7 @@ static RPCHelpMan getmininginfo()
     obj.pushKV("difficulty", GetDifficulty(tip));
     obj.pushKV("target", GetTarget(tip, chainman.GetConsensus().powLimit).GetHex());
     obj.pushKV("networkhashps",    getnetworkhashps().HandleRequest(request));
-    obj.pushKV("pooledtx", mempool.size());
+    obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     BlockAssembler::Options assembler_options;
     ApplyArgsManOptions(*node.args, assembler_options);
     obj.pushKV("blockmintxfee", ValueFromAmount(assembler_options.blockMinFeeRate.GetFeePerK()));
@@ -497,7 +497,7 @@ static RPCHelpMan getmininginfo()
 }
 
 
-// NOTE: Unlike wallet RPC (which use BTC values), mining RPCs follow GBT (BIP 22) in using satoshi amounts
+// NOTE: Unlike wallet RPC (which use HRC values), mining RPCs follow GBT (BIP 22) in using satoshi amounts
 static RPCHelpMan prioritisetransaction()
 {
     return RPCHelpMan{"prioritisetransaction",
@@ -618,10 +618,10 @@ static RPCHelpMan getblocktemplate()
         "If the request parameters include a 'mode' key, that is used to explicitly select between the default 'template' request or a 'proposal'.\n"
         "It returns data needed to construct a block to work on.\n"
         "For full specification, see BIPs 22, 23, 9, and 145:\n"
-        "    https://github.com/bitcoin/bips/blob/master/bip-0022.mediawiki\n"
-        "    https://github.com/bitcoin/bips/blob/master/bip-0023.mediawiki\n"
-        "    https://github.com/bitcoin/bips/blob/master/bip-0009.mediawiki#getblocktemplate_changes\n"
-        "    https://github.com/bitcoin/bips/blob/master/bip-0145.mediawiki\n",
+        "    https://github.com/hypercoin/bips/blob/master/bip-0022.mediawiki\n"
+        "    https://github.com/hypercoin/bips/blob/master/bip-0023.mediawiki\n"
+        "    https://github.com/hypercoin/bips/blob/master/bip-0009.mediawiki#getblocktemplate_changes\n"
+        "    https://github.com/hypercoin/bips/blob/master/bip-0145.mediawiki\n",
         {
             {"template_request", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Format of the template",
             {
@@ -790,7 +790,7 @@ static RPCHelpMan getblocktemplate()
          * On mainnet the mempool changes frequently enough that in practice this RPC
          * returns after 60 seconds, or sooner if the best block changes.
          *
-         * getblocktemplate is unlikely to be called by bitcoin-cli, so
+         * getblocktemplate is unlikely to be called by hypercoin-cli, so
          * -rpcclienttimeout is not a concern. BIP22 recommends a long request timeout.
          *
          * The longpollid is assumed to be a tip hash if it has the right format.
@@ -846,12 +846,12 @@ static RPCHelpMan getblocktemplate()
     const Consensus::Params& consensusParams = chainman.GetParams().GetConsensus();
 
     // GBT must be called with 'signet' set in the rules for signet chains
-    if (consensusParams.signet_blocks && !setClientRules.contains("signet")) {
+    if (consensusParams.signet_blocks && setClientRules.count("signet") != 1) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "getblocktemplate must be called with the signet rule set (call with {\"rules\": [\"segwit\", \"signet\"]})");
     }
 
     // GBT must be called with 'segwit' set in the rules
-    if (!setClientRules.contains("segwit")) {
+    if (setClientRules.count("segwit") != 1) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "getblocktemplate must be called with the segwit rule set (call with {\"rules\": [\"segwit\"]})");
     }
 
@@ -913,7 +913,7 @@ static RPCHelpMan getblocktemplate()
         UniValue deps(UniValue::VARR);
         for (const CTxIn &in : tx.vin)
         {
-            if (setTxIndex.contains(in.prevout.hash))
+            if (setTxIndex.count(in.prevout.hash))
                 deps.push_back(setTxIndex[in.prevout.hash]);
         }
         entry.pushKV("depends", std::move(deps));
@@ -957,7 +957,7 @@ static RPCHelpMan getblocktemplate()
 
     for (const auto& [name, info] : gbtstatus.signalling) {
         vbavailable.pushKV(gbt_rule_value(name, info.gbt_optional_rule), info.bit);
-        if (!info.gbt_optional_rule && !setClientRules.contains(name)) {
+        if (!info.gbt_optional_rule && !setClientRules.count(name)) {
             // If the client doesn't support this, don't indicate it in the [default] version
             block.nVersion &= ~info.mask;
         }
@@ -966,7 +966,7 @@ static RPCHelpMan getblocktemplate()
     for (const auto& [name, info] : gbtstatus.locked_in) {
         block.nVersion |= info.mask;
         vbavailable.pushKV(gbt_rule_value(name, info.gbt_optional_rule), info.bit);
-        if (!info.gbt_optional_rule && !setClientRules.contains(name)) {
+        if (!info.gbt_optional_rule && !setClientRules.count(name)) {
             // If the client doesn't support this, don't indicate it in the [default] version
             block.nVersion &= ~info.mask;
         }
@@ -974,7 +974,7 @@ static RPCHelpMan getblocktemplate()
 
     for (const auto& [name, info] : gbtstatus.active) {
         aRules.push_back(gbt_rule_value(name, info.gbt_optional_rule));
-        if (!info.gbt_optional_rule && !setClientRules.contains(name)) {
+        if (!info.gbt_optional_rule && !setClientRules.count(name)) {
             // Not supported by the client; make sure it's safe to proceed
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Support for '%s' rule requires explicit client support", name));
         }
@@ -988,7 +988,7 @@ static RPCHelpMan getblocktemplate()
     result.pushKV("previousblockhash", block.hashPrevBlock.GetHex());
     result.pushKV("transactions", std::move(transactions));
     result.pushKV("coinbaseaux", std::move(aux));
-    result.pushKV("coinbasevalue", block.vtx[0]->vout[0].nValue);
+    result.pushKV("coinbasevalue", (int64_t)block.vtx[0]->vout[0].nValue);
     result.pushKV("longpollid", tip.GetHex() + ToString(nTransactionsUpdatedLast));
     result.pushKV("target", hashTarget.GetHex());
     result.pushKV("mintime", GetMinimumTime(pindexPrev, consensusParams.DifficultyAdjustmentInterval()));
@@ -1005,11 +1005,11 @@ static RPCHelpMan getblocktemplate()
     result.pushKV("sigoplimit", nSigOpLimit);
     result.pushKV("sizelimit", nSizeLimit);
     if (!fPreSegWit) {
-        result.pushKV("weightlimit", MAX_BLOCK_WEIGHT);
+        result.pushKV("weightlimit", (int64_t)MAX_BLOCK_WEIGHT);
     }
     result.pushKV("curtime", block.GetBlockTime());
     result.pushKV("bits", strprintf("%08x", block.nBits));
-    result.pushKV("height", pindexPrev->nHeight + 1);
+    result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
 
     if (consensusParams.signet_blocks) {
         result.pushKV("signet_challenge", HexStr(consensusParams.signet_challenge));
@@ -1048,7 +1048,7 @@ static RPCHelpMan submitblock()
     return RPCHelpMan{
         "submitblock",
         "Attempts to submit new block to network.\n"
-        "See https://en.bitcoin.it/wiki/BIP_0022 for full specification.\n",
+        "See https://en.hypercoin.it/wiki/BIP_0022 for full specification.\n",
         {
             {"hexdata", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "the hex-encoded block data to submit"},
             {"dummy", RPCArg::Type::STR, RPCArg::DefaultHint{"ignored"}, "dummy value, for compatibility with BIP22. This value is ignored."},

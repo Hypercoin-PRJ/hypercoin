@@ -7,7 +7,7 @@ To run linters locally with the same versions as the CI environment, use the inc
 Dockerfile:
 
 ```sh
-DOCKER_BUILDKIT=1 docker build --platform=linux --tag=bitcoin-linter --file="./ci/lint_imagefile" ./ && docker run --rm -v $(pwd):/bitcoin -it bitcoin-linter
+DOCKER_BUILDKIT=1 docker build -t hypercoin-linter --file "./ci/lint_imagefile" ./ && docker run --rm -v $(pwd):/hypercoin -it hypercoin-linter
 ```
 
 Building the container can be done every time, because it is fast when the
@@ -50,6 +50,7 @@ or `--help`:
 | [`lint-python.py`](/test/lint/lint-python.py) | [pyzmq](https://github.com/zeromq/pyzmq)
 | [`lint-python-dead-code.py`](/test/lint/lint-python-dead-code.py) | [vulture](https://github.com/jendrikseipp/vulture)
 | [`lint-shell.py`](/test/lint/lint-shell.py) | [ShellCheck](https://github.com/koalaman/shellcheck)
+| [`lint-spelling.py`](/test/lint/lint-spelling.py) | [codespell](https://github.com/codespell-project/codespell)
 | `py_lint` | [ruff](https://github.com/astral-sh/ruff)
 | markdown link check | [mlc](https://github.com/becheran/mlc)
 
@@ -91,19 +92,19 @@ Usage: test/lint/git-subtree-check.sh [-r] DIR [COMMIT]
 
 To do a full check with `-r`, make sure that you have fetched the upstream repository branch in which the subtree is
 maintained:
-* for `src/crc32c`: https://github.com/bitcoin-core/crc32c-subtree.git (branch bitcoin-fork)
-* for `src/crypto/ctaes`: https://github.com/bitcoin-core/ctaes.git (branch master)
-* for `src/ipc/libmultiprocess`: https://github.com/bitcoin-core/libmultiprocess (branch master)
-* for `src/leveldb`: https://github.com/bitcoin-core/leveldb-subtree.git (branch bitcoin-fork)
-* for `src/minisketch`: https://github.com/bitcoin-core/minisketch.git (branch master)
-* for `src/secp256k1`: https://github.com/bitcoin-core/secp256k1.git (branch master)
+* for `src/crc32c`: https://github.com/hypercoin-core/crc32c-subtree.git (branch hypercoin-fork)
+* for `src/crypto/ctaes`: https://github.com/hypercoin-core/ctaes.git (branch master)
+* for `src/ipc/libmultiprocess`: https://github.com/hypercoin-core/libmultiprocess (branch master)
+* for `src/leveldb`: https://github.com/hypercoin-core/leveldb-subtree.git (branch hypercoin-fork)
+* for `src/minisketch`: https://github.com/hypercoin-core/minisketch.git (branch master)
+* for `src/secp256k1`: https://github.com/hypercoin-core/secp256k1.git (branch master)
 
 Keep this list in sync with `fn get_subtrees()` in the lint runner.
 
 To do so, add the upstream repository as remote:
 
 ```
-git remote add --fetch secp256k1 https://github.com/bitcoin-core/secp256k1.git
+git remote add --fetch secp256k1 https://github.com/hypercoin-core/secp256k1.git
 ```
 
 lint_ignore_dirs.py

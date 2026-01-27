@@ -1,16 +1,16 @@
-// Copyright (c) 2023-present The Bitcoin Core developers
+// Copyright (c) 2023-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CRYPTO_CHACHA20POLY1305_H
-#define BITCOIN_CRYPTO_CHACHA20POLY1305_H
+#ifndef HYPERCOIN_CRYPTO_CHACHA20POLY1305_H
+#define HYPERCOIN_CRYPTO_CHACHA20POLY1305_H
 
 #include <cstddef>
 #include <cstdint>
-#include <span>
 
 #include <crypto/chacha20.h>
 #include <crypto/poly1305.h>
+#include <span.h>
 
 /** The AEAD_CHACHA20_POLY1305 authenticated encryption algorithm from RFC8439 section 2.8. */
 class AEADChaCha20Poly1305
@@ -145,4 +145,4 @@ public:
     bool Decrypt(std::span<const std::byte> cipher, std::span<const std::byte> aad, std::span<std::byte> plain1, std::span<std::byte> plain2) noexcept;
 };
 
-#endif // BITCOIN_CRYPTO_CHACHA20POLY1305_H
+#endif // HYPERCOIN_CRYPTO_CHACHA20POLY1305_H

@@ -1,9 +1,9 @@
-// Copyright (c) 2021-present The Bitcoin Core developers
+// Copyright (c) 2021-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_WALLET_TEST_UTIL_H
-#define BITCOIN_WALLET_TEST_UTIL_H
+#ifndef HYPERCOIN_WALLET_TEST_UTIL_H
+#define HYPERCOIN_WALLET_TEST_UTIL_H
 
 #include <addresstype.h>
 #include <wallet/db.h>
@@ -117,7 +117,7 @@ public:
 std::unique_ptr<WalletDatabase> CreateMockableWalletDatabase(MockableData records = {});
 MockableDatabase& GetMockableDatabase(CWallet& wallet);
 
-DescriptorScriptPubKeyMan* CreateDescriptor(CWallet& keystore, const std::string& desc_str, bool success);
+DescriptorScriptPubKeyMan* CreateDescriptor(CWallet& keystore, const std::string& desc_str, const bool success);
 } // namespace wallet
 
-#endif // BITCOIN_WALLET_TEST_UTIL_H
+#endif // HYPERCOIN_WALLET_TEST_UTIL_H

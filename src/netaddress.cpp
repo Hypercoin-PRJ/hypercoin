@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -18,7 +18,6 @@
 #include <cstdint>
 #include <ios>
 #include <iterator>
-#include <string_view>
 #include <tuple>
 
 using util::ContainsNoNUL;
@@ -209,7 +208,7 @@ static void Checksum(std::span<const uint8_t> addr_pubkey, uint8_t (&checksum)[C
 
 }; // namespace torv3
 
-bool CNetAddr::SetSpecial(std::string_view addr)
+bool CNetAddr::SetSpecial(const std::string& addr)
 {
     if (!ContainsNoNUL(addr)) {
         return false;
@@ -226,11 +225,16 @@ bool CNetAddr::SetSpecial(std::string_view addr)
     return false;
 }
 
-bool CNetAddr::SetTor(std::string_view addr)
+bool CNetAddr::SetTor(const std::string& addr)
 {
-    if (!addr.ends_with(".onion")) return false;
-    addr.remove_suffix(6);
-    auto input = DecodeBase32(addr);
+    static const char* suffix{".onion"};
+    static constexpr size_t suffix_len{6};
+
+    if (addr.size() <= suffix_len || addr.substr(addr.size() - suffix_len) != suffix) {
+        return false;
+    }
+
+    auto input = DecodeBase32(std::string_view{addr}.substr(0, addr.size() - suffix_len));
 
     if (!input) {
         return false;
@@ -260,7 +264,7 @@ bool CNetAddr::SetTor(std::string_view addr)
     return false;
 }
 
-bool CNetAddr::SetI2P(std::string_view addr)
+bool CNetAddr::SetI2P(const std::string& addr)
 {
     // I2P addresses that we support consist of 52 base32 characters + ".b32.i2p".
     static constexpr size_t b32_len{52};
@@ -273,7 +277,7 @@ bool CNetAddr::SetI2P(std::string_view addr)
 
     // Remove the ".b32.i2p" suffix and pad to a multiple of 8 chars, so DecodeBase32()
     // can decode it.
-    const std::string b32_padded{tfm::format("%s====", addr.substr(0, b32_len))};
+    const std::string b32_padded = addr.substr(0, b32_len) + "====";
 
     auto address_bytes = DecodeBase32(b32_padded);
 

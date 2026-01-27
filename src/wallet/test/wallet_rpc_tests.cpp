@@ -1,4 +1,4 @@
-// Copyright (c) 2025-present The Bitcoin Core developers
+// Copyright (c) 2025-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -17,7 +17,7 @@ static std::string TestWalletName(const std::string& endpoint, std::optional<std
 {
     JSONRPCRequest req;
     req.URI = endpoint;
-    return EnsureUniqueWalletName(req, parameter);
+    return EnsureUniqueWalletName(req, parameter ? &*parameter : nullptr);
 }
 
 BOOST_FIXTURE_TEST_SUITE(wallet_rpc_tests, BasicTestingSetup)

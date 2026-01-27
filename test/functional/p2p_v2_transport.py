@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2021-present The Bitcoin Core developers
+# Copyright (c) 2021-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """
@@ -8,7 +8,7 @@ Test v2 transport
 import socket
 
 from test_framework.messages import MAGIC_BYTES, NODE_P2P_V2
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_not_equal,
     assert_equal,
@@ -17,7 +17,7 @@ from test_framework.util import (
 )
 
 
-class V2TransportTest(BitcoinTestFramework):
+class V2TransportTest(HypercoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 5
@@ -165,7 +165,7 @@ class V2TransportTest(BitcoinTestFramework):
                 peer_id = self.nodes[0].getpeerinfo()[-1]["id"]
                 s.sendall(b'\x00')  # send out last byte
                 # should disconnect immediately
-                self.wait_until(lambda: peer_id not in [p["id"] for p in self.nodes[0].getpeerinfo()])
+                self.wait_until(lambda: not peer_id in [p["id"] for p in self.nodes[0].getpeerinfo()])
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019-present The Bitcoin Core developers
+# Copyright (c) 2019-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the importdescriptors RPC.
@@ -20,9 +20,8 @@ import time
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.blocktools import COINBASE_MATURITY
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.descriptors import descsum_create
-from test_framework.script import SEQUENCE_LOCKTIME_TYPE_FLAG
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
@@ -32,7 +31,7 @@ from test_framework.wallet_util import (
     test_address,
 )
 
-class ImportDescriptorsTest(BitcoinTestFramework):
+class ImportDescriptorsTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         # whitelist peers to speed up tx relay / mempool sync
@@ -59,7 +58,6 @@ class ImportDescriptorsTest(BitcoinTestFramework):
         if 'warnings' in result[0]:
             observed_warnings = result[0]['warnings']
         assert_equal("\n".join(sorted(warnings)), "\n".join(sorted(observed_warnings)))
-        self.log.debug(result)
         assert_equal(result[0]['success'], success)
         if error_code is not None:
             assert_equal(result[0]['error']['code'], error_code)
@@ -116,9 +114,6 @@ class ImportDescriptorsTest(BitcoinTestFramework):
                              success=False,
                              error_code=-8,
                              error_message="Internal addresses should not have a label")
-
-        self.log.info("External non-ranged addresses can have labels")
-        self.test_importdesc({**import_request, "internal": False}, success=True)
 
         self.log.info("Internal addresses should be detected as such")
         key = get_generate_key()
@@ -218,16 +213,6 @@ class ImportDescriptorsTest(BitcoinTestFramework):
                               "range": [0, 100],
                               "label": "test"},
                               success=False,
-                              error_code=-8,
-                              error_message='Ranged descriptors should not have a label')
-
-        self.log.info("Ranged descriptors cannot have labels - even if range not provided by user and only implied by asterisk (*)")
-        self.test_importdesc({"desc":descsum_create("wpkh(" + xpub + "/100/0/*)"),
-                              "timestamp": "now",
-                              "label": "test",
-                              "active": True},
-                              success=False,
-                              warnings=['Range not given, using default keypool range'],
                               error_code=-8,
                               error_message='Ranged descriptors should not have a label')
 
@@ -784,41 +769,6 @@ class ImportDescriptorsTest(BitcoinTestFramework):
             assert_equal(w_multipath.getnewaddress(address_type="bech32"), w_multisplit.getnewaddress(address_type="bech32"))
             assert_equal(w_multipath.getrawchangeaddress(address_type="bech32"), w_multisplit.getrawchangeaddress(address_type="bech32"))
         assert_equal(sorted(w_multipath.listdescriptors()["descriptors"], key=lambda x: x["desc"]), sorted(w_multisplit.listdescriptors()["descriptors"], key=lambda x: x["desc"]))
-
-        self.log.info("Test older() safety")
-
-        for flag in [0, SEQUENCE_LOCKTIME_TYPE_FLAG]:
-            self.log.debug("Importing a safe value always works")
-            safe_value = (65535 | flag)
-            self.test_importdesc(
-                {
-                    'desc': descsum_create(f"wsh(and_v(v:pk([12345678/0h/0h]{xpub}/*),older({safe_value})))"),
-                    'active': True,
-                    'range': [0, 2],
-                    'timestamp': 'now'
-                },
-                success=True
-            )
-
-            self.log.debug("Importing an unsafe value results in a warning")
-            unsafe_value = safe_value + 1
-            desc = descsum_create(f"wsh(and_v(v:pk([12345678/0h/0h]{xpub}/*),older({unsafe_value})))")
-            expected_warning = (
-                f"time-based relative locktime: older({unsafe_value}) > (65535 * 512) seconds is unsafe"
-                if flag == SEQUENCE_LOCKTIME_TYPE_FLAG
-                else f"height-based relative locktime: older({unsafe_value}) > 65535 blocks is unsafe"
-            )
-            self.test_importdesc(
-                {
-                    'desc': desc,
-                    'active': True,
-                    'range': [0, 2],
-                    'timestamp': 'now'
-                },
-                success=True,
-                warnings=[expected_warning],
-            )
-
 
 if __name__ == '__main__':
     ImportDescriptorsTest(__file__).main()

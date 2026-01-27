@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-present The Bitcoin Core developers
+# Copyright (c) 2017-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test various command line arguments and configuration file parameters."""
@@ -12,12 +12,12 @@ import tempfile
 import time
 
 from test_framework.netutil import UNREACHABLE_PROXY_ARG
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.test_node import ErrorMatch
 from test_framework import util
 
 
-class ConfArgsTest(BitcoinTestFramework):
+class ConfArgsTest(HypercoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
@@ -43,7 +43,7 @@ class ConfArgsTest(BitcoinTestFramework):
 
     def test_dir_config(self):
         self.log.info('Error should be emitted if config file is a directory')
-        conf_path = self.nodes[0].datadir_path / 'bitcoin.conf'
+        conf_path = self.nodes[0].datadir_path / 'hypercoin.conf'
         os.rename(conf_path, conf_path.with_suffix('.confbkp'))
         conf_path.mkdir()
         self.stop_node(0)
@@ -55,7 +55,7 @@ class ConfArgsTest(BitcoinTestFramework):
         os.rename(conf_path.with_suffix('.confbkp'), conf_path)
 
         self.log.debug('Verifying includeconf directive pointing to directory is caught')
-        with open(conf_path, 'a') as conf:
+        with open(conf_path, 'a', encoding='utf-8') as conf:
             conf.write(f'includeconf={self.nodes[0].datadir_path}\n')
         self.nodes[0].assert_start_raises_init_error(
             extra_args=['-regtest'],
@@ -67,13 +67,13 @@ class ConfArgsTest(BitcoinTestFramework):
     def test_negated_config(self):
         self.log.info('Disabling configuration via -noconf')
 
-        conf_path = self.nodes[0].datadir_path / 'bitcoin.conf'
-        with open(conf_path) as conf:
+        conf_path = self.nodes[0].datadir_path / 'hypercoin.conf'
+        with open(conf_path, encoding='utf-8') as conf:
             settings = [f'-{line.rstrip()}' for line in conf if len(line) > 1 and line[0] != '[']
         os.rename(conf_path, conf_path.with_suffix('.confbkp'))
 
         self.log.debug('Verifying garbage in config can be detected')
-        with open(conf_path, 'a') as conf:
+        with open(conf_path, 'a', encoding='utf-8') as conf:
             conf.write('garbage\n')
         self.nodes[0].assert_start_raises_init_error(
             extra_args=['-regtest'],
@@ -82,7 +82,7 @@ class ConfArgsTest(BitcoinTestFramework):
 
         self.log.debug('Verifying that disabling of the config file means garbage inside of it does ' \
             'not prevent the node from starting, and message about existing config file is logged')
-        ignored_file_message = [f'Data directory "{self.nodes[0].datadir_path}" contains a "bitcoin.conf" file which is explicitly ignored using -noconf.']
+        ignored_file_message = [f'Data directory "{self.nodes[0].datadir_path}" contains a "hypercoin.conf" file which is explicitly ignored using -noconf.']
         with self.nodes[0].assert_debug_log(timeout=60, expected_msgs=ignored_file_message):
             self.start_node(0, extra_args=settings + ['-noconf'])
         self.stop_node(0)
@@ -98,8 +98,8 @@ class ConfArgsTest(BitcoinTestFramework):
     def test_config_file_parser(self):
         self.log.info('Test config file parser')
 
-        # Check that startup fails if conf= is set in bitcoin.conf or in an included conf file
-        bad_conf_file_path = self.nodes[0].datadir_path / "bitcoin_bad.conf"
+        # Check that startup fails if conf= is set in hypercoin.conf or in an included conf file
+        bad_conf_file_path = self.nodes[0].datadir_path / "hypercoin_bad.conf"
         util.write_config(bad_conf_file_path, n=0, chain='', extra_config='conf=some.conf\n')
         conf_in_config_file_err = 'Error: Error reading configuration file: conf cannot be set in the configuration file; use includeconf= if you want to include additional config files'
         self.nodes[0].assert_start_raises_init_error(
@@ -107,9 +107,9 @@ class ConfArgsTest(BitcoinTestFramework):
             expected_msg=conf_in_config_file_err,
         )
         inc_conf_file_path = self.nodes[0].datadir_path / 'include.conf'
-        with open(self.nodes[0].datadir_path / 'bitcoin.conf', 'a') as conf:
+        with open(self.nodes[0].datadir_path / 'hypercoin.conf', 'a', encoding='utf-8') as conf:
             conf.write(f'includeconf={inc_conf_file_path}\n')
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('conf=some.conf\n')
         self.nodes[0].assert_start_raises_init_error(
             expected_msg=conf_in_config_file_err,
@@ -119,65 +119,65 @@ class ConfArgsTest(BitcoinTestFramework):
             expected_msg='Error: Error parsing command line arguments: Invalid parameter -dash_cli=1',
             extra_args=['-dash_cli=1'],
         )
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('dash_conf=1\n')
 
         with self.nodes[0].assert_debug_log(expected_msgs=['Ignoring unknown configuration value dash_conf']):
             self.start_node(0)
         self.stop_node(0)
 
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('reindex=1\n')
 
-        with self.nodes[0].assert_debug_log(expected_msgs=["[warning] reindex=1 is set in the configuration file, which will significantly slow down startup. Consider removing or commenting out this option for better performance, unless there is currently a condition which makes rebuilding the indexes necessary"]):
+        with self.nodes[0].assert_debug_log(expected_msgs=['Warning: reindex=1 is set in the configuration file, which will significantly slow down startup. Consider removing or commenting out this option for better performance, unless there is currently a condition which makes rebuilding the indexes necessary']):
             self.start_node(0)
         self.stop_node(0)
 
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('-dash=1\n')
         self.nodes[0].assert_start_raises_init_error(expected_msg='Error: Error reading configuration file: parse error on line 1: -dash=1, options in configuration file must be specified without leading -')
 
         if self.is_wallet_compiled():
-            with open(inc_conf_file_path, 'w') as conf:
+            with open(inc_conf_file_path, 'w', encoding='utf8') as conf:
                 conf.write("wallet=foo\n")
             self.nodes[0].assert_start_raises_init_error(expected_msg=f'Error: Config setting for -wallet only applied on {self.chain} network when in [{self.chain}] section.')
 
-        main_conf_file_path = self.nodes[0].datadir_path / "bitcoin_main.conf"
+        main_conf_file_path = self.nodes[0].datadir_path / "hypercoin_main.conf"
         util.write_config(main_conf_file_path, n=0, chain='', extra_config=f'includeconf={inc_conf_file_path}\n')
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('acceptnonstdtxn=1\n')
         self.nodes[0].assert_start_raises_init_error(extra_args=[f"-conf={main_conf_file_path}", "-allowignoredconf"], expected_msg='Error: acceptnonstdtxn is not currently supported for main chain')
 
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('nono\n')
         self.nodes[0].assert_start_raises_init_error(expected_msg='Error: Error reading configuration file: parse error on line 1: nono, if you intended to specify a negated option, use nono=1 instead')
 
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('server=1\nrpcuser=someuser\nrpcpassword=some#pass')
         self.nodes[0].assert_start_raises_init_error(expected_msg='Error: Error reading configuration file: parse error on line 3, using # in rpcpassword can be ambiguous and should be avoided')
 
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('server=1\nrpcuser=someuser\nmain.rpcpassword=some#pass')
         self.nodes[0].assert_start_raises_init_error(expected_msg='Error: Error reading configuration file: parse error on line 3, using # in rpcpassword can be ambiguous and should be avoided')
 
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('server=1\nrpcuser=someuser\n[main]\nrpcpassword=some#pass')
         self.nodes[0].assert_start_raises_init_error(expected_msg='Error: Error reading configuration file: parse error on line 4, using # in rpcpassword can be ambiguous and should be avoided')
 
         inc_conf_file2_path = self.nodes[0].datadir_path / 'include2.conf'
-        with open(self.nodes[0].datadir_path / 'bitcoin.conf', 'a') as conf:
+        with open(self.nodes[0].datadir_path / 'hypercoin.conf', 'a', encoding='utf-8') as conf:
             conf.write(f'includeconf={inc_conf_file2_path}\n')
 
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('testnot.datadir=1\n')
-        with open(inc_conf_file2_path, 'w') as conf:
+        with open(inc_conf_file2_path, 'w', encoding='utf-8') as conf:
             conf.write('[testnet]\n')
         self.restart_node(0)
         self.nodes[0].stop_node(expected_stderr=f'Warning: {inc_conf_file_path}:1 Section [testnot] is not recognized.{os.linesep}{inc_conf_file2_path}:1 Section [testnet] is not recognized.')
 
-        with open(inc_conf_file_path, 'w') as conf:
+        with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('')  # clear
-        with open(inc_conf_file2_path, 'w') as conf:
+        with open(inc_conf_file2_path, 'w', encoding='utf-8') as conf:
             conf.write('')  # clear
 
     def test_config_file_log(self):
@@ -189,15 +189,15 @@ class ConfArgsTest(BitcoinTestFramework):
         self.log.info('Test that correct configuration path is changed when configuration file changes the datadir')
 
         # Create a temporary directory that will be treated as the default data
-        # directory by bitcoind.
+        # directory by hypercoind.
         env, default_datadir = util.get_temp_default_datadir(Path(self.options.tmpdir, "test_config_file_log"))
         default_datadir.mkdir(parents=True)
 
-        # Write a bitcoin.conf file in the default data directory containing a
+        # Write a hypercoin.conf file in the default data directory containing a
         # datadir= line pointing at the node datadir.
         node = self.nodes[0]
-        conf_text = node.bitcoinconf.read_text()
-        conf_path = default_datadir / "bitcoin.conf"
+        conf_text = node.hypercoinconf.read_text()
+        conf_path = default_datadir / "hypercoin.conf"
         conf_path.write_text(f"datadir={node.datadir_path}\n{conf_text}")
 
         # Drop the node -datadir= argument during this test, because if it is
@@ -207,7 +207,7 @@ class ConfArgsTest(BitcoinTestFramework):
         node.args = [arg for arg in node.args if not arg.startswith("-datadir=")]
 
         # Check that correct configuration file path is actually logged
-        # (conf_path, not node.bitcoinconf)
+        # (conf_path, not node.hypercoinconf)
         with self.nodes[0].assert_debug_log(expected_msgs=[f"Config file: {conf_path}"]):
             self.start_node(0, ["-allowignoredconf"], env=env)
             self.stop_node(0)
@@ -229,7 +229,7 @@ class ConfArgsTest(BitcoinTestFramework):
                 )
 
     def test_log_buffer(self):
-        with self.nodes[0].assert_debug_log(expected_msgs=["[warning] Parsed potentially confusing double-negative -listen=0\n"]):
+        with self.nodes[0].assert_debug_log(expected_msgs=['Warning: parsed potentially confusing double-negative -listen=0\n']):
             self.start_node(0, extra_args=['-nolisten=0'])
         self.stop_node(0)
 
@@ -411,44 +411,21 @@ class ConfArgsTest(BitcoinTestFramework):
                 self.restart_node(0, extra_args=[connect_arg, '-dnsseed', '-proxy=localhost:1080'])
         self.stop_node(0)
 
-    def test_privatebroadcast(self):
-        self.log.info("Test that an invalid usage of -privatebroadcast throws an init error")
-        self.stop_node(0)
-        # -privatebroadcast init error: Tor/I2P not reachable at startup
-        self.nodes[0].assert_start_raises_init_error(
-            extra_args=["-privatebroadcast"],
-            expected_msg=(
-                "Error: Private broadcast of own transactions requested (-privatebroadcast), "
-                "but none of Tor or I2P networks is reachable"))
-        # -privatebroadcast init error: incompatible with -connect
-        self.nodes[0].assert_start_raises_init_error(
-            extra_args=["-privatebroadcast", "-connect=127.0.0.1:8333", "-onion=127.0.0.1:9050"],
-            expected_msg=(
-                "Error: Private broadcast of own transactions requested (-privatebroadcast), but -connect is also configured. "
-                "They are incompatible because the private broadcast needs to open new connections to randomly "
-                "chosen Tor or I2P peers. Consider using -maxconnections=0 -addnode=... instead"))
-        # Warning case: private broadcast allowed, but -proxyrandomize=0 triggers a privacy warning
-        self.start_node(0, extra_args=["-privatebroadcast", "-onion=127.0.0.1:9050", "-proxyrandomize=0"])
-        self.stop_node(0, expected_stderr=(
-            "Warning: Private broadcast of own transactions requested (-privatebroadcast) and "
-            "-proxyrandomize is disabled. Tor circuits for private broadcast connections may "
-            "be correlated to other connections over Tor. For maximum privacy set -proxyrandomize=1."))
-
     def test_ignored_conf(self):
-        self.log.info('Test error is triggered when the datadir in use contains a bitcoin.conf file that would be ignored '
+        self.log.info('Test error is triggered when the datadir in use contains a hypercoin.conf file that would be ignored '
                       'because a conflicting -conf file argument is passed.')
         node = self.nodes[0]
         with tempfile.NamedTemporaryFile(dir=self.options.tmpdir, mode="wt", delete=False) as temp_conf:
             temp_conf.write(f"datadir={node.datadir_path}\n")
         node.assert_start_raises_init_error([f"-conf={temp_conf.name}"], re.escape(
-            f'Error: Data directory "{node.datadir_path}" contains a "bitcoin.conf" file which is ignored, because a '
+            f'Error: Data directory "{node.datadir_path}" contains a "hypercoin.conf" file which is ignored, because a '
             f'different configuration file "{temp_conf.name}" from command line argument "-conf={temp_conf.name}" '
             f'is being used instead.') + r"[\s\S]*", match=ErrorMatch.FULL_REGEX)
 
         # Test that passing a redundant -conf command line argument pointing to
-        # the same bitcoin.conf that would be loaded anyway does not trigger an
+        # the same hypercoin.conf that would be loaded anyway does not trigger an
         # error.
-        self.start_node(0, [f'-conf={node.datadir_path}/bitcoin.conf'])
+        self.start_node(0, [f'-conf={node.datadir_path}/hypercoin.conf'])
         self.stop_node(0)
 
     def test_ignored_default_conf(self):
@@ -457,20 +434,20 @@ class ConfArgsTest(BitcoinTestFramework):
         if platform.system() == "Windows":
             return
 
-        self.log.info('Test error is triggered when bitcoin.conf in the default data directory sets another datadir '
-                      'and it contains a different bitcoin.conf file that would be ignored')
+        self.log.info('Test error is triggered when hypercoin.conf in the default data directory sets another datadir '
+                      'and it contains a different hypercoin.conf file that would be ignored')
 
         # Create a temporary directory that will be treated as the default data
-        # directory by bitcoind.
+        # directory by hypercoind.
         env, default_datadir = util.get_temp_default_datadir(Path(self.options.tmpdir, "home"))
         default_datadir.mkdir(parents=True)
 
-        # Write a bitcoin.conf file in the default data directory containing a
+        # Write a hypercoin.conf file in the default data directory containing a
         # datadir= line pointing at the node datadir. This will trigger a
         # startup error because the node datadir contains a different
-        # bitcoin.conf that would be ignored.
+        # hypercoin.conf that would be ignored.
         node = self.nodes[0]
-        (default_datadir / "bitcoin.conf").write_text(f"datadir={node.datadir_path}\n")
+        (default_datadir / "hypercoin.conf").write_text(f"datadir={node.datadir_path}\n")
 
         # Drop the node -datadir= argument during this test, because if it is
         # specified it would take precedence over the datadir setting in the
@@ -478,14 +455,14 @@ class ConfArgsTest(BitcoinTestFramework):
         node_args = node.args
         node.args = [arg for arg in node.args if not arg.startswith("-datadir=")]
         node.assert_start_raises_init_error([], re.escape(
-            f'Error: Data directory "{node.datadir_path}" contains a "bitcoin.conf" file which is ignored, because a '
-            f'different configuration file "{default_datadir}/bitcoin.conf" from data directory "{default_datadir}" '
+            f'Error: Data directory "{node.datadir_path}" contains a "hypercoin.conf" file which is ignored, because a '
+            f'different configuration file "{default_datadir}/hypercoin.conf" from data directory "{default_datadir}" '
             f'is being used instead.') + r"[\s\S]*", env=env, match=ErrorMatch.FULL_REGEX)
         node.args = node_args
 
     def test_acceptstalefeeestimates_arg_support(self):
         self.log.info("Test -acceptstalefeeestimates option support")
-        conf_file = self.nodes[0].datadir_path / "bitcoin.conf"
+        conf_file = self.nodes[0].datadir_path / "hypercoin.conf"
         for chain, chain_name in {("main", ""), ("test", "testnet3"), ("signet", "signet"), ("testnet4", "testnet4")}:
             util.write_config(conf_file, n=0, chain=chain_name, extra_config='acceptstalefeeestimates=1\n')
             self.nodes[0].assert_start_raises_init_error(expected_msg=f'Error: acceptstalefeeestimates is not supported on {chain} chain.')
@@ -519,7 +496,6 @@ class ConfArgsTest(BitcoinTestFramework):
         self.test_seed_peers()
         self.test_networkactive()
         self.test_connect_with_seednode()
-        self.test_privatebroadcast()
 
         self.test_dir_config()
         self.test_negated_config()
@@ -543,19 +519,19 @@ class ConfArgsTest(BitcoinTestFramework):
         self.nodes[0].assert_start_raises_init_error([f'-datadir={new_data_dir}'], f'Error: Specified data directory "{new_data_dir}" does not exist.')
 
         # Check that using non-existent datadir in conf file fails
-        conf_file = default_data_dir / "bitcoin.conf"
+        conf_file = default_data_dir / "hypercoin.conf"
 
         # datadir needs to be set before [chain] section
-        with open(conf_file) as f:
+        with open(conf_file, encoding='utf8') as f:
             conf_file_contents = f.read()
-        with open(conf_file, 'w') as f:
+        with open(conf_file, 'w', encoding='utf8') as f:
             f.write(f"datadir={new_data_dir}\n")
             f.write(conf_file_contents)
 
         self.nodes[0].assert_start_raises_init_error([f'-conf={conf_file}'], f'Error: Error reading configuration file: specified data directory "{new_data_dir}" does not exist.')
 
         # Check that an explicitly specified config file that cannot be opened fails
-        none_existent_conf_file = default_data_dir / "none_existent_bitcoin.conf"
+        none_existent_conf_file = default_data_dir / "none_existent_hypercoin.conf"
         self.nodes[0].assert_start_raises_init_error(['-conf=' + f'{none_existent_conf_file}'], 'Error: Error reading configuration file: specified config file "' + f'{none_existent_conf_file}' + '" could not be opened.')
 
         # Create the directory and ensure the config file now works

@@ -8,7 +8,6 @@
 #define SECP256K1_MODULE_SCHNORRSIG_TESTS_H
 
 #include "../../../include/secp256k1_schnorrsig.h"
-#include "../../unit_test.h"
 
 /* Checks that a bit flip in the n_flip-th argument (that has n_bytes many
  * bytes) changes the hash function
@@ -22,12 +21,11 @@ static void nonce_function_bip340_bitflip(unsigned char **args, size_t n_flip, s
 }
 
 static void run_nonce_function_bip340_tests(void) {
-    /* "BIP0340/nonce" */
-    static const unsigned char tag[] = {'B', 'I', 'P', '0', '3', '4', '0', '/', 'n', 'o', 'n', 'c', 'e'};
-    /* "BIP0340/aux" */
-    static const unsigned char aux_tag[] = {'B', 'I', 'P', '0', '3', '4', '0', '/', 'a', 'u', 'x'};
+    unsigned char tag[] = {'B', 'I', 'P', '0', '3', '4', '0', '/', 'n', 'o', 'n', 'c', 'e'};
+    unsigned char aux_tag[] = {'B', 'I', 'P', '0', '3', '4', '0', '/', 'a', 'u', 'x'};
     unsigned char algo[] = {'B', 'I', 'P', '0', '3', '4', '0', '/', 'n', 'o', 'n', 'c', 'e'};
     size_t algolen = sizeof(algo);
+    secp256k1_sha256 sha;
     secp256k1_sha256 sha_optimized;
     unsigned char nonce[32], nonce_z[32];
     unsigned char msg[32];
@@ -41,15 +39,16 @@ static void run_nonce_function_bip340_tests(void) {
     /* Check that hash initialized by
      * secp256k1_nonce_function_bip340_sha256_tagged has the expected
      * state. */
+    secp256k1_sha256_initialize_tagged(&sha, tag, sizeof(tag));
     secp256k1_nonce_function_bip340_sha256_tagged(&sha_optimized);
-    test_sha256_tag_midstate(&sha_optimized, tag, sizeof(tag));
-
+    test_sha256_eq(&sha, &sha_optimized);
 
    /* Check that hash initialized by
     * secp256k1_nonce_function_bip340_sha256_tagged_aux has the expected
     * state. */
+    secp256k1_sha256_initialize_tagged(&sha, aux_tag, sizeof(aux_tag));
     secp256k1_nonce_function_bip340_sha256_tagged_aux(&sha_optimized);
-    test_sha256_tag_midstate(&sha_optimized, aux_tag, sizeof(aux_tag));
+    test_sha256_eq(&sha, &sha_optimized);
 
     testrand256(msg);
     testrand256(key);
@@ -203,7 +202,7 @@ static void test_schnorrsig_bip_vectors_check_verify(const unsigned char *pk_ser
 }
 
 /* Test vectors according to BIP-340 ("Schnorr Signatures for secp256k1"). See
- * https://github.com/bitcoin/bips/blob/master/bip-0340/test-vectors.csv. */
+ * https://github.com/hypercoin/bips/blob/master/bip-0340/test-vectors.csv. */
 static void test_schnorrsig_bip_vectors(void) {
     {
         /* Test vector 0 */
@@ -803,7 +802,7 @@ static int nonce_function_overflowing(unsigned char *nonce32, const unsigned cha
     return 1;
 }
 
-static void test_schnorrsig_sign_internal(void) {
+static void test_schnorrsig_sign(void) {
     unsigned char sk[32];
     secp256k1_xonly_pubkey pk;
     secp256k1_keypair keypair;
@@ -853,7 +852,7 @@ static void test_schnorrsig_sign_internal(void) {
 /* Creates N_SIGS valid signatures and verifies them with verify and
  * verify_batch (TODO). Then flips some bits and checks that verification now
  * fails. */
-static void test_schnorrsig_sign_verify_internal(void) {
+static void test_schnorrsig_sign_verify(void) {
     unsigned char sk[32];
     unsigned char msg[N_SIGS][32];
     unsigned char sig[N_SIGS][64];
@@ -966,18 +965,18 @@ static void test_schnorrsig_taproot(void) {
     CHECK(secp256k1_xonly_pubkey_tweak_add_check(CTX, output_pk_bytes, pk_parity, &internal_pk, tweak) == 1);
 }
 
-/* --- Test registry --- */
-REPEAT_TEST(test_schnorrsig_sign)
-REPEAT_TEST(test_schnorrsig_sign_verify)
+static void run_schnorrsig_tests(void) {
+    int i;
+    run_nonce_function_bip340_tests();
 
-static const struct tf_test_entry tests_schnorrsig[] = {
-    CASE(nonce_function_bip340_tests),
-    CASE1(test_schnorrsig_api),
-    CASE1(test_schnorrsig_sha256_tagged),
-    CASE1(test_schnorrsig_bip_vectors),
-    CASE1(test_schnorrsig_sign),
-    CASE1(test_schnorrsig_sign_verify),
-    CASE1(test_schnorrsig_taproot),
-};
+    test_schnorrsig_api();
+    test_schnorrsig_sha256_tagged();
+    test_schnorrsig_bip_vectors();
+    for (i = 0; i < COUNT; i++) {
+        test_schnorrsig_sign();
+        test_schnorrsig_sign_verify();
+    }
+    test_schnorrsig_taproot();
+}
 
 #endif

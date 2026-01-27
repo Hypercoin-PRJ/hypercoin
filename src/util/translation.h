@@ -1,9 +1,9 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UTIL_TRANSLATION_H
-#define BITCOIN_UTIL_TRANSLATION_H
+#ifndef HYPERCOIN_UTIL_TRANSLATION_H
+#define HYPERCOIN_UTIL_TRANSLATION_H
 
 #include <tinyformat.h>
 #include <util/string.h>
@@ -107,4 +107,4 @@ bilingual_str format(util::BilingualFmt<sizeof...(Args)> fmt, const Args&... arg
 }
 } // namespace tinyformat
 
-#endif // BITCOIN_UTIL_TRANSLATION_H
+#endif // HYPERCOIN_UTIL_TRANSLATION_H

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-present The Bitcoin Core developers
+# Copyright (c) 2014-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the pruning code.
@@ -20,7 +20,7 @@ from test_framework.script import (
     OP_NOP,
     OP_RETURN,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HypercoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -65,7 +65,7 @@ def mine_large_blocks(node, n):
 def calc_usage(blockdir):
     return sum(os.path.getsize(blockdir + f) for f in os.listdir(blockdir) if os.path.isfile(os.path.join(blockdir, f))) / (1024. * 1024.)
 
-class PruneTest(BitcoinTestFramework):
+class PruneTest(HypercoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 6
@@ -346,22 +346,20 @@ class PruneTest(BitcoinTestFramework):
 
         self.log.info("Success")
 
-    def test_wallet_rescan(self):
+    def wallet_test(self):
         # check that the pruning node's wallet is still in good shape
         self.log.info("Stop and start pruning node to trigger wallet rescan")
         self.restart_node(2, extra_args=["-prune=550"])
-
-        wallet_info = self.nodes[2].getwalletinfo()
-        self.wait_until(lambda: wallet_info["scanning"] == False)
-        self.wait_until(lambda: wallet_info["lastprocessedblock"]["height"] == self.nodes[2].getblockcount())
+        self.log.info("Success")
 
         # check that wallet loads successfully when restarting a pruned node after IBD.
         # this was reported to fail in #7494.
+        self.log.info("Syncing node 5 to test wallet")
+        self.connect_nodes(0, 5)
+        nds = [self.nodes[0], self.nodes[5]]
+        self.sync_blocks(nds, wait=5, timeout=300)
         self.restart_node(5, extra_args=["-prune=550", "-blockfilterindex=1"]) # restart to trigger rescan
-
-        wallet_info = self.nodes[5].getwalletinfo()
-        self.wait_until(lambda: wallet_info["scanning"] == False)
-        self.wait_until(lambda: wallet_info["lastprocessedblock"]["height"] == self.nodes[0].getblockcount())
+        self.log.info("Success")
 
     def run_test(self):
         self.log.info("Warning! This test requires 4GB of disk space")
@@ -469,13 +467,9 @@ class PruneTest(BitcoinTestFramework):
         self.log.info("Test manual pruning with timestamps")
         self.manual_test(4, use_timestamp=True)
 
-        self.log.info("Syncing node 5 to node 0")
-        self.connect_nodes(0, 5)
-        self.sync_blocks([self.nodes[0], self.nodes[5]], wait=5, timeout=300)
-
         if self.is_wallet_compiled():
             self.log.info("Test wallet re-scan")
-            self.test_wallet_rescan()
+            self.wallet_test()
 
             self.log.info("Test it's not possible to rescan beyond pruned data")
             self.test_rescan_blockchain()

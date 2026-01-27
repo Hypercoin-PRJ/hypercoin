@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SUPPORT_ALLOCATORS_SECURE_H
-#define BITCOIN_SUPPORT_ALLOCATORS_SECURE_H
+#ifndef HYPERCOIN_SUPPORT_ALLOCATORS_SECURE_H
+#define HYPERCOIN_SUPPORT_ALLOCATORS_SECURE_H
 
 #include <support/lockedpool.h>
 #include <support/cleanse.h>
@@ -46,6 +46,11 @@ struct secure_allocator {
     {
         return true;
     }
+    template <typename U>
+    friend bool operator!=(const secure_allocator&, const secure_allocator<U>&) noexcept
+    {
+        return false;
+    }
 };
 
 // This is exactly like std::string, but with a custom allocator.
@@ -76,4 +81,4 @@ secure_unique_ptr<T> make_secure_unique(Args&&... as)
     }
 }
 
-#endif // BITCOIN_SUPPORT_ALLOCATORS_SECURE_H
+#endif // HYPERCOIN_SUPPORT_ALLOCATORS_SECURE_H

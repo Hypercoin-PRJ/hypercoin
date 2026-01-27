@@ -1,9 +1,9 @@
-// Copyright (c) 2014-present The Bitcoin Core developers
+// Copyright (c) 2014-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CHAINPARAMSBASE_H
-#define BITCOIN_CHAINPARAMSBASE_H
+#ifndef HYPERCOIN_CHAINPARAMSBASE_H
+#define HYPERCOIN_CHAINPARAMSBASE_H
 
 #include <util/chaintype.h>
 
@@ -14,8 +14,8 @@
 class ArgsManager;
 
 /**
- * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
- * of a given instance of the Bitcoin system.
+ * CBaseChainParams defines the base parameters (shared between hypercoin-cli and hypercoind)
+ * of a given instance of the Hypercoin system.
  */
 class CBaseChainParams
 {
@@ -35,7 +35,7 @@ private:
 /**
  * Creates and returns a std::unique_ptr<CBaseChainParams> of the chosen chain.
  */
-std::unique_ptr<CBaseChainParams> CreateBaseChainParams(ChainType chain);
+std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const ChainType chain);
 
 /**
  *Set the arguments for chainparams
@@ -49,9 +49,9 @@ void SetupChainParamsBaseOptions(ArgsManager& argsman);
 const CBaseChainParams& BaseParams();
 
 /** Sets the params returned by Params() to those for the given chain. */
-void SelectBaseParams(ChainType chain);
+void SelectBaseParams(const ChainType chain);
 
 /** List of possible chain / network names  */
 #define LIST_CHAIN_NAMES "main, test, testnet4, signet, regtest"
 
-#endif // BITCOIN_CHAINPARAMSBASE_H
+#endif // HYPERCOIN_CHAINPARAMSBASE_H

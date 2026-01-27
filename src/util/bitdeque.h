@@ -1,9 +1,9 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UTIL_BITDEQUE_H
-#define BITCOIN_UTIL_BITDEQUE_H
+#ifndef HYPERCOIN_UTIL_BITDEQUE_H
+#define HYPERCOIN_UTIL_BITDEQUE_H
 
 #include <bitset>
 #include <cstddef>
@@ -99,8 +99,12 @@ class bitdeque
         friend Iterator operator+(Iterator x, difference_type dist) { x += dist; return x; }
         friend Iterator operator+(difference_type dist, Iterator x) { x += dist; return x; }
         friend Iterator operator-(Iterator x, difference_type dist) { x -= dist; return x; }
-        friend auto operator<=>(const Iterator& x, const Iterator& y) { return std::tie(x.m_it, x.m_bitpos) <=> std::tie(y.m_it, y.m_bitpos); }
+        friend bool operator<(const Iterator& x, const Iterator& y) { return std::tie(x.m_it, x.m_bitpos) < std::tie(y.m_it, y.m_bitpos); }
+        friend bool operator>(const Iterator& x, const Iterator& y) { return std::tie(x.m_it, x.m_bitpos) > std::tie(y.m_it, y.m_bitpos); }
+        friend bool operator<=(const Iterator& x, const Iterator& y) { return std::tie(x.m_it, x.m_bitpos) <= std::tie(y.m_it, y.m_bitpos); }
+        friend bool operator>=(const Iterator& x, const Iterator& y) { return std::tie(x.m_it, x.m_bitpos) >= std::tie(y.m_it, y.m_bitpos); }
         friend bool operator==(const Iterator& x, const Iterator& y) { return x.m_it == y.m_it && x.m_bitpos == y.m_bitpos; }
+        friend bool operator!=(const Iterator& x, const Iterator& y) { return x.m_it != y.m_it || x.m_bitpos != y.m_bitpos; }
         reference operator*() const { return (*m_it)[m_bitpos]; }
         reference operator[](difference_type pos) const { return *(*this + pos); }
     };
@@ -461,4 +465,4 @@ public:
     }
 };
 
-#endif // BITCOIN_UTIL_BITDEQUE_H
+#endif // HYPERCOIN_UTIL_BITDEQUE_H

@@ -1,9 +1,9 @@
-// Copyright (c) 2020-present The Bitcoin Core developers
+// Copyright (c) 2020-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_I2P_H
-#define BITCOIN_I2P_H
+#ifndef HYPERCOIN_I2P_H
+#define HYPERCOIN_I2P_H
 
 #include <compat/compat.h>
 #include <netaddress.h>
@@ -63,11 +63,13 @@ public:
      * private key will be generated and saved into the file.
      * @param[in] control_host Location of the SAM proxy.
      * @param[in,out] interrupt If this is signaled then all operations are canceled as soon as
-     * possible and executing methods throw an exception.
+     * possible and executing methods throw an exception. Notice: only a pointer to the
+     * `CThreadInterrupt` object is saved, so it must not be destroyed earlier than this
+     * `Session` object.
      */
     Session(const fs::path& private_key_file,
             const Proxy& control_host,
-            std::shared_ptr<CThreadInterrupt> interrupt);
+            CThreadInterrupt* interrupt);
 
     /**
      * Construct a transient session which will generate its own I2P private key
@@ -76,9 +78,11 @@ public:
      * the session will be lazily created later when first used.
      * @param[in] control_host Location of the SAM proxy.
      * @param[in,out] interrupt If this is signaled then all operations are canceled as soon as
-     * possible and executing methods throw an exception.
+     * possible and executing methods throw an exception. Notice: only a pointer to the
+     * `CThreadInterrupt` object is saved, so it must not be destroyed earlier than this
+     * `Session` object.
      */
-    Session(const Proxy& control_host, std::shared_ptr<CThreadInterrupt> interrupt);
+    Session(const Proxy& control_host, CThreadInterrupt* interrupt);
 
     /**
      * Destroy the session, closing the internally used sockets. The sockets that have been
@@ -231,7 +235,7 @@ private:
     /**
      * Cease network activity when this is signaled.
      */
-    const std::shared_ptr<CThreadInterrupt> m_interrupt;
+    CThreadInterrupt* const m_interrupt;
 
     /**
      * Mutex protecting the members that can be concurrently accessed.
@@ -276,4 +280,4 @@ private:
 } // namespace sam
 } // namespace i2p
 
-#endif // BITCOIN_I2P_H
+#endif // HYPERCOIN_I2P_H

@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SUPPORT_CLEANSE_H
-#define BITCOIN_SUPPORT_CLEANSE_H
+#ifndef HYPERCOIN_SUPPORT_CLEANSE_H
+#define HYPERCOIN_SUPPORT_CLEANSE_H
 
 #include <cstdlib>
 
@@ -12,4 +12,4 @@
  * operation will not be optimized out by the compiler. */
 void memory_cleanse(void *ptr, size_t len);
 
-#endif // BITCOIN_SUPPORT_CLEANSE_H
+#endif // HYPERCOIN_SUPPORT_CLEANSE_H

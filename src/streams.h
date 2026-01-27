@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_STREAMS_H
-#define BITCOIN_STREAMS_H
+#ifndef HYPERCOIN_STREAMS_H
+#define HYPERCOIN_STREAMS_H
 
 #include <logging.h>
 #include <serialize.h>
@@ -435,9 +435,6 @@ public:
     /** Find position within the file. Will throw if unknown. */
     int64_t tell();
 
-    /** Return the size of the file. Will throw if unknown. */
-    int64_t size();
-
     /** Wrapper around FileCommit(). */
     bool Commit();
 
@@ -701,4 +698,4 @@ public:
     }
 };
 
-#endif // BITCOIN_STREAMS_H
+#endif // HYPERCOIN_STREAMS_H

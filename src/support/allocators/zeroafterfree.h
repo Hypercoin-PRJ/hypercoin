@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SUPPORT_ALLOCATORS_ZEROAFTERFREE_H
-#define BITCOIN_SUPPORT_ALLOCATORS_ZEROAFTERFREE_H
+#ifndef HYPERCOIN_SUPPORT_ALLOCATORS_ZEROAFTERFREE_H
+#define HYPERCOIN_SUPPORT_ALLOCATORS_ZEROAFTERFREE_H
 
 #include <support/cleanse.h>
 
@@ -38,9 +38,14 @@ struct zero_after_free_allocator {
     {
         return true;
     }
+    template <typename U>
+    friend bool operator!=(const zero_after_free_allocator&, const zero_after_free_allocator<U>&) noexcept
+    {
+        return false;
+    }
 };
 
 /** Byte-vector that clears its contents before deletion. */
 using SerializeData = std::vector<std::byte, zero_after_free_allocator<std::byte>>;
 
-#endif // BITCOIN_SUPPORT_ALLOCATORS_ZEROAFTERFREE_H
+#endif // HYPERCOIN_SUPPORT_ALLOCATORS_ZEROAFTERFREE_H

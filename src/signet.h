@@ -1,19 +1,15 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SIGNET_H
-#define BITCOIN_SIGNET_H
+#ifndef HYPERCOIN_SIGNET_H
+#define HYPERCOIN_SIGNET_H
 
+#include <consensus/params.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 
 #include <optional>
-
-class CScript;
-namespace Consensus {
-struct Params;
-} // namespace Consensus
 
 /**
  * Extract signature and check whether a block has a valid solution
@@ -38,4 +34,4 @@ public:
     const CTransaction m_to_sign;
 };
 
-#endif // BITCOIN_SIGNET_H
+#endif // HYPERCOIN_SIGNET_H

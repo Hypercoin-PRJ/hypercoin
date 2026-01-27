@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2018-present The Bitcoin Core developers
+# Copyright (c) 2018-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #
@@ -17,7 +17,7 @@ from subprocess import check_output, CalledProcessError
 from lint_ignore_dirs import SHARED_EXCLUDED_SUBTREES
 
 
-EXCLUDED_DIRS = ["contrib/devtools/bitcoin-tidy/",
+EXCLUDED_DIRS = ["contrib/devtools/hypercoin-tidy/",
                 ] + SHARED_EXCLUDED_SUBTREES
 
 EXPECTED_BOOST_INCLUDES = [
@@ -40,13 +40,13 @@ EXPECTED_BOOST_INCLUDES = [
 
 
 def get_toplevel():
-    return check_output(["git", "rev-parse", "--show-toplevel"], text=True).rstrip("\n")
+    return check_output(["git", "rev-parse", "--show-toplevel"], text=True, encoding="utf8").rstrip("\n")
 
 
 def list_files_by_suffix(suffixes):
     exclude_args = [":(exclude)" + dir for dir in EXCLUDED_DIRS]
 
-    files_list = check_output(["git", "ls-files", "src"] + exclude_args, text=True).splitlines()
+    files_list = check_output(["git", "ls-files", "src"] + exclude_args, text=True, encoding="utf8").splitlines()
 
     return [file for file in files_list if file.endswith(suffixes)]
 
@@ -68,7 +68,7 @@ def find_included_cpps():
     included_cpps = list()
 
     try:
-        included_cpps = check_output(["git", "grep", "-E", r"^#include [<\"][^>\"]+\.cpp[>\"]", "--", "*.cpp", "*.h"], text=True).splitlines()
+        included_cpps = check_output(["git", "grep", "-E", r"^#include [<\"][^>\"]+\.cpp[>\"]", "--", "*.cpp", "*.h"], text=True, encoding="utf8").splitlines()
     except CalledProcessError as e:
         if e.returncode > 1:
             raise e
@@ -82,7 +82,7 @@ def find_extra_boosts():
     exclusion_set = set()
 
     try:
-        included_boosts = check_output(["git", "grep", "-E", r"^#include <boost/", "--", "*.cpp", "*.h"], text=True).splitlines()
+        included_boosts = check_output(["git", "grep", "-E", r"^#include <boost/", "--", "*.cpp", "*.h"], text=True, encoding="utf8").splitlines()
     except CalledProcessError as e:
         if e.returncode > 1:
             raise e
@@ -105,7 +105,7 @@ def find_quote_syntax_inclusions():
     quote_syntax_inclusions = list()
 
     try:
-        quote_syntax_inclusions = check_output(["git", "grep", r"^#include \"", "--", "*.cpp", "*.h"] + exclude_args, text=True).splitlines()
+        quote_syntax_inclusions = check_output(["git", "grep", r"^#include \"", "--", "*.cpp", "*.h"] + exclude_args, text=True, encoding="utf8").splitlines()
     except CalledProcessError as e:
         if e.returncode > 1:
             raise e
@@ -120,7 +120,7 @@ def main():
 
     # Check for duplicate includes
     for filename in list_files_by_suffix((".cpp", ".h")):
-        with open(filename, "r") as file:
+        with open(filename, "r", encoding="utf8") as file:
             include_list = [line.rstrip("\n") for line in file if re.match(r"^#include", line)]
 
         duplicates = find_duplicate_includes(include_list)
@@ -148,13 +148,13 @@ def main():
     if extra_boosts:
         for boost in extra_boosts:
             print(f"A new Boost dependency in the form of \"{boost}\" appears to have been introduced:")
-            print(check_output(["git", "grep", boost, "--", "*.cpp", "*.h"], text=True))
+            print(check_output(["git", "grep", boost, "--", "*.cpp", "*.h"], text=True, encoding="utf8"))
         exit_code = 1
 
     # Check if Boost dependencies are no longer used
     for expected_boost in EXPECTED_BOOST_INCLUDES:
         try:
-            check_output(["git", "grep", "-q", r"^#include <%s>" % expected_boost, "--", "*.cpp", "*.h"], text=True)
+            check_output(["git", "grep", "-q", r"^#include <%s>" % expected_boost, "--", "*.cpp", "*.h"], text=True, encoding="utf8")
         except CalledProcessError as e:
             if e.returncode > 1:
                 raise e

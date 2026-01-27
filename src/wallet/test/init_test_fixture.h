@@ -1,9 +1,9 @@
-// Copyright (c) 2018-present The Bitcoin Core developers
+// Copyright (c) 2018-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_WALLET_TEST_INIT_TEST_FIXTURE_H
-#define BITCOIN_WALLET_TEST_INIT_TEST_FIXTURE_H
+#ifndef HYPERCOIN_WALLET_TEST_INIT_TEST_FIXTURE_H
+#define HYPERCOIN_WALLET_TEST_INIT_TEST_FIXTURE_H
 
 #include <interfaces/chain.h>
 #include <interfaces/wallet.h>
@@ -14,7 +14,7 @@
 
 namespace wallet {
 struct InitWalletDirTestingSetup: public BasicTestingSetup {
-    explicit InitWalletDirTestingSetup(ChainType chain_type = ChainType::MAIN);
+    explicit InitWalletDirTestingSetup(const ChainType chain_type = ChainType::MAIN);
     ~InitWalletDirTestingSetup();
     void SetWalletDir(const fs::path& walletdir_path);
 
@@ -24,5 +24,5 @@ struct InitWalletDirTestingSetup: public BasicTestingSetup {
     std::unique_ptr<interfaces::WalletLoader> m_wallet_loader;
 };
 
-#endif // BITCOIN_WALLET_TEST_INIT_TEST_FIXTURE_H
+#endif // HYPERCOIN_WALLET_TEST_INIT_TEST_FIXTURE_H
 } // namespace wallet

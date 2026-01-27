@@ -1,10 +1,10 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <qt/transactiondesc.h>
 
-#include <qt/bitcoinunits.h>
+#include <qt/hypercoinunits.h>
 #include <qt/guiutil.h>
 #include <qt/paymentserver.h>
 #include <qt/transactionrecord.h>
@@ -94,7 +94,7 @@ bool GetPaymentRequestMerchant(const std::string& pr, QString& merchant)
     return false;
 }
 
-QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wallet, TransactionRecord* rec, BitcoinUnit unit)
+QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wallet, TransactionRecord* rec, HypercoinUnit unit)
 {
     int numBlocks;
     interfaces::WalletTxStatus status;
@@ -124,7 +124,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     {
         strHTML += "<b>" + tr("Source") + ":</b> " + tr("Generated") + "<br>";
     }
-    else if (wtx.value_map.contains("from") && !wtx.value_map["from"].empty())
+    else if (wtx.value_map.count("from") && !wtx.value_map["from"].empty())
     {
         // Online transaction
         strHTML += "<b>" + tr("From") + ":</b> " + GUIUtil::HtmlEscape(wtx.value_map["from"]) + "<br>";
@@ -157,7 +157,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     //
     // To
     //
-    if (wtx.value_map.contains("to") && !wtx.value_map["to"].empty())
+    if (wtx.value_map.count("to") && !wtx.value_map["to"].empty())
     {
         // Online transaction
         std::string strAddress = wtx.value_map["to"];
@@ -183,7 +183,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
             nUnmatured += wallet.getCredit(txout);
         strHTML += "<b>" + tr("Credit") + ":</b> ";
         if (status.is_in_main_chain)
-            strHTML += BitcoinUnits::formatHtmlWithUnit(unit, nUnmatured)+ " (" + tr("matures in %n more block(s)", "", status.blocks_to_maturity) + ")";
+            strHTML += HypercoinUnits::formatHtmlWithUnit(unit, nUnmatured)+ " (" + tr("matures in %n more block(s)", "", status.blocks_to_maturity) + ")";
         else
             strHTML += "(" + tr("not accepted") + ")";
         strHTML += "<br>";
@@ -193,7 +193,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         //
         // Credit
         //
-        strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nNet) + "<br>";
+        strHTML += "<b>" + tr("Credit") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, nNet) + "<br>";
     }
     else
     {
@@ -212,7 +212,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                 if (toSelf && all_from_me)
                     continue;
 
-                if (!wtx.value_map.contains("to") || wtx.value_map["to"].empty())
+                if (!wtx.value_map.count("to") || wtx.value_map["to"].empty())
                 {
                     // Offline transaction
                     CTxDestination address;
@@ -230,9 +230,9 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                     }
                 }
 
-                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -txout.nValue) + "<br>";
+                strHTML += "<b>" + tr("Debit") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, -txout.nValue) + "<br>";
                 if(toSelf)
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, txout.nValue) + "<br>";
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, txout.nValue) + "<br>";
             }
 
             if (all_to_me)
@@ -240,13 +240,13 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                 // Payment to self
                 CAmount nChange = wtx.change;
                 CAmount nValue = nCredit - nChange;
-                strHTML += "<b>" + tr("Total debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -nValue) + "<br>";
-                strHTML += "<b>" + tr("Total credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nValue) + "<br>";
+                strHTML += "<b>" + tr("Total debit") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, -nValue) + "<br>";
+                strHTML += "<b>" + tr("Total credit") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, nValue) + "<br>";
             }
 
             CAmount nTxFee = nDebit - wtx.tx->GetValueOut();
             if (nTxFee > 0)
-                strHTML += "<b>" + tr("Transaction fee") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -nTxFee) + "<br>";
+                strHTML += "<b>" + tr("Transaction fee") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, -nTxFee) + "<br>";
         }
         else
         {
@@ -256,34 +256,34 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
             auto mine = wtx.txin_is_mine.begin();
             for (const CTxIn& txin : wtx.tx->vin) {
                 if (*(mine++)) {
-                    strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet.getDebit(txin)) + "<br>";
+                    strHTML += "<b>" + tr("Debit") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, -wallet.getDebit(txin)) + "<br>";
                 }
             }
             mine = wtx.txout_is_mine.begin();
             for (const CTxOut& txout : wtx.tx->vout) {
                 if (*(mine++)) {
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout)) + "<br>";
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout)) + "<br>";
                 }
             }
         }
     }
 
-    strHTML += "<b>" + tr("Net amount") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nNet, true) + "<br>";
+    strHTML += "<b>" + tr("Net amount") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, nNet, true) + "<br>";
 
     //
     // Message
     //
-    if (wtx.value_map.contains("message") && !wtx.value_map["message"].empty())
+    if (wtx.value_map.count("message") && !wtx.value_map["message"].empty())
         strHTML += "<br><b>" + tr("Message") + ":</b><br>" + GUIUtil::HtmlEscape(wtx.value_map["message"], true) + "<br>";
-    if (wtx.value_map.contains("comment") && !wtx.value_map["comment"].empty())
+    if (wtx.value_map.count("comment") && !wtx.value_map["comment"].empty())
         strHTML += "<br><b>" + tr("Comment") + ":</b><br>" + GUIUtil::HtmlEscape(wtx.value_map["comment"], true) + "<br>";
 
     strHTML += "<b>" + tr("Transaction ID") + ":</b> " + rec->getTxHash() + "<br>";
-    strHTML += "<b>" + tr("Transaction total size") + ":</b> " + QString::number(wtx.tx->ComputeTotalSize()) + " bytes<br>";
+    strHTML += "<b>" + tr("Transaction total size") + ":</b> " + QString::number(wtx.tx->GetTotalSize()) + " bytes<br>";
     strHTML += "<b>" + tr("Transaction virtual size") + ":</b> " + QString::number(GetVirtualTransactionSize(*wtx.tx)) + " bytes<br>";
     strHTML += "<b>" + tr("Output index") + ":</b> " + QString::number(rec->getOutputIndex()) + "<br>";
 
-    // Message from normal bitcoin:URI (bitcoin:123...?message=example)
+    // Message from normal hypercoin:URI (hypercoin:123...?message=example)
     for (const std::pair<std::string, std::string>& r : orderForm) {
         if (r.first == "Message")
             strHTML += "<br><b>" + tr("Message") + ":</b><br>" + GUIUtil::HtmlEscape(r.second, true) + "<br>";
@@ -319,10 +319,10 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         strHTML += "<hr><br>" + tr("Debug information") + "<br><br>";
         for (const CTxIn& txin : wtx.tx->vin)
             if(wallet.txinIsMine(txin))
-                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet.getDebit(txin)) + "<br>";
+                strHTML += "<b>" + tr("Debit") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, -wallet.getDebit(txin)) + "<br>";
         for (const CTxOut& txout : wtx.tx->vout)
             if(wallet.txoutIsMine(txout))
-                strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout)) + "<br>";
+                strHTML += "<b>" + tr("Credit") + ":</b> " + HypercoinUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout)) + "<br>";
 
         strHTML += "<br><b>" + tr("Transaction") + ":</b><br>";
         strHTML += GUIUtil::HtmlEscape(wtx.tx->ToString(), true);
@@ -346,7 +346,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                             strHTML += GUIUtil::HtmlEscape(name) + " ";
                         strHTML += QString::fromStdString(EncodeDestination(address));
                     }
-                    strHTML = strHTML + " " + tr("Amount") + "=" + BitcoinUnits::formatHtmlWithUnit(unit, vout.nValue);
+                    strHTML = strHTML + " " + tr("Amount") + "=" + HypercoinUnits::formatHtmlWithUnit(unit, vout.nValue);
                     strHTML = strHTML + " IsMine=" + (wallet.txoutIsMine(vout) ? tr("true") : tr("false")) + "</li>";
                 }
             }

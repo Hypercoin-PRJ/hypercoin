@@ -1,12 +1,12 @@
-// Copyright (c) 2011-present The Bitcoin Core developers
+// Copyright (c) 2011-2020 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_PAYMENTSERVER_H
-#define BITCOIN_QT_PAYMENTSERVER_H
+#ifndef HYPERCOIN_QT_PAYMENTSERVER_H
+#define HYPERCOIN_QT_PAYMENTSERVER_H
 
 // This class handles payment requests from clicking on
-// bitcoin: URIs
+// hypercoin: URIs
 //
 // This is somewhat tricky, because we have to deal with
 // the situation where the user clicks on a link during
@@ -50,7 +50,7 @@ class QLocalServer;
 class QUrl;
 QT_END_NAMESPACE
 
-extern const QString BITCOIN_IPC_PREFIX;
+extern const QString HYPERCOIN_IPC_PREFIX;
 
 class PaymentServer : public QObject
 {
@@ -104,4 +104,4 @@ private:
     OptionsModel* optionsModel{nullptr};
 };
 
-#endif // BITCOIN_QT_PAYMENTSERVER_H
+#endif // HYPERCOIN_QT_PAYMENTSERVER_H

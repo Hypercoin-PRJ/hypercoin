@@ -1,4 +1,4 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -240,7 +240,7 @@ bool LegacyDataSPKM::CheckDecryptionKey(const CKeyingMaterial& master_key)
         }
         if (keyPass && keyFail)
         {
-            LogWarning("The wallet is probably corrupted: Some keys decrypt but not all.");
+            LogPrintf("The wallet is probably corrupted: Some keys decrypt but not all.\n");
             throw std::runtime_error("Error unlocking wallet: some keys decrypt but not all. Your wallet file may be corrupt.");
         }
         if (keyFail || !keyPass)
@@ -339,7 +339,7 @@ bool LegacyDataSPKM::AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vec
 bool LegacyDataSPKM::HaveWatchOnly(const CScript &dest) const
 {
     LOCK(cs_KeyStore);
-    return setWatchOnly.contains(dest);
+    return setWatchOnly.count(dest) > 0;
 }
 
 bool LegacyDataSPKM::LoadWatchOnly(const CScript &dest)
@@ -385,7 +385,7 @@ bool LegacyDataSPKM::HaveKey(const CKeyID &address) const
     if (!m_storage.HasEncryptionKeys()) {
         return FillableSigningProvider::HaveKey(address);
     }
-    return mapCryptedKeys.contains(address);
+    return mapCryptedKeys.count(address) > 0;
 }
 
 bool LegacyDataSPKM::GetKey(const CKeyID &address, CKey& keyOut) const
@@ -560,7 +560,7 @@ std::optional<MigrationData> LegacyDataSPKM::MigrateToDescriptor()
                 keyid_it++;
                 continue;
             }
-            if (!meta.hd_seed_id.IsNull() && (m_hd_chain.seed_id == meta.hd_seed_id || m_inactive_hd_chains.contains(meta.hd_seed_id))) {
+            if (!meta.hd_seed_id.IsNull() && (m_hd_chain.seed_id == meta.hd_seed_id || m_inactive_hd_chains.count(meta.hd_seed_id) > 0)) {
                 keyid_it = keyids.erase(keyid_it);
                 continue;
             }
@@ -570,7 +570,7 @@ std::optional<MigrationData> LegacyDataSPKM::MigrateToDescriptor()
 
     WalletBatch batch(m_storage.GetDatabase());
     if (!batch.TxnBegin()) {
-        LogWarning("Error generating descriptors for migration, cannot initialize db transaction");
+        LogPrintf("Error generating descriptors for migration, cannot initialize db transaction\n");
         return std::nullopt;
     }
 
@@ -717,9 +717,10 @@ std::optional<MigrationData> LegacyDataSPKM::MigrateToDescriptor()
 
         std::vector<CScript> desc_spks;
 
-        // If we can't provide all private keys for this inferred descriptor,
-        // but this wallet is not watch-only, migrate it to the watch-only wallet.
-        if (!desc->HavePrivateKeys(*this) && !m_storage.IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
+        // Make the descriptor string with private keys
+        std::string desc_str;
+        bool watchonly = !desc->ToPrivateString(*this, desc_str);
+        if (watchonly && !m_storage.IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
             out.watch_descs.emplace_back(desc->ToString(), creation_time);
 
             // Get the scriptPubKeys without writing this to the wallet
@@ -754,7 +755,7 @@ std::optional<MigrationData> LegacyDataSPKM::MigrateToDescriptor()
 
     // Make sure that we have accounted for all scriptPubKeys
     if (!Assume(spks.empty())) {
-        LogError("%s", STR_INTERNAL_BUG("Error: Some output scripts were not migrated."));
+        LogPrintf("%s\n", STR_INTERNAL_BUG("Error: Some output scripts were not migrated.\n"));
         return std::nullopt;
     }
 
@@ -808,7 +809,7 @@ std::optional<MigrationData> LegacyDataSPKM::MigrateToDescriptor()
 
     // Finalize transaction
     if (!batch.TxnCommit()) {
-        LogWarning("Error generating descriptors for migration, cannot commit db transaction");
+        LogPrintf("Error generating descriptors for migration, cannot commit db transaction\n");
         return std::nullopt;
     }
 
@@ -888,7 +889,7 @@ bool DescriptorScriptPubKeyMan::CheckDecryptionKey(const CKeyingMaterial& master
             break;
     }
     if (keyPass && keyFail) {
-        LogWarning("The wallet is probably corrupted: Some keys decrypt but not all.");
+        LogPrintf("The wallet is probably corrupted: Some keys decrypt but not all.\n");
         throw std::runtime_error("Error unlocking wallet: some keys decrypt but not all. Your wallet file may be corrupt.");
     }
     if (keyFail || !keyPass) {
@@ -1038,7 +1039,7 @@ bool DescriptorScriptPubKeyMan::TopUpWithDB(WalletBatch& batch, unsigned int siz
         }
         for (const auto& pk_pair : out_keys.pubkeys) {
             const CPubKey& pubkey = pk_pair.second;
-            if (m_map_pubkeys.contains(pubkey)) {
+            if (m_map_pubkeys.count(pubkey) != 0) {
                 // We don't need to give an error here.
                 // It doesn't matter which of many valid indexes the pubkey has, we just need an index where we can derive it and its private key
                 continue;
@@ -1106,8 +1107,8 @@ bool DescriptorScriptPubKeyMan::AddDescriptorKeyWithDB(WalletBatch& batch, const
     assert(!m_storage.IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS));
 
     // Check if provided key already exists
-    if (m_map_keys.contains(pubkey.GetID()) ||
-        m_map_crypted_keys.contains(pubkey.GetID())) {
+    if (m_map_keys.find(pubkey.GetID()) != m_map_keys.end() ||
+        m_map_crypted_keys.find(pubkey.GetID()) != m_map_crypted_keys.end()) {
         return true;
     }
 
@@ -1255,10 +1256,6 @@ std::unique_ptr<FlatSigningProvider> DescriptorScriptPubKeyMan::GetSigningProvid
         FlatSigningProvider master_provider;
         master_provider.keys = GetKeys();
         m_wallet_descriptor.descriptor->ExpandPrivate(index, master_provider, *out_keys);
-
-        // Always include musig_secnonces as this descriptor may have a participant private key
-        // but not a musig() descriptor
-        out_keys->musig2_secnonces = &m_musig2_secnonces;
     }
 
     return out_keys;
@@ -1440,14 +1437,14 @@ void DescriptorScriptPubKeyMan::SetCache(const DescriptorCache& cache)
         // Add all of the scriptPubKeys to the scriptPubKey set
         new_spks.insert(scripts_temp.begin(), scripts_temp.end());
         for (const CScript& script : scripts_temp) {
-            if (m_map_script_pub_keys.contains(script)) {
+            if (m_map_script_pub_keys.count(script) != 0) {
                 throw std::runtime_error(strprintf("Error: Already loaded script at index %d as being at index %d", i, m_map_script_pub_keys[script]));
             }
             m_map_script_pub_keys[script] = i;
         }
         for (const auto& pk_pair : out_keys.pubkeys) {
             const CPubKey& pubkey = pk_pair.second;
-            if (m_map_pubkeys.contains(pubkey)) {
+            if (m_map_pubkeys.count(pubkey) != 0) {
                 // We don't need to give an error here.
                 // It doesn't matter which of many valid indexes the pubkey has, we just need an index where we can derive it and its private key
                 continue;

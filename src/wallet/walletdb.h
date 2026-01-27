@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_WALLET_WALLETDB_H
-#define BITCOIN_WALLET_WALLETDB_H
+#ifndef HYPERCOIN_WALLET_WALLETDB_H
+#define HYPERCOIN_WALLET_WALLETDB_H
 
 #include <key.h>
 #include <primitives/transaction_identifier.h>
@@ -26,9 +26,6 @@ class CMasterKey;
 class CWallet;
 class CWalletTx;
 struct WalletContext;
-
-// Logs information about the database, including available engines, features, and other capabilities
-void LogDBInfo();
 
 /**
  * Overview of wallet database classes:
@@ -227,7 +224,7 @@ public:
     bool WriteTx(const CWalletTx& wtx);
     bool EraseTx(Txid hash);
 
-    bool WriteKeyMetadata(const CKeyMetadata& meta, const CPubKey& pubkey, bool overwrite);
+    bool WriteKeyMetadata(const CKeyMetadata& meta, const CPubKey& pubkey, const bool overwrite);
     bool WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata &keyMeta);
     bool WriteCryptedKey(const CPubKey& vchPubKey, const std::vector<unsigned char>& vchCryptedSecret, const CKeyMetadata &keyMeta);
     bool WriteMasterKey(unsigned int nID, const CMasterKey& kMasterKey);
@@ -268,7 +265,7 @@ public:
     //! Delete records of the given types
     bool EraseRecords(const std::unordered_set<std::string>& types);
 
-    bool WriteWalletFlags(uint64_t flags);
+    bool WriteWalletFlags(const uint64_t flags);
     //! Begin a new transaction
     bool TxnBegin();
     //! Commit current transaction
@@ -312,4 +309,4 @@ bool HasLegacyRecords(CWallet& wallet);
 bool HasLegacyRecords(CWallet& wallet, DatabaseBatch& batch);
 } // namespace wallet
 
-#endif // BITCOIN_WALLET_WALLETDB_H
+#endif // HYPERCOIN_WALLET_WALLETDB_H

@@ -1,9 +1,9 @@
-// Copyright (c) 2017-present The Bitcoin Core developers
+// Copyright (c) 2017-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_UTIL_FS_H
-#define BITCOIN_UTIL_FS_H
+#ifndef HYPERCOIN_UTIL_FS_H
+#define HYPERCOIN_UTIL_FS_H
 
 #include <tinyformat.h>
 
@@ -14,7 +14,6 @@
 #include <ios>
 #include <ostream>
 #include <string>
-#include <string_view>
 #include <system_error>
 #include <type_traits>
 #include <utility>
@@ -34,10 +33,6 @@ class path : public std::filesystem::path
 {
 public:
     using std::filesystem::path::path;
-
-    // Convenience method for accessing standard path type without needing a cast.
-    std::filesystem::path& std_path() { return *this; }
-    const std::filesystem::path& std_path() const { return *this; }
 
     // Allow path objects arguments for compatibility.
     path(std::filesystem::path path) : std::filesystem::path::path(std::move(path)) {}
@@ -59,12 +54,6 @@ public:
     // Disallow std::string conversion method to avoid locale-dependent encoding on windows.
     std::string string() const = delete;
 
-    // Disallow implicit string conversion to ensure code is portable.
-    // `string_type` may be `string` or `wstring` depending on the platform, so
-    // using this conversion could result in code that compiles on unix but
-    // fails to compile on windows, or vice versa.
-    operator string_type() const = delete;
-
     /**
      * Return a UTF-8 representation of the path as a std::string, for
      * compatibility with code using std::string. For code using the newer
@@ -76,9 +65,14 @@ public:
         const std::u8string& utf8_str{std::filesystem::path::u8string()};
         return std::string{utf8_str.begin(), utf8_str.end()};
     }
+
+    // Required for path overloads in <fstream>.
+    // See https://gcc.gnu.org/git/?p=gcc.git;a=commit;h=96e0367ead5d8dcac3bec2865582e76e2fbab190
+    path& make_preferred() { std::filesystem::path::make_preferred(); return *this; }
+    path filename() const { return std::filesystem::path::filename(); }
 };
 
-static inline path u8path(std::string_view utf8_str)
+static inline path u8path(const std::string& utf8_str)
 {
     return std::filesystem::path(std::u8string{utf8_str.begin(), utf8_str.end()});
 }
@@ -185,6 +179,29 @@ static inline path PathFromString(const std::string& string)
     return std::filesystem::path(string);
 #endif
 }
+
+/**
+ * Create directory (and if necessary its parents), unless the leaf directory
+ * already exists or is a symlink to an existing directory.
+ * This is a temporary workaround for an issue in libstdc++ that has been fixed
+ * upstream [PR101510].
+ * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=101510
+ */
+static inline bool create_directories(const std::filesystem::path& p)
+{
+    if (std::filesystem::is_symlink(p) && std::filesystem::is_directory(p)) {
+        return false;
+    }
+    return std::filesystem::create_directories(p);
+}
+
+/**
+ * This variant is not used. Delete it to prevent it from accidentally working
+ * around the workaround. If it is needed, add a workaround in the same pattern
+ * as above.
+ */
+bool create_directories(const std::filesystem::path& p, std::error_code& ec) = delete;
+
 } // namespace fs
 
 /** Bridge operations to C stdio */
@@ -231,4 +248,4 @@ template<> inline void formatValue(std::ostream&, const char*, const char*, int,
 template<> inline void formatValue(std::ostream&, const char*, const char*, int, const fs::path&) = delete;
 } // namespace tinyformat
 
-#endif // BITCOIN_UTIL_FS_H
+#endif // HYPERCOIN_UTIL_FS_H

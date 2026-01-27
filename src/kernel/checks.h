@@ -1,9 +1,9 @@
-// Copyright (c) 2022-present The Bitcoin Core developers
+// Copyright (c) 2022 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_KERNEL_CHECKS_H
-#define BITCOIN_KERNEL_CHECKS_H
+#ifndef HYPERCOIN_KERNEL_CHECKS_H
+#define HYPERCOIN_KERNEL_CHECKS_H
 
 #include <util/result.h>
 
@@ -17,4 +17,4 @@ struct Context;
 [[nodiscard]] util::Result<void> SanityChecks(const Context&);
 } // namespace kernel
 
-#endif // BITCOIN_KERNEL_CHECKS_H
+#endif // HYPERCOIN_KERNEL_CHECKS_H

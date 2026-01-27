@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2018-present The Bitcoin Core developers
+# Copyright (c) 2018-2022 The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -15,10 +15,10 @@ from subprocess import check_output
 from lint_ignore_dirs import SHARED_EXCLUDED_SUBTREES
 
 
-HEADER_ID_PREFIX = 'BITCOIN_'
+HEADER_ID_PREFIX = 'HYPERCOIN_'
 HEADER_ID_SUFFIX = '_H'
 
-EXCLUDE_FILES_WITH_PREFIX = ['contrib/devtools/bitcoin-tidy',
+EXCLUDE_FILES_WITH_PREFIX = ['contrib/devtools/hypercoin-tidy',
                              'src/crypto/ctaes',
                              'src/tinyformat.h',
                              'src/bench/nanobench.h',
@@ -31,7 +31,7 @@ def _get_header_file_lst() -> list[str]:
     """
     git_cmd_lst = ['git', 'ls-files', '--', '*.h']
     header_file_lst = check_output(
-        git_cmd_lst, text=True).splitlines()
+        git_cmd_lst).decode('utf-8').splitlines()
 
     header_file_lst = [hf for hf in header_file_lst
                        if not any(ef in hf for ef
@@ -44,7 +44,7 @@ def _get_header_id(header_file: str) -> str:
     """ Helper function to get the header id from a header file
         string.
 
-        eg: 'src/wallet/walletdb.h' -> 'BITCOIN_WALLET_WALLETDB_H'
+        eg: 'src/wallet/walletdb.h' -> 'HYPERCOIN_WALLET_WALLETDB_H'
 
     Args:
         header_file: Filepath to header file.
@@ -71,7 +71,7 @@ def main():
 
         regex_pattern = f'^#(ifndef|define|endif //) {header_id}'
 
-        with open(header_file, 'r') as f:
+        with open(header_file, 'r', encoding='utf-8') as f:
             header_file_contents = f.readlines()
 
         count = 0

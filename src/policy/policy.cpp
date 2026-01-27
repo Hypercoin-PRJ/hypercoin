@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2009-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -42,7 +42,7 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
     if (txout.scriptPubKey.IsUnspendable())
         return 0;
 
-    uint64_t nSize{GetSerializeSize(txout)};
+    size_t nSize = GetSerializeSize(txout);
     int witnessversion = 0;
     std::vector<unsigned char> witnessprogram;
 
@@ -50,7 +50,7 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
     // public key + an ECDSA signature). For Segwit v1 Taproot outputs the minimum
     // satisfaction is lower (a single BIP340 signature) but this computation was
     // kept to not further reduce the dust level.
-    // See discussion in https://github.com/bitcoin/bitcoin/pull/22779 for details.
+    // See discussion in https://github.com/hypercoin/hypercoin/pull/22779 for details.
     if (txout.scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
         // sum the sizes of the parts of a transaction input
         // with 75% segwit discount applied to the script size.
@@ -373,14 +373,9 @@ bool SpendsNonAnchorWitnessProg(const CTransaction& tx, const CCoinsViewCache& p
     return false;
 }
 
-int64_t GetSigOpsAdjustedWeight(int64_t weight, int64_t sigop_cost, unsigned int bytes_per_sigop)
-{
-    return std::max(weight, sigop_cost * bytes_per_sigop);
-}
-
 int64_t GetVirtualTransactionSize(int64_t nWeight, int64_t nSigOpCost, unsigned int bytes_per_sigop)
 {
-    return (GetSigOpsAdjustedWeight(nWeight, nSigOpCost, bytes_per_sigop) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
+    return (std::max(nWeight, nSigOpCost * bytes_per_sigop) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
 }
 
 int64_t GetVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost, unsigned int bytes_per_sigop)

@@ -1,9 +1,9 @@
-// Copyright (c) 2015-present The Bitcoin Core developers
+// Copyright (c) 2015-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_PREVECTOR_H
-#define BITCOIN_PREVECTOR_H
+#ifndef HYPERCOIN_PREVECTOR_H
+#define HYPERCOIN_PREVECTOR_H
 
 #include <algorithm>
 #include <cassert>
@@ -72,7 +72,11 @@ public:
         iterator operator-(size_type n) const { return iterator(ptr - n); }
         iterator& operator-=(size_type n) { ptr -= n; return *this; }
         bool operator==(iterator x) const { return ptr == x.ptr; }
-        auto operator<=>(iterator x) const { return ptr <=> x.ptr; }
+        bool operator!=(iterator x) const { return ptr != x.ptr; }
+        bool operator>=(iterator x) const { return ptr >= x.ptr; }
+        bool operator<=(iterator x) const { return ptr <= x.ptr; }
+        bool operator>(iterator x) const { return ptr > x.ptr; }
+        bool operator<(iterator x) const { return ptr < x.ptr; }
     };
 
     class const_iterator {
@@ -100,7 +104,11 @@ public:
         const_iterator operator-(size_type n) const { return const_iterator(ptr - n); }
         const_iterator& operator-=(size_type n) { ptr -= n; return *this; }
         bool operator==(const_iterator x) const { return ptr == x.ptr; }
-        auto operator<=>(const_iterator x) const { return ptr <=> x.ptr; }
+        bool operator!=(const_iterator x) const { return ptr != x.ptr; }
+        bool operator>=(const_iterator x) const { return ptr >= x.ptr; }
+        bool operator<=(const_iterator x) const { return ptr <= x.ptr; }
+        bool operator>(const_iterator x) const { return ptr > x.ptr; }
+        bool operator<(const_iterator x) const { return ptr < x.ptr; }
     };
 
 private:
@@ -443,6 +451,10 @@ public:
         return true;
     }
 
+    bool operator!=(const prevector<N, T, Size, Diff>& other) const {
+        return !(*this == other);
+    }
+
     bool operator<(const prevector<N, T, Size, Diff>& other) const {
         if (size() < other.size()) {
             return true;
@@ -483,4 +495,4 @@ public:
     }
 };
 
-#endif // BITCOIN_PREVECTOR_H
+#endif // HYPERCOIN_PREVECTOR_H

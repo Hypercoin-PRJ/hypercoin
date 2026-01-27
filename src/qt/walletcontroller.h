@@ -1,9 +1,9 @@
-// Copyright (c) 2019-present The Bitcoin Core developers
+// Copyright (c) 2019-2021 The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_WALLETCONTROLLER_H
-#define BITCOIN_QT_WALLETCONTROLLER_H
+#ifndef HYPERCOIN_QT_WALLETCONTROLLER_H
+#define HYPERCOIN_QT_WALLETCONTROLLER_H
 
 #include <qt/sendcoinsrecipient.h>
 #include <support/allocators/secure.h>
@@ -187,7 +187,6 @@ class MigrateWalletActivity : public WalletControllerActivity
 public:
     MigrateWalletActivity(WalletController* wallet_controller, QWidget* parent) : WalletControllerActivity(wallet_controller, parent) {}
 
-    void restore_and_migrate(const fs::path& path, const std::string& wallet_name);
     void migrate(const std::string& path);
 
 Q_SIGNALS:
@@ -196,8 +195,7 @@ Q_SIGNALS:
 private:
     QString m_success_message;
 
-    void do_migrate(const std::string& name);
     void finish();
 };
 
-#endif // BITCOIN_QT_WALLETCONTROLLER_H
+#endif // HYPERCOIN_QT_WALLETCONTROLLER_H
