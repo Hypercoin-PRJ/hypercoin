@@ -1,5 +1,5 @@
 # bash programmable completion for hypercoind(1) and hypercoin-qt(1)
-# Copyright (c) 2012-2022 The Hypercoin Core developers
+# Copyright (c) 2012-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 

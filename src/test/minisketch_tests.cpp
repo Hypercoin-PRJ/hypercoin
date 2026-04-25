@@ -1,10 +1,11 @@
-// Copyright (c) 2021-2022 The Hypercoin Core developers
+// Copyright (c) 2021-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <minisketch.h>
 #include <node/minisketchwrapper.h>
 #include <random.h>
+#include <test/util/common.h>
 #include <test/util/random.h>
 #include <test/util/setup_common.h>
 

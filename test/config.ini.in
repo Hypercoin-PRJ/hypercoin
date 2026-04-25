@@ -1,4 +1,4 @@
-# Copyright (c) 2013-2016 The Hypercoin Core developers
+# Copyright (c) 2013-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -16,6 +16,7 @@ RPCAUTH=@abs_top_srcdir@/share/rpcauth/rpcauth.py
 [components]
 # Which components are enabled. These are commented out by cmake if they were disabled during configuration.
 @ENABLE_WALLET_TRUE@ENABLE_WALLET=true
+@BUILD_BENCH_TRUE@BUILD_BENCH=true
 @BUILD_HYPERCOIN_CLI_TRUE@ENABLE_CLI=true
 @BUILD_HYPERCOIN_TX_TRUE@BUILD_HYPERCOIN_TX=true
 @BUILD_HYPERCOIN_UTIL_TRUE@ENABLE_HYPERCOIN_UTIL=true
@@ -24,6 +25,7 @@ RPCAUTH=@abs_top_srcdir@/share/rpcauth/rpcauth.py
 @BUILD_HYPERCOIND_TRUE@ENABLE_HYPERCOIND=true
 @ENABLE_FUZZ_BINARY_TRUE@ENABLE_FUZZ_BINARY=true
 @ENABLE_ZMQ_TRUE@ENABLE_ZMQ=true
+@ENABLE_EMBEDDED_ASMAP_TRUE@ENABLE_EMBEDDED_ASMAP=true
 @ENABLE_EXTERNAL_SIGNER_TRUE@ENABLE_EXTERNAL_SIGNER=true
 @ENABLE_USDT_TRACEPOINTS_TRUE@ENABLE_USDT_TRACEPOINTS=true
 @ENABLE_IPC_TRUE@ENABLE_IPC=true
