@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020-2022 The Hypercoin Core developers
+# Copyright (c) 2020-present The Hypercoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test -startupnotify."""
@@ -27,7 +27,7 @@ class StartupNotifyTest(HypercoinTestFramework):
         self.log.info("Test -startupnotify is executed once")
 
         def get_count():
-            with open(tmpdir_file, "r", encoding="utf8") as f:
+            with open(tmpdir_file, "r") as f:
                 file_content = f.read()
                 return file_content.count(FILE_NAME)
 

@@ -56,6 +56,8 @@ add_executable(bench_hypercoin
   verify_script.cpp
 )
 
+add_windows_application_manifest(bench_hypercoin)
+
 include(TargetDataSources)
 target_raw_data_sources(bench_hypercoin NAMESPACE benchmark::data
   data/block413567.raw
@@ -81,9 +83,5 @@ if(ENABLE_WALLET)
   )
   target_link_libraries(bench_hypercoin hypercoin_wallet)
 endif()
-
-add_test(NAME bench_sanity_check
-  COMMAND bench_hypercoin -sanity-check
-)
 
 install_binary_component(bench_hypercoin INTERNAL)

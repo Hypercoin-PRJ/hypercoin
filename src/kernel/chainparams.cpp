@@ -1,6 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2021 The Bitcoin Core developers
-// Copyright (c) 2025 The Hypercoin Core developers
+// Copyright (c) 2009-present The Bitcoin Core developers
+// Copyright (c) 2025-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -10,33 +10,29 @@
 #include <consensus/amount.h>
 #include <consensus/merkle.h>
 #include <consensus/params.h>
+#include <crypto/hex_base.h>
 #include <hash.h>
 #include <kernel/messagestartchars.h>
-#include <logging.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <script/script.h>
 #include <uint256.h>
 #include <util/chaintype.h>
+#include <util/log.h>
 #include <util/strencodings.h>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <type_traits>
+#include <iterator>
+#include <map>
+#include <span>
+#include <utility>
 
 using namespace util::hex_literals;
-
-// Workaround MSVC bug triggering C7595 when calling consteval constructors in
-// initializer lists.
-// https://developercommunity.visualstudio.com/t/Bogus-C7595-error-on-valid-C20-code/10906093
-#if defined(_MSC_VER)
-auto consteval_ctor(auto&& input) { return input; }
-#else
-#define consteval_ctor(input) (input)
-#endif
 
 static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
@@ -87,16 +83,16 @@ public:
         consensus.signet_blocks = false;
         consensus.signet_challenge.clear();
         consensus.nSubsidyHalvingInterval = 2102400;
+        consensus.script_flag_exceptions.emplace(
+            uint256{"000000000000022c7cbafb686531307d842be8097be80694599b3f1cd8cc1e49"}, SCRIPT_VERIFY_NONE);
         consensus.script_flag_exceptions.emplace( 
-            uint256{"00000fd27173f747f0c3ecef47f696c5ab9fd25d274fad590a069d54d66235be"}, SCRIPT_VERIFY_NONE);
-        consensus.script_flag_exceptions.emplace( 
-            uint256{"00000fd27173f747f0c3ecef47f696c5ab9fd25d274fad590a069d54d66235be"}, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS);
-        consensus.BIP34Height = 15;
-        consensus.BIP34Hash = uint256{"00000fd27173f747f0c3ecef47f696c5ab9fd25d274fad590a069d54d66235be"};
-        consensus.BIP65Height = 15; 
-        consensus.BIP66Height = 15; 
-        consensus.CSVHeight = 15; 
-        consensus.SegwitHeight = 0;
+            uint256{"000000000000022c7cbafb686531307d842be8097be80694599b3f1cd8cc1e49"}, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS);
+        consensus.BIP34Height = 9000;
+        consensus.BIP34Hash = uint256{"000000000000022c7cbafb686531307d842be8097be80694599b3f1cd8cc1e49"};
+        consensus.BIP65Height = 9000; 
+        consensus.BIP66Height = 9000; 
+        consensus.CSVHeight = 9000; 
+        consensus.SegwitHeight = 0; 
         consensus.MinBIP9WarningHeight = 60; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256{"00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"};
         consensus.nPowTargetTimespan = 1 * 60 * 60; // 1 hour
@@ -120,7 +116,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].period = 2016;
 
         consensus.nMinimumChainWork = uint256{"0000000000000000000000000000000000000000000000000000000002900290"};
-        consensus.defaultAssumeValid = uint256{"000006dd589ff63082f95c374477eb027b045e969b95230343cf0d47ab33852d"};
+        consensus.defaultAssumeValid = uint256{"000006dd589ff63082f95c374477eb027b045e969b95230343cf0d47ab33852d"}; // 938343
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -133,19 +129,24 @@ public:
         pchMessageStart[3] = 0xf7;
         nDefaultPort = 8993;
         nPruneAfterHeight = 100000;
-        m_assumed_blockchain_size = 5;
-        m_assumed_chain_state_size = 3;
+        m_assumed_blockchain_size = 7;
+        m_assumed_chain_state_size = 4;
 
         genesis = CreateGenesisBlock(1769139074, 305665, 0x1e0ffff0, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
         assert(consensus.hashGenesisBlock == uint256{"00000c6a5bd2c2c81af3a3b83bb16a664782bb573ca50f13ea65f2214307b1b3"});
         assert(genesis.hashMerkleRoot == uint256{"3723ed6c9443386ba5e1808d4dd97a2ffd8e917d7c7c264c3f01ce5655a87ef6"});
 
+        // Note that of those which support the service bits prefix, most only support a subset of
+        // possible options.
+        // This is fine at runtime as we'll fall back to using them as an addrfetch if they don't support the
+        // service bits we want, but we should get them updated to support all service bits wanted by any
+        // release ASAP to avoid it where possible.
         vSeeds.emplace_back("seed01.hypercoin.network"); 
         vSeeds.emplace_back("seed02.hypercoin.network");
         vSeeds.emplace_back("seed03.hypercoin.network"); 
         vSeeds.emplace_back("seed04.hypercoin.network"); 
-        vSeeds.emplace_back("seed05.hypercoin.network");  
+        vSeeds.emplace_back("seed05.hypercoin.network"); 
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
@@ -167,10 +168,16 @@ public:
         };
 
         chainTxData = ChainTxData{
-            // Data from RPC: getchaintxstats 4096 00000000000000000000611fd22f2df7c8fbd0688745c3a6c3bb5109cc2a12cb
-            .nTime    = 1769166993,
-            .tx_count = 33,
-            .dTxRate  = 0.2767857142857143,
+            // Data from RPC: getchaintxstats 9000 00000000000000b780779d3f7c8b1d75f578ef2de6b0e1c81a329cef8b0946b8
+            .nTime    = 1777101255,
+            .tx_count = 114780,
+            .dTxRate  = 0.0205896083077167,
+        };
+
+        // Generated by headerssync-params.py on 2026-02-25.
+        m_headers_sync_params = HeadersSyncParams{
+            .commitment_period = 1,
+            .redownload_buffer_size = 1, // 15218/641 = ~23.7 commitments
         };
     }
 };
@@ -189,10 +196,10 @@ public:
         //    uint256{"00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105"}, SCRIPT_VERIFY_NONE);
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256{};
-        consensus.BIP65Height = 0; 
-        consensus.BIP66Height = 0; 
-        consensus.CSVHeight = 0;
-        consensus.SegwitHeight = 0; 
+        consensus.BIP65Height = 0; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
+        consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
+        consensus.CSVHeight = 0; // 00000000025e930139bac5c6c31a403776da130831ab85be56578f3fa75369bb
+        consensus.SegwitHeight = 0; // 00000000002b980fcd729daaa248fd9316a5200e9b367f4ff2c42453e84201ca
         consensus.MinBIP9WarningHeight = 60; // segwit activation height + miner confirmation window
         consensus.powLimit = uint256{"00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"};
         consensus.nPowTargetTimespan = 1 * 60 * 60; // 1 hour
@@ -216,7 +223,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].period = 2016;
 
         consensus.nMinimumChainWork = uint256{};
-        consensus.defaultAssumeValid = uint256{}; 
+        consensus.defaultAssumeValid = uint256{};
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -224,8 +231,8 @@ public:
         pchMessageStart[3] = 0x07;
         nDefaultPort = 18993;
         nPruneAfterHeight = 1000;
-        m_assumed_blockchain_size = 10;
-        m_assumed_chain_state_size = 10;
+        m_assumed_blockchain_size = 245;
+        m_assumed_chain_state_size = 19;
 
         genesis = CreateGenesisBlock(1769139124, 913495, 0x1e0ffff0, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -256,10 +263,16 @@ public:
         };
 
         chainTxData = ChainTxData{
-            // Data from RPC: getchaintxstats 4096 0000000000000065c6c38258e201971a3fdfcc2ceee0dd6e85a6c022d45dee34
-            .nTime    = 1751816758,
-            .tx_count = 508468699,
-            .dTxRate  = 7.172978845985714,
+            // Data from RPC: getchaintxstats 4096 000000007a61e4230b28ac5cb6b5e5a0130de37ac1faf2f8987d2fa6505b67f4
+            .nTime    = 1772051651,
+            .tx_count = 536108416,
+            .dTxRate  = 0.02691479016257117,
+        };
+
+        // Generated by headerssync-params.py on 2026-02-25.
+        m_headers_sync_params = HeadersSyncParams{
+            .commitment_period = 1,
+            .redownload_buffer_size = 1, // 14460/673 = ~21.5 commitments
         };
     }
 };
@@ -280,7 +293,7 @@ public:
         consensus.BIP66Height = 1;
         consensus.CSVHeight = 1;
         consensus.SegwitHeight = 1;
-        consensus.MinBIP9WarningHeight = 60;
+        consensus.MinBIP9WarningHeight = 0;
         consensus.powLimit = uint256{"00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"};
         consensus.nPowTargetTimespan = 1 * 60 * 60; // 1 hour
         consensus.nPowTargetSpacing = 1 * 60;
@@ -312,7 +325,7 @@ public:
         pchMessageStart[3] = 0x28;
         nDefaultPort = 48993;
         nPruneAfterHeight = 1000;
-        m_assumed_blockchain_size = 22;
+        m_assumed_blockchain_size = 31;
         m_assumed_chain_state_size = 2;
 
         const char* testnet4_genesis_msg = "03/May/2024 000000000000000000001ebd58c244970b3aa9d783bb001011fbe8ea8e98e00e";
@@ -352,15 +365,27 @@ public:
                 .height = 90'000,
                 .hash_serialized = AssumeutxoHash{uint256{"784fb5e98241de66fdd429f4392155c9e7db5c017148e66e8fdbc95746f8b9b5"}},
                 .m_chain_tx_count = 11347043,
-                .blockhash = consteval_ctor(uint256{"0000000002ebe8bcda020e0dd6ccfbdfac531d2f6a81457191b99fc2df2dbe3b"}),
+                .blockhash = uint256{"0000000002ebe8bcda020e0dd6ccfbdfac531d2f6a81457191b99fc2df2dbe3b"},
+            },
+            {
+                .height = 120'000,
+                .hash_serialized = AssumeutxoHash{uint256{"10b05d05ad468d0971162e1b222a4aa66caca89da2bb2a93f8f37fb29c4794b0"}},
+                .m_chain_tx_count = 14141057,
+                .blockhash = uint256{"000000000bd2317e51b3c5794981c35ba894ce27d3e772d5c39ecd9cbce01dc8"},
             }
         };
 
         chainTxData = ChainTxData{
-            // Data from RPC: getchaintxstats 4096 000000000000000180a58e7fa3b0db84b5ea76377524894f53660d93ac839d9b
-            .nTime    = 1752470331,
-            .tx_count = 11414302,
-            .dTxRate  = 0.2842619757327476,
+            // Data from RPC: getchaintxstats 4096 0000000002368b1e4ee27e2e85676ae6f9f9e69579b29093e9a82c170bf7cf8a
+            .nTime    = 1772013387,
+            .tx_count = 14191421,
+            .dTxRate  = 0.01848579579528412,
+        };
+
+        // Generated by headerssync-params.py on 2026-02-25.
+        m_headers_sync_params = HeadersSyncParams{
+            .commitment_period = 606,
+            .redownload_buffer_size = 16092, // 16092/606 = ~26.6 commitments
         };
     }
 };
@@ -382,15 +407,15 @@ public:
             vSeeds.emplace_back("seed.signet.hypercoin.sprovoost.nl.");
             vSeeds.emplace_back("seed.signet.achownodes.xyz."); // Ava Chow, only supports x1, x5, x9, x49, x809, x849, xd, x400, x404, x408, x448, xc08, xc48, x40c
 
-            consensus.nMinimumChainWork = uint256{"0000000000000000000000000000000000000000000000000000067d328e681a"};
-            consensus.defaultAssumeValid = uint256{"000000128586e26813922680309f04e1de713c7542fee86ed908f56368aefe2e"}; // 267665
-            m_assumed_blockchain_size = 20;
+            consensus.nMinimumChainWork = uint256{"00000000000000000000000000000000000000000000000000000b463ea0a4b8"};
+            consensus.defaultAssumeValid = uint256{"00000008414aab61092ef93f1aacc54cf9e9f16af29ddad493b908a01ff5c329"}; // 293175
+            m_assumed_blockchain_size = 24;
             m_assumed_chain_state_size = 4;
             chainTxData = ChainTxData{
-                // Data from RPC: getchaintxstats 4096 000000128586e26813922680309f04e1de713c7542fee86ed908f56368aefe2e
-                .nTime    = 1756723017,
-                .tx_count = 26185472,
-                .dTxRate  = 0.7452721495389969,
+                // Data from RPC: getchaintxstats 4096 00000008414aab61092ef93f1aacc54cf9e9f16af29ddad493b908a01ff5c329
+                .nTime    = 1772055248,
+                .tx_count = 28676833,
+                .dTxRate  = 0.06736623436338929,
             };
         } else {
             bin = *options.challenge;
@@ -461,7 +486,13 @@ public:
                 .height = 160'000,
                 .hash_serialized = AssumeutxoHash{uint256{"fe0a44309b74d6b5883d246cb419c6221bcccf0b308c9b59b7d70783dbdf928a"}},
                 .m_chain_tx_count = 2289496,
-                .blockhash = consteval_ctor(uint256{"0000003ca3c99aff040f2563c2ad8f8ec88bd0fd6b8f0895cfaf1ef90353a62c"}),
+                .blockhash = uint256{"0000003ca3c99aff040f2563c2ad8f8ec88bd0fd6b8f0895cfaf1ef90353a62c"},
+            },
+            {
+                .height = 290'000,
+                .hash_serialized = AssumeutxoHash{uint256{"97267e000b4b876800167e71b9123f1529d13b14308abec2888bbd2160d14545"}},
+                .m_chain_tx_count = 28547497,
+                .blockhash = uint256{"0000000577f2741bb30cd9d39d6d71b023afbeb9764f6260786a97969d5c9ac0"},
             }
         };
 
@@ -475,6 +506,12 @@ public:
 
         fDefaultConsistencyChecks = false;
         m_is_mockable_chain = false;
+
+        // Generated by headerssync-params.py on 2026-02-25.
+        m_headers_sync_params = HeadersSyncParams{
+            .commitment_period = 620,
+            .redownload_buffer_size = 15724, // 15724/620 = ~25.4 commitments
+        };
     }
 };
 
@@ -574,21 +611,21 @@ public:
                 .height = 110,
                 .hash_serialized = AssumeutxoHash{uint256{"b952555c8ab81fec46f3d4253b7af256d766ceb39fb7752b9d18cdf4a0141327"}},
                 .m_chain_tx_count = 111,
-                .blockhash = consteval_ctor(uint256{"6affe030b7965ab538f820a56ef56c8149b7dc1d1c144af57113be080db7c397"}),
+                .blockhash = uint256{"6affe030b7965ab538f820a56ef56c8149b7dc1d1c144af57113be080db7c397"},
             },
             {
                 // For use by fuzz target src/test/fuzz/utxo_snapshot.cpp
                 .height = 200,
                 .hash_serialized = AssumeutxoHash{uint256{"17dcc016d188d16068907cdeb38b75691a118d43053b8cd6a25969419381d13a"}},
                 .m_chain_tx_count = 201,
-                .blockhash = consteval_ctor(uint256{"385901ccbd69dff6bbd00065d01fb8a9e464dede7cfe0372443884f9b1dcf6b9"}),
+                .blockhash = uint256{"385901ccbd69dff6bbd00065d01fb8a9e464dede7cfe0372443884f9b1dcf6b9"},
             },
             {
-                // For use by test/functional/feature_assumeutxo.py
+                // For use by test/functional/feature_assumeutxo.py and test/functional/tool_hypercoin_chainstate.py
                 .height = 299,
                 .hash_serialized = AssumeutxoHash{uint256{"d2b051ff5e8eef46520350776f4100dd710a63447a8e01d917e92e79751a63e2"}},
                 .m_chain_tx_count = 334,
-                .blockhash = consteval_ctor(uint256{"7cc695046fec709f8c9394b6f928f81e81fd3ac20977bb68760fa1faa7916ea2"}),
+                .blockhash = uint256{"7cc695046fec709f8c9394b6f928f81e81fd3ac20977bb68760fa1faa7916ea2"},
             },
         };
 
@@ -605,6 +642,12 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
         bech32_hrp = "hcrt";
+
+        // Copied from Testnet4.
+        m_headers_sync_params = HeadersSyncParams{
+            .commitment_period = 275,
+            .redownload_buffer_size = 7017, // 7017/275 = ~25.5 commitments
+        };
     }
 };
 

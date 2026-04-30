@@ -25,7 +25,6 @@ add_library(hypercoinkernel
   ../consensus/merkle.cpp
   ../consensus/tx_check.cpp
   ../consensus/tx_verify.cpp
-  ../core_read.cpp
   ../dbwrapper.cpp
   ../deploymentinfo.cpp
   ../deploymentstatus.cpp
@@ -58,10 +57,12 @@ add_library(hypercoinkernel
   ../support/lockedpool.cpp
   ../sync.cpp
   ../txdb.cpp
+  ../txgraph.cpp
   ../txmempool.cpp
   ../uint256.cpp
   ../util/chaintype.cpp
   ../util/check.cpp
+  ../util/expected.cpp
   ../util/feefrac.cpp
   ../util/fs.cpp
   ../util/fs_helpers.cpp
@@ -70,8 +71,6 @@ add_library(hypercoinkernel
   ../util/rbf.cpp
   ../util/serfloat.cpp
   ../util/signalinterrupt.cpp
-  ../util/strencodings.cpp
-  ../util/string.cpp
   ../util/syserror.cpp
   ../util/threadnames.cpp
   ../util/time.cpp
@@ -84,31 +83,41 @@ add_library(hypercoinkernel
   $<TARGET_OBJECTS:leveldb>
   $<TARGET_OBJECTS:crc32c>
 )
+
+# Compiler warnings that apply only to the kernel and its dependencies.
+# These can be more strict and/or warnings that only apply to shared
+# libs.
+add_library(kernel_warn_interface INTERFACE)
+if(NOT MSVC)
+  try_append_cxx_flags("-Wunique-object-duplication" TARGET kernel_warn_interface SKIP_LINK)
+endif()
+
+# Also manually apply the warnings to the kernel's internal dependencies
+target_link_libraries(hypercoin_clientversion PRIVATE kernel_warn_interface)
+target_link_libraries(hypercoin_crypto PRIVATE kernel_warn_interface)
+target_link_libraries(leveldb PRIVATE kernel_warn_interface)
+target_link_libraries(crc32c PRIVATE kernel_warn_interface)
+
 target_link_libraries(hypercoinkernel
   PRIVATE
     core_interface
+    kernel_warn_interface
     secp256k1_objs
     $<$<PLATFORM_ID:Windows>:bcrypt>
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
-  PUBLIC
     Boost::headers
 )
 
 target_include_directories(hypercoinkernel PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/leveldb/include>)
 
-# libhypercoinkernel requires default symbol visibility, explicitly
-# specify that here so that things still work even when user
-# configures with -DREDUCE_EXPORTS=ON
-#
-# Note this is a quick hack that will be removed as we
-# incrementally define what to export from the library.
-set_target_properties(hypercoinkernel PROPERTIES
-  CXX_VISIBILITY_PRESET default
-)
-
 # Add a convenience libhypercoinkernel target as a synonym for hypercoinkernel.
 add_custom_target(libhypercoinkernel)
 add_dependencies(libhypercoinkernel hypercoinkernel)
+
+get_target_property(hypercoinkernel_type hypercoinkernel TYPE)
+if(hypercoinkernel_type STREQUAL "STATIC_LIBRARY")
+  target_compile_definitions(hypercoinkernel PUBLIC HYPERCOINKERNEL_STATIC)
+endif()
 
 configure_file(${PROJECT_SOURCE_DIR}/libhypercoinkernel.pc.in ${PROJECT_BINARY_DIR}/libhypercoinkernel.pc @ONLY)
 install(FILES ${PROJECT_BINARY_DIR}/libhypercoinkernel.pc DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig" COMPONENT libhypercoinkernel)
@@ -124,3 +133,5 @@ install(TARGETS hypercoinkernel
     DESTINATION ${CMAKE_INSTALL_LIBDIR}
     COMPONENT libhypercoinkernel
 )
+
+install(FILES hypercoinkernel.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT libhypercoinkernel)

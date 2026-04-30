@@ -91,9 +91,11 @@ set(ts_files
   hypercoin_uz@Latn.ts
   hypercoin_ve.ts
   hypercoin_yi.ts
+  hypercoin_yo.ts
   hypercoin_yue.ts
   hypercoin_zh-Hans.ts
   hypercoin_zh-Hant.ts
+  hypercoin_zh.ts
   hypercoin_zh_CN.ts
   hypercoin_zh_HK.ts
   hypercoin_zh_TW.ts
