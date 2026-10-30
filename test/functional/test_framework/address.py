@@ -8,7 +8,6 @@
 - bech32 segwit v0 P2WPKH and P2WSH addresses.
 - bech32m segwit v1 P2TR addresses."""
 
-import enum
 import unittest
 
 from .script import (
@@ -37,13 +36,6 @@ ADDRESS_BCRT1_UNSPENDABLE_DESCRIPTOR = 'addr(bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 # Coins sent to this address can be spent with a witness stack of just OP_TRUE
 ADDRESS_BCRT1_P2WSH_OP_TRUE = 'bcrt1qft5p2uhsdcdc3l2ua4ap5qqfg4pjaqlp250x7us7a8qqhrxrxfsqseac85'
 
-
-class AddressType(enum.Enum):
-    bech32 = 'bech32'
-    p2sh_segwit = 'p2sh-segwit'
-    legacy = 'legacy'  # P2PKH
-
-
 b58chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
 
@@ -64,10 +56,12 @@ def create_deterministic_address_bcrt1_p2tr_op_true(explicit_internal_key=None):
 
 
 def byte_to_base58(b, version):
-    result = ''
-    b = bytes([version]) + b  # prepend version
+    if isinstance(version, int):
+        version = bytes([version])
+    b = version + b # prepend version
     b += hash256(b)[:4]       # append checksum
     value = int.from_bytes(b, 'big')
+    result = ''
     while value > 0:
         result = b58chars[value % 58] + result
         value //= 58
@@ -108,12 +102,12 @@ def base58_to_byte(s):
 
 
 def keyhash_to_p2pkh(hash, main=False):
-    assert len(hash) == 20
+    assert_equal(len(hash), 20)
     version = 0 if main else 111
     return byte_to_base58(hash, version)
 
 def scripthash_to_p2sh(hash, main=False):
-    assert len(hash) == 20
+    assert_equal(len(hash), 20)
     version = 5 if main else 196
     return byte_to_base58(hash, version)
 
@@ -152,7 +146,7 @@ def script_to_p2sh_p2wsh(script, main=False):
     return script_to_p2sh(p2shscript, main)
 
 def output_key_to_p2tr(key, main=False):
-    assert len(key) == 32
+    assert_equal(len(key), 32)
     return program_to_witness(1, key, main)
 
 def p2a(main=False):

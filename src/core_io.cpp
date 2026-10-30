@@ -11,10 +11,8 @@
 #include <consensus/validation.h>
 #include <crypto/hex_base.h>
 #include <key_io.h>
-// IWYU incorrectly suggests replacing this header
-// with forward declarations.
-// See https://github.com/include-what-you-use/include-what-you-use/issues/1886.
-#include <primitives/block.h> // IWYU pragma: keep
+#include <prevector.h>
+#include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/descriptor.h>
 #include <script/interpreter.h>
@@ -340,9 +338,13 @@ const std::map<unsigned char, std::string> mapSigHashTypes = {
     {static_cast<unsigned char>(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY), std::string("SINGLE|ANYONECANPAY")},
 };
 
-std::string SighashToStr(unsigned char sighash_type)
+std::string SighashToStr(int32_t sighash_type)
 {
-    const auto& it = mapSigHashTypes.find(sighash_type);
+    // Signatures encode the sighash type in a single byte, but the PSBT field
+    // for it is a 32 bit unsigned integer in BIP 174 (signed in PSBTInput)
+    if (sighash_type < 0 || sighash_type > 0xff) return "";
+    const uint8_t sighash_byte(sighash_type);
+    const auto& it = mapSigHashTypes.find(sighash_byte);
     if (it == mapSigHashTypes.end()) return "";
     return it->second;
 }
@@ -480,7 +482,7 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
                 ScriptToUniv(prev_txout.scriptPubKey, /*out=*/o_script_pub_key, /*include_hex=*/true, /*include_address=*/true);
 
                 UniValue p(UniValue::VOBJ);
-                p.pushKV("generated", static_cast<bool>(prev_coin.fCoinBase));
+                p.pushKV("generated", prev_coin.IsCoinBase());
                 p.pushKV("height", prev_coin.nHeight);
                 p.pushKV("value", ValueFromAmount(prev_txout.nValue));
                 p.pushKV("scriptPubKey", std::move(o_script_pub_key));

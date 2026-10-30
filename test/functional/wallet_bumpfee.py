@@ -18,6 +18,8 @@ from decimal import Decimal
 from test_framework.blocktools import (
     COINBASE_MATURITY,
 )
+from test_framework.descriptors import descsum_create
+from test_framework.extendedkey import ExtendedPrivateKey
 from test_framework.messages import (
     MAX_BIP125_RBF_SEQUENCE,
     MAX_SEQUENCE_NONFINAL,
@@ -56,7 +58,6 @@ class BumpFeeTest(HypercoinTestFramework):
         # whitelist peers to speed up tx relay / mempool sync
         self.noban_tx_relay = True
         self.extra_args = [[
-            "-walletrbf={}".format(i),
             "-mintxfee=0.00002",
             "-addresstype=bech32",
         ] for i in range(self.num_nodes)]
@@ -341,8 +342,8 @@ def test_simple_bumpfee_succeeds(self, mode, rbf_node, peer_node, dest_address):
     assert_equal(bumpedwtx["replaces_txid"], rbfid)
     # if this is a new_outputs test, check that outputs were indeed replaced
     if mode == "new_outputs":
-        assert len(bumpedwtx["details"]) == 1
-        assert bumpedwtx["details"][0]["address"] == new_address
+        assert_equal(len(bumpedwtx["details"]), 1)
+        assert_equal(bumpedwtx["details"][0]["address"], new_address)
     self.clear_mempool()
 
 
@@ -510,7 +511,7 @@ def test_small_output_with_feerate_succeeds(self, rbf_node, dest_address):
 
 def test_dust_to_fee(self, rbf_node, dest_address):
     self.log.info('Test that bumped output that is dust is dropped to fee')
-    rbfid = spend_one_input(rbf_node, dest_address)
+    rbfid = spend_one_input(rbf_node, dest_address, change_size=Decimal("0.00030000"), dest_amount=Decimal("0.00064730"))
     fulltx = rbf_node.getrawtransaction(rbfid, 1)
     # The DER formatting used by Hypercoin to serialize ECDSA signatures means that signatures can have a
     # variable size of 70-72 bytes (or possibly even less), with most being 71 or 72 bytes. The signature
@@ -518,16 +519,17 @@ def test_dust_to_fee(self, rbf_node, dest_address):
     # boundary. Thus expected transaction size (p2wpkh, 1 input, 2 outputs) is 140-141 vbytes, usually 141.
     if not 140 <= fulltx["vsize"] <= 141:
         raise AssertionError("Invalid tx vsize of {} (140-141 expected), full tx: {}".format(fulltx["vsize"], fulltx))
-    # Bump with fee_rate of 350.25 sat/vB vbytes to create dust.
-    # Expected fee is 141 vbytes * fee_rate 0.00350250 HRC / 1000 vbytes = 0.00049385 HRC.
-    # or occasionally 140 vbytes * fee_rate 0.00350250 HRC / 1000 vbytes = 0.00049035 HRC.
-    # Dust should be dropped to the fee, so actual bump fee is 0.00050000 HRC.
-    bumped_tx = rbf_node.bumpfee(rbfid, fee_rate=350.25)
+    # Bump with fee_rate of 250 sat/vB. The leftover change is below the dust
+    # threshold, so it is dropped and folded into the fee.
+    # Target fee is 141 vbytes * 0.00250000 HRC / 1000 vbytes = 0.00035250 HRC (20 sat change left),
+    # or occasionally 140 vbytes * 0.00250000 HRC / 1000 vbytes = 0.00035000 HRC (270 sat change left).
+    # Either way the sub-dust change is added to the fee, giving 0.00035270 HRC.
+    bumped_tx = rbf_node.bumpfee(rbfid, fee_rate=250)
     full_bumped_tx = rbf_node.getrawtransaction(bumped_tx["txid"], 1)
-    assert_equal(bumped_tx["fee"], Decimal("0.00050000"))
+    assert_equal(bumped_tx["fee"], Decimal("0.00035270"))
     assert_equal(len(fulltx["vout"]), 2)
     assert_equal(len(full_bumped_tx["vout"]), 1)  # change output is eliminated
-    assert_equal(full_bumped_tx["vout"][0]['value'], Decimal("0.00050000"))
+    assert_equal(full_bumped_tx["vout"][0]['value'], Decimal("0.00064730"))
     self.clear_mempool()
 
 def test_maxtxfee_fails(self, rbf_node, dest_address):
@@ -547,9 +549,9 @@ def test_maxtxfee_fails(self, rbf_node, dest_address):
 
 def test_watchonly_psbt(self, peer_node, rbf_node, dest_address):
     self.log.info('Test that PSBT is returned for bumpfee in watchonly wallets')
-    priv_rec_desc = "wpkh([00000001/84'/1'/0']tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/0/*)#rweraev0"
+    priv_rec_desc = descsum_create(f"wpkh([00000001/84'/1'/0']{ExtendedPrivateKey.generate().to_string()}/0/*)")
     pub_rec_desc = rbf_node.getdescriptorinfo(priv_rec_desc)["descriptor"]
-    priv_change_desc = "wpkh([00000001/84'/1'/0']tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/1/*)#j6uzqvuh"
+    priv_change_desc = descsum_create(f"wpkh([00000001/84'/1'/0']{ExtendedPrivateKey.generate().to_string()}/1/*)")
     pub_change_desc = rbf_node.getdescriptorinfo(priv_change_desc)["descriptor"]
     # Create a wallet with private keys that can sign PSBTs
     rbf_node.createwallet(wallet_name="signer", disable_private_keys=False, blank=True)
@@ -608,14 +610,14 @@ def test_watchonly_psbt(self, peer_node, rbf_node, dest_address):
             {"fee_rate": 1, "add_inputs": False}, True)['psbt']
     psbt_signed = signer.walletprocesspsbt(psbt=psbt, sign=True, sighashtype="ALL", bip32derivs=True)
     original_txid = watcher.sendrawtransaction(psbt_signed["hex"])
-    assert_equal(len(watcher.decodepsbt(psbt)["tx"]["vin"]), 1)
+    assert_equal(len(watcher.decodepsbt(psbt)["inputs"]), 1)
 
     # bumpfee can't be used on watchonly wallets
     assert_raises_rpc_error(-4, "bumpfee is not available with wallets that have private keys disabled. Use psbtbumpfee instead.", watcher.bumpfee, original_txid)
 
     # Bump fee, obnoxiously high to add additional watchonly input
     bumped_psbt = watcher.psbtbumpfee(original_txid, fee_rate=HIGH)
-    assert_greater_than(len(watcher.decodepsbt(bumped_psbt['psbt'])["tx"]["vin"]), 1)
+    assert_greater_than(len(watcher.decodepsbt(bumped_psbt['psbt'])["inputs"]), 1)
     assert "txid" not in bumped_psbt
     assert_equal(bumped_psbt["origfee"], -watcher.gettransaction(original_txid)["fee"])
     assert not watcher.finalizepsbt(bumped_psbt["psbt"])["complete"]
@@ -754,10 +756,10 @@ def test_change_script_match(self, rbf_node, dest_address):
     self.clear_mempool()
 
 
-def spend_one_input(node, dest_address, change_size=Decimal("0.00049000"), data=None):
+def spend_one_input(node, dest_address, change_size=Decimal("0.00049000"), data=None, dest_amount=Decimal("0.00050000")):
     tx_input = dict(
         sequence=MAX_BIP125_RBF_SEQUENCE, **next(u for u in node.listunspent() if u["amount"] == Decimal("0.00100000")))
-    destinations = {dest_address: Decimal("0.00050000")}
+    destinations = {dest_address: dest_amount}
     if change_size > 0:
         destinations[node.getrawchangeaddress()] = change_size
     if data:

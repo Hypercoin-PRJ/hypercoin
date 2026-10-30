@@ -93,7 +93,7 @@ class ToolWalletTest(HypercoinTestFramework):
     def assert_is_sqlite(self, filename):
         with open(filename, 'rb') as f:
             file_magic = f.read(16)
-            assert file_magic == b'SQLite format 3\x00'
+            assert_equal(file_magic, b'SQLite format 3\x00')
 
     def write_dump(self, dump, filename, magic=None, skip_checksum=False):
         if magic is None:
@@ -421,6 +421,7 @@ class ToolWalletTest(HypercoinTestFramework):
         assert not (self.nodes[0].wallets_path / "legacy").exists()
         self.assert_raises_tool_error("Invalid parameter -descriptors", "-wallet=legacy", "-descriptors=false", "create")
         assert not (self.nodes[0].wallets_path / "legacy").exists()
+        self.assert_raises_tool_error("The -dumpfile option cannot be used with the 'create' command.", "-wallet=legacy", "-dumpfile=wallet.dump", "create")
 
     def test_no_create_unnamed(self):
         self.log.info("Test that unnamed (default) wallets cannot be created")

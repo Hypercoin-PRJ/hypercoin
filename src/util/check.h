@@ -8,21 +8,24 @@
 #include <attributes.h>
 
 #include <atomic>
+// We use `util/check.h` to provide the `assert()` macro
+// to ensure that `NDEBUG` is not defined.
 #include <cassert> // IWYU pragma: export
 #include <source_location>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
-constexpr bool G_FUZZING_BUILD{
+inline constexpr bool G_FUZZING_BUILD{
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     true
 #else
     false
 #endif
 };
-constexpr bool G_ABORT_ON_FAILED_ASSUME{G_FUZZING_BUILD ||
+inline constexpr bool G_ABORT_ON_FAILED_ASSUME{G_FUZZING_BUILD ||
 #ifdef ABORT_ON_FAILED_ASSUME
     true
 #else
@@ -61,8 +64,8 @@ public:
     NonFatalCheckError(std::string_view msg, const std::source_location& loc);
 };
 
-/** Internal helper */
-void assertion_fail(const std::source_location& loc, std::string_view assertion);
+/// Internal helper. The noreturn enables optimizers to discard invalid paths.
+[[noreturn]] void assertion_fail(const std::source_location& loc, std::string_view assertion);
 
 /** Helper for CHECK_NONFATAL() */
 template <typename T>

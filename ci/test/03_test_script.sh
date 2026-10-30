@@ -6,13 +6,18 @@
 
 export LC_ALL=C.UTF-8
 
-set -ex
+set -o errexit -o xtrace -o pipefail
+
+if [ "${DANGER_RUN_CI_ON_HOST}" != "1" ]; then
+  echo "This script will make unsafe local and global modifications, so it can only be run inside a container and requires DANGER_RUN_CI_ON_HOST=1"
+  exit 1
+fi
 
 cd "${BASE_ROOT_DIR}"
 
 export PATH="/path_with space:${PATH}"
 export ASAN_OPTIONS="detect_leaks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1"
-export LSAN_OPTIONS="suppressions=${BASE_ROOT_DIR}/test/sanitizer_suppressions/lsan"
+export LSAN_OPTIONS="suppressions=${BASE_ROOT_DIR}/test/sanitizer_suppressions/lsan:print_suppressions=0"
 export TSAN_OPTIONS="suppressions=${BASE_ROOT_DIR}/test/sanitizer_suppressions/tsan:halt_on_error=1:second_deadlock_stack=1"
 export UBSAN_OPTIONS="suppressions=${BASE_ROOT_DIR}/test/sanitizer_suppressions/ubsan:print_stacktrace=1:halt_on_error=1:report_error_type=1"
 
@@ -43,6 +48,19 @@ export HOST=${HOST:-$("$BASE_ROOT_DIR/depends/config.guess")}
 echo "=== BEGIN env ==="
 env
 echo "=== END env ==="
+
+# The CI framework should be flexible where it is run from. For example, from
+# a git-archive, a git-worktree, or a normal git repo.
+# The iwyu task requires a working git repo, which may not always be
+# available, so initialize one with force.
+if [[ "${RUN_IWYU}" == true ]]; then
+  mv .git .git_ci_backup || true
+  git init
+  git add ./src  # the git diff command used later for iwyu only cares about ./src
+  git config user.email "ci@ci"
+  git config user.name "CI"
+  git commit -m "dummy CI ./src init for IWYU"
+fi
 
 if [ "$RUN_FUZZ_TESTS" = "true" ]; then
   export DIR_FUZZ_IN=${DIR_QA_ASSETS}/fuzz_corpora/
@@ -78,7 +96,7 @@ if [ -z "$NO_DEPENDS" ]; then
   bash -c "$SHELL_OPTS make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS LOG=1"
 fi
 if [ "$DOWNLOAD_PREVIOUS_RELEASES" = "true" ]; then
-  test/get_previous_releases.py --target-dir "$PREVIOUS_RELEASES_DIR"
+  test/get_previous_releases.py
 fi
 
 HYPERCOIN_CONFIG_ALL="-DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DBUILD_BENCH=ON -DBUILD_FUZZ_BINARY=ON"
@@ -91,7 +109,7 @@ ccache --zero-stats
 # Folder where the build is done.
 BASE_BUILD_DIR=${BASE_BUILD_DIR:-$BASE_SCRATCH_DIR/build-$HOST}
 
-HYPERCOIN_CONFIG_ALL="$HYPERCOIN_CONFIG_ALL -DCMAKE_INSTALL_PREFIX=$BASE_OUTDIR -Werror=dev"
+HYPERCOIN_CONFIG_ALL="$HYPERCOIN_CONFIG_ALL '-DCMAKE_INSTALL_PREFIX=$BASE_OUTDIR' -Werror=dev"
 
 if [[ "${RUN_IWYU}" == true || "${RUN_TIDY}" == true ]]; then
   HYPERCOIN_CONFIG_ALL="$HYPERCOIN_CONFIG_ALL -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
@@ -105,23 +123,44 @@ cmake -S "$BASE_ROOT_DIR" -B "$BASE_BUILD_DIR" "${CMAKE_ARGS[@]}" || (
   false
 )
 
-if [[ "${GOAL}" != all && "${GOAL}" != codegen ]]; then
-  GOAL="all ${GOAL}"
+BUILD_TARGETS="${GOAL}"
+if [[ "${GOAL}" != all && "${GOAL}" != *codegen* ]]; then
+  BUILD_TARGETS="all ${GOAL}"
 fi
 
 # shellcheck disable=SC2086
-cmake --build "${BASE_BUILD_DIR}" "$MAKEJOBS" --target $GOAL || (
+cmake --build "${BASE_BUILD_DIR}" "$MAKEJOBS" --target $BUILD_TARGETS || (
   echo "Build failure. Verbose build follows."
   # shellcheck disable=SC2086
-  cmake --build "${BASE_BUILD_DIR}" -j1 --target $GOAL --verbose
+  cmake --build "${BASE_BUILD_DIR}" -j1 --target $BUILD_TARGETS --verbose
   false
 )
 
 ccache --version | head -n 1 && ccache --show-stats --verbose
-hit_rate=$(ccache --show-stats | grep "Hits:" | head -1 | sed 's/.*(\(.*\)%).*/\1/')
-if [ "${hit_rate%.*}" -lt 75 ]; then
-  echo "::notice title=low ccache hitrate::Ccache hit-rate in $CONTAINER_NAME was $hit_rate%"
-fi
+ccache --print-stats | python3 -c '
+import os
+import sys
+
+for line in sys.stdin:
+    key, value = line.split("\t", 1)
+    # "primary storage" fallback only needed for ccache version 4.5.1
+    if key in ("local_storage_hit", "primary_storage_hit"):
+        hits = int(value)
+    elif key in ("local_storage_miss", "primary_storage_miss"):
+        miss = int(value)
+
+calls = hits + miss
+# codegen has no calls, so skip that here
+if calls:
+    rate = (hits / calls * 100)
+    print(f"{rate:.2f}")
+    if rate < 75:
+        container = os.environ["CONTAINER_NAME"]
+        print(
+            "::notice title=low ccache hitrate::"
+            f"Ccache hit-rate in {container} was {rate:.2f}%"
+        )
+'
 du -sh "${DEPENDS_DIR}"/*/
 du -sh "${PREVIOUS_RELEASES_DIR}"
 
@@ -129,8 +168,13 @@ if [ -n "${CI_LIMIT_STACK_SIZE}" ]; then
   ulimit -s 512
 fi
 
+if [[ ${BARE_METAL_RISCV} == "true" ]]; then
+    export BASE_BUILD_DIR
+    "${BASE_ROOT_DIR}/ci/test/link-riscv.sh"
+fi
+
 if [ -n "$USE_VALGRIND" ]; then
-  "${BASE_ROOT_DIR}/ci/test/wrap-valgrind.sh"
+  "${BASE_ROOT_DIR}/ci/test/wrap-valgrind.py"
 fi
 
 if [ "$RUN_CHECK_DEPS" = "true" ]; then
@@ -139,7 +183,7 @@ fi
 
 if [[ "$CI_OS_NAME" == "macos" && "${GOAL}" = "install deploy" ]]; then
   unzip "${BASE_BUILD_DIR}/hypercoin-macos-app.zip" -d "${BASE_BUILD_DIR}/deploy"
-  if ! ( codesign --verify "${BASE_BUILD_DIR}/deploy/Hypercoin-Qt.app" ); then
+  if ! ( codesign --verify --deep --strict "${BASE_BUILD_DIR}/deploy/Hypercoin-Qt.app" ); then
     echo "Codesigning failed."
     false
   fi
@@ -191,7 +235,7 @@ fi
 
 if [[ "${RUN_IWYU}" == true ]]; then
   # TODO: Consider enforcing IWYU across the entire codebase.
-  FILES_WITH_ENFORCED_IWYU="/src/((crypto|index|kernel|primitives|univalue/(lib|test)|zmq)/.*\\.cpp|node/blockstorage\\.cpp|node/utxo_snapshot\\.cpp|core_io\\.cpp|signet\\.cpp)"
+  FILES_WITH_ENFORCED_IWYU='/src/((bench|common|consensus|crypto|index|init|kernel|primitives|rpc|script|univalue/(lib|test)|util|zmq)/.*|node/(blockstorage|interfaces|miner|mining_args|utxo_snapshot)|test/fuzz/(kitchen_sink|minisketch|parse_univalue)|clientversion|core_io|rest|signet|init)\.cpp'
   jq --arg patterns "$FILES_WITH_ENFORCED_IWYU" 'map(select(.file | test($patterns)))' "${BASE_BUILD_DIR}/compile_commands.json" > "${BASE_BUILD_DIR}/compile_commands_iwyu_errors.json"
   jq --arg patterns "$FILES_WITH_ENFORCED_IWYU" 'map(select(.file | test($patterns) | not))' "${BASE_BUILD_DIR}/compile_commands.json" > "${BASE_BUILD_DIR}/compile_commands_iwyu_warnings.json"
 
@@ -199,14 +243,30 @@ if [[ "${RUN_IWYU}" == true ]]; then
 
   run_iwyu() {
     mv "${BASE_BUILD_DIR}/$1" "${BASE_BUILD_DIR}/compile_commands.json"
-    python3 "/include-what-you-use/iwyu_tool.py" \
-             -p "${BASE_BUILD_DIR}" "${MAKEJOBS}" \
-             -- -Xiwyu --cxx17ns -Xiwyu --mapping_file="${BASE_ROOT_DIR}/contrib/devtools/iwyu/hypercoin.core.imp" \
+    {
+      python3 /include-what-you-use/mapgen/iwyu-mapgen-clang-intrin.py --lang imp "$("clang-${IWYU_LLVM_V}" -print-resource-dir)/include" > "${BASE_BUILD_DIR}/clang.intrinsics.imp"
+      python3 /include-what-you-use/iwyu_tool.py \
+             -p "${BASE_BUILD_DIR}" "${MAKEJOBS}" -- \
+             -Xiwyu --cxx17ns \
+             -Xiwyu --mapping_file="${BASE_ROOT_DIR}/contrib/devtools/iwyu/hypercoin.core.imp" \
+             -Xiwyu --mapping_file="${BASE_BUILD_DIR}/clang.intrinsics.imp" \
              -Xiwyu --max_line_length=160 \
-             -Xiwyu --check_also="*/primitives/*.h" \
-             2>&1 | tee /tmp/iwyu_ci.out
+             -Xiwyu --check_also='*/common/types\.h' \
+             -Xiwyu --check_also='*/consensus/*\.h' \
+             -Xiwyu --check_also='*/interfaces/*\.h' \
+             -Xiwyu --check_also='*/primitives/transaction_identifier\.h' \
+             -Xiwyu --check_also='*/rpc/protocol\.h' \
+             2>&1 || true
+    } | tee /tmp/iwyu_ci.out
     python3 "/include-what-you-use/fix_includes.py" --nosafe_headers < /tmp/iwyu_ci.out
-    git diff -U1 | ./contrib/devtools/clang-format-diff.py -binary="clang-format-${TIDY_LLVM_V}" -p1 -i -v
+    python3 -c '
+import runpy
+import subprocess
+
+subtrees = runpy.run_path("test/lint/lint_ignore_dirs.py")["SHARED_EXCLUDED_SUBTREES"]
+subprocess.run(["git", "restore", "--", *subtrees], check=True)
+'
+    git diff -U1 | ./contrib/devtools/clang-format-diff.py -binary="clang-format-${IWYU_LLVM_V}" -p1 -i -v
   }
 
   run_iwyu "compile_commands_iwyu_errors.json"

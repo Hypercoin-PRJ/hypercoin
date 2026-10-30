@@ -5,8 +5,7 @@
 #ifndef HYPERCOIN_SCRIPT_PARSING_H
 #define HYPERCOIN_SCRIPT_PARSING_H
 
-#include <span.h>
-
+#include <span>
 #include <string>
 
 namespace script {

@@ -6,29 +6,29 @@
 #define HYPERCOIN_RPC_BLOCKCHAIN_H
 
 #include <consensus/amount.h>
-#include <core_io.h>
-#include <streams.h>
 #include <sync.h>
-#include <threadsafety.h>
 #include <util/fs.h>
 #include <validation.h>
 
-#include <any>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 class CBlock;
 class CBlockIndex;
 class CChain;
-class Chainstate;
 class UniValue;
+class AutoFile;
+class uint256;
+enum class TxVerbosity;
+
 namespace node {
 class BlockManager;
 struct NodeContext;
 } // namespace node
 
-static constexpr int NUM_GETBLOCKSTATS_PERCENTILES = 5;
+inline constexpr int NUM_GETBLOCKSTATS_PERCENTILES = 5;
 
 /**
  * Get the difficulty of the net wrt to the given block index.
@@ -48,7 +48,7 @@ UniValue blockheaderToJSON(const CBlockIndex& tip, const CBlockIndex& blockindex
 void CalculatePercentilesByWeight(CAmount result[NUM_GETBLOCKSTATS_PERCENTILES], std::vector<std::pair<CAmount, int64_t>>& scores, int64_t total_weight);
 
 /**
- * Test-only helper to create UTXO snapshots given a chainstate and a file handle.
+ * Helper to create UTXO snapshots given a chainstate and a file handle.
  * @return a UniValue map containing metadata about the snapshot.
  */
 UniValue CreateUTXOSnapshot(

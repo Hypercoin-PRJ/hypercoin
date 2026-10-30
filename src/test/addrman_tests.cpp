@@ -9,9 +9,12 @@
 #include <clientversion.h>
 #include <hash.h>
 #include <netbase.h>
+#include <netgroup.h>
 #include <random.h>
 #include <test/data/asmap.raw.h>
+#include <test/util/common.h>
 #include <test/util/setup_common.h>
+#include <test/util/time.h>
 #include <util/asmap.h>
 #include <util/string.h>
 
@@ -93,9 +96,44 @@ BOOST_AUTO_TEST_CASE(addrman_simple)
     BOOST_CHECK(addrman->Size() >= 1);
 }
 
+
+BOOST_AUTO_TEST_CASE(addrman_terrible_many_failures)
+{
+    FakeNodeClock clock{};
+
+    auto addrman{std::make_unique<AddrMan>(EMPTY_NETGROUPMAN, DETERMINISTIC, GetCheckRatio(m_node))};
+
+    CNetAddr source{ResolveIP("250.1.2.1")};
+    CAddress addr{CAddress(ResolveService("250.250.2.1", 8333), NODE_NONE)};
+    addr.nTime = Now<NodeSeconds>();
+
+    BOOST_CHECK(addrman->Add({addr}, source));
+    BOOST_CHECK(addrman->Good(addr));
+
+    clock += ADDRMAN_MIN_FAIL + 24h;
+
+    CAddress addr_helper{CAddress(ResolveService("251.252.2.3", 8333), NODE_NONE)};
+    addr_helper.nTime = Now<NodeSeconds>();
+    BOOST_CHECK(addrman->Add({addr_helper}, source));
+    BOOST_CHECK(addrman->Good(addr_helper));
+
+    for (int i = 0; i < ADDRMAN_MAX_FAILURES; ++i) {
+        // Use a time > 60s ago so IsTerrible doesn't bail out at the "tried in the last minute" check
+        addrman->Attempt(addr, /*fCountFailure=*/true, Now<NodeSeconds>() - 61s);
+    }
+
+    std::vector<CAddress> filtered{addrman->GetAddr(/*max_addresses=*/0, /*max_pct=*/0, /*network=*/std::nullopt)};
+    BOOST_CHECK_EQUAL(filtered.size(), 1U);
+    BOOST_CHECK_EQUAL(filtered[0].ToStringAddrPort(), "251.252.2.3:8333");
+
+    std::vector<CAddress> unfiltered{addrman->GetAddr(/*max_addresses=*/0, /*max_pct=*/0, /*network=*/std::nullopt, /*filtered=*/false)};
+    BOOST_CHECK_EQUAL(unfiltered.size(), 2U);
+}
+
+
 BOOST_AUTO_TEST_CASE(addrman_penalty_self_announcement)
 {
-    SetMockTime(Now<NodeSeconds>());
+    FakeNodeClock clock{};
     auto addrman = std::make_unique<AddrMan>(EMPTY_NETGROUPMAN, DETERMINISTIC, GetCheckRatio(m_node));
 
     const auto base_time{Now<NodeSeconds>() - 10000s};
@@ -994,7 +1032,8 @@ BOOST_AUTO_TEST_CASE(addrman_evictionworks)
     BOOST_CHECK_EQUAL(addrman->SelectTriedCollision().first.ToStringAddrPort(), "250.1.1.36:0");
 
     // Eviction is also successful if too much time has passed since last try
-    SetMockTime(GetTime() + 4 * 60 *60);
+    FakeNodeClock clock{};
+    clock += 4h;
     addrman->ResolveCollisions();
     BOOST_CHECK(addrman->SelectTriedCollision().first.ToStringAddrPort() == "[::]:0");
     //Now 19 is in tried again, and 36 back to new
@@ -1037,20 +1076,15 @@ BOOST_AUTO_TEST_CASE(load_addrman)
 
     // Test that the de-serialization does not throw an exception.
     auto ssPeers1{AddrmanToStream(addrman)};
-    bool exceptionThrown = false;
     AddrMan addrman1{EMPTY_NETGROUPMAN, !DETERMINISTIC, GetCheckRatio(m_node)};
 
     BOOST_CHECK(addrman1.Size() == 0);
-    try {
+    {
         unsigned char pchMsgTmp[4];
-        ssPeers1 >> pchMsgTmp;
-        ssPeers1 >> addrman1;
-    } catch (const std::exception&) {
-        exceptionThrown = true;
+        BOOST_CHECK_NO_THROW(ssPeers1 >> pchMsgTmp >> addrman1);
     }
 
     BOOST_CHECK(addrman1.Size() == 3);
-    BOOST_CHECK(exceptionThrown == false);
 
     // Test that ReadFromStream creates an addrman with the correct number of addrs.
     DataStream ssPeers2 = AddrmanToStream(addrman);
@@ -1092,17 +1126,14 @@ BOOST_AUTO_TEST_CASE(load_addrman_corrupted)
 {
     // Test that the de-serialization of corrupted peers.dat throws an exception.
     auto ssPeers1{MakeCorruptPeersDat()};
-    bool exceptionThrown = false;
     AddrMan addrman1{EMPTY_NETGROUPMAN, !DETERMINISTIC, GetCheckRatio(m_node)};
     BOOST_CHECK(addrman1.Size() == 0);
-    try {
+    BOOST_CHECK_EXCEPTION([&]
+    {
         unsigned char pchMsgTmp[4];
         ssPeers1 >> pchMsgTmp;
         ssPeers1 >> addrman1;
-    } catch (const std::exception&) {
-        exceptionThrown = true;
-    }
-    BOOST_CHECK(exceptionThrown);
+    }(), std::ios_base::failure, HasReason{"end of data"});
 
     // Test that ReadFromStream fails if peers.dat is corrupt
     auto ssPeers2{MakeCorruptPeersDat()};

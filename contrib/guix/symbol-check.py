@@ -72,17 +72,17 @@ ELF_INTERPRETER_NAMES: dict[lief.ELF.ARCH, dict[lief.Header.ENDIANNESS, str]] = 
 
 ELF_ABIS: dict[lief.ELF.ARCH, dict[lief.Header.ENDIANNESS, list[int]]] = {
     lief.ELF.ARCH.X86_64: {
-        lief.Header.ENDIANNESS.LITTLE: [3,2,0],
+        lief.Header.ENDIANNESS.LITTLE: [3,17,0],
     },
     lief.ELF.ARCH.ARM: {
-        lief.Header.ENDIANNESS.LITTLE: [3,2,0],
+        lief.Header.ENDIANNESS.LITTLE: [3,17,0],
     },
     lief.ELF.ARCH.AARCH64: {
-        lief.Header.ENDIANNESS.LITTLE: [3,7,0],
+        lief.Header.ENDIANNESS.LITTLE: [3,17,0],
     },
     lief.ELF.ARCH.PPC64: {
-        lief.Header.ENDIANNESS.LITTLE: [3,10,0],
-        lief.Header.ENDIANNESS.BIG: [3,2,0],
+        lief.Header.ENDIANNESS.LITTLE: [3,17,0],
+        lief.Header.ENDIANNESS.BIG: [3,17,0],
     },
     lief.ELF.ARCH.RISCV: {
         lief.Header.ENDIANNESS.LITTLE: [4,15,0],
@@ -202,7 +202,7 @@ def check_exported_symbols(binary) -> bool:
         if not symbol.exported:
             continue
         name = symbol.name
-        if binary.header.machine_type == lief.ELF.ARCH.RISCV or name in IGNORE_EXPORTS:
+        if name in IGNORE_EXPORTS:
             continue
         print(f'{filename}: export of symbol {name} not allowed!')
         ok = False
@@ -241,7 +241,7 @@ def check_MACHO_sdk(binary) -> bool:
     return False
 
 def check_MACHO_lld(binary) -> bool:
-    if binary.build_version.tools[0].version == [19, 1, 4]:
+    if binary.build_version.tools[0].version == [19, 1, 7]:
         return True
     return False
 
@@ -306,7 +306,7 @@ if __name__ == '__main__':
     for filename in sys.argv[1:]:
         binary = lief.parse(filename)
 
-        etype = binary.format
+        etype = binary.format # type: ignore[union-attr]
 
         failed: list[str] = []
         for (name, func) in CHECKS[etype]:

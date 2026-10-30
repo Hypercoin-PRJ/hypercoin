@@ -11,6 +11,11 @@ The following directions assume you have a Tor proxy running on port 9050. Many 
 
 - Tor removed v2 support beginning with version 0.4.6.
 
+- Hypercoin Core 31.0 removed `tor` as a network name. Use `onion` instead,
+  as in `-onlynet=onion` or `-proxy=addr:port=onion`
+  ([#34031](https://github.com/hypercoin/hypercoin/pull/34031)).
+  The `-debug=tor` logging category is unaffected.
+
 ## How to see information about your Tor configuration via Hypercoin Core
 
 There are several ways to see your local onion address in Hypercoin Core:
@@ -39,7 +44,7 @@ outgoing connections, but more is possible.
         as well. You need to use -noonion or -onion=0 to explicitly disable
         outbound access to onion services.
 
-    -proxy=ip[:port]=tor
+    -proxy=ip[:port]=onion
     or
     -onion=ip[:port]
         Set the proxy server for reaching .onion addresses. You do not need to
@@ -51,7 +56,7 @@ outgoing connections, but more is possible.
         -proxy=addr:port=ipv4 or
         -proxy=addr:port=ipv6
         (last one if multiple options are given). It is not taken from
-        -proxy=addr:port=tor or
+        -proxy=addr:port=onion or
         -onion=addr:port.
         If no proxy for DNS requests is configured, then they will be done using
         the functions provided by the operating system, most likely resulting in
@@ -181,6 +186,10 @@ Add these lines to your `/etc/tor/torrc` (or equivalent config file):
 
     HiddenServiceDir /var/lib/tor/hypercoin-service/
     HiddenServicePort 8333 127.0.0.1:8334
+    # If `tor --list-modules` shows "pow: yes", then enable PoW protection.
+    # It is available in tor-0.4.8.1-alpha and newer when configured with
+    # `./configure --enable-gpl`.
+    HiddenServicePoWDefensesEnabled 1
 
 The directory can be different of course, but virtual port numbers should be equal to
 your hypercoind's P2P listen port (8333 by default), and target addresses and ports

@@ -95,7 +95,7 @@ OptionsDialog::OptionsDialog(QWidget* parent, bool enableWallet)
     ui->verticalLayout->setStretchFactor(ui->tabWidget, 1);
 
     /* Main elements init */
-    ui->databaseCache->setRange(MIN_DB_CACHE >> 20, std::numeric_limits<int>::max());
+    ui->databaseCache->setRange(MIN_DBCACHE_BYTES / 1_MiB, std::numeric_limits<int>::max());
     ui->threadsScriptVerif->setMinimum(-GetNumCores());
     ui->threadsScriptVerif->setMaximum(MAX_SCRIPTCHECK_THREADS);
     ui->pruneWarning->setVisible(false);
@@ -456,17 +456,14 @@ void OptionsDialog::updateDefaultProxyNets()
         proxyIpText = ui_proxy.ToStringAddrPort();
     }
 
-    Proxy proxy;
-    bool has_proxy;
+    const auto proxy_ipv4 = model->node().getProxy(NET_IPV4);
+    ui->proxyReachIPv4->setChecked(proxy_ipv4 && proxy_ipv4->ToString() == proxyIpText);
 
-    has_proxy = model->node().getProxy(NET_IPV4, proxy);
-    ui->proxyReachIPv4->setChecked(has_proxy && proxy.ToString() == proxyIpText);
+    const auto proxy_ipv6 = model->node().getProxy(NET_IPV6);
+    ui->proxyReachIPv6->setChecked(proxy_ipv6 && proxy_ipv6->ToString() == proxyIpText);
 
-    has_proxy = model->node().getProxy(NET_IPV6, proxy);
-    ui->proxyReachIPv6->setChecked(has_proxy && proxy.ToString() == proxyIpText);
-
-    has_proxy = model->node().getProxy(NET_ONION, proxy);
-    ui->proxyReachTor->setChecked(has_proxy && proxy.ToString() == proxyIpText);
+    const auto proxy_onion = model->node().getProxy(NET_ONION);
+    ui->proxyReachTor->setChecked(proxy_onion && proxy_onion->ToString() == proxyIpText);
 }
 
 ProxyAddressValidator::ProxyAddressValidator(QObject *parent) :

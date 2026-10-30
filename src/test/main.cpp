@@ -5,6 +5,8 @@
 /**
  * See https://www.boost.org/doc/libs/1_78_0/libs/test/doc/html/boost_test/adv_scenarios/single_header_customizations/multiple_translation_units.html
  */
+// Boost.Test's SIGSTKSZ alternate stack can be smaller than Linux requires on musl.
+#define BOOST_TEST_DISABLE_ALT_STACK
 #define BOOST_TEST_MODULE Hypercoin Core Test Suite
 
 #include <boost/test/included/unit_test.hpp>
@@ -13,18 +15,6 @@
 
 #include <functional>
 #include <iostream>
-
-/** Redirect debug log to unit_test.log files */
-const std::function<void(const std::string&)> G_TEST_LOG_FUN = [](const std::string& s) {
-    static const bool should_log{std::any_of(
-        &boost::unit_test::framework::master_test_suite().argv[1],
-        &boost::unit_test::framework::master_test_suite().argv[boost::unit_test::framework::master_test_suite().argc],
-        [](const char* arg) {
-            return std::string{"DEBUG_LOG_OUT"} == arg;
-        })};
-    if (!should_log) return;
-    std::cout << s;
-};
 
 /**
  * Retrieve the command line arguments from boost.

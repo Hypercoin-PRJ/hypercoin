@@ -19,7 +19,6 @@ HEADER_ID_PREFIX = 'HYPERCOIN_'
 HEADER_ID_SUFFIX = '_H'
 
 EXCLUDE_FILES_WITH_PREFIX = ['contrib/devtools/hypercoin-tidy',
-                             'src/crypto/ctaes',
                              'src/tinyformat.h',
                              'src/bench/nanobench.h',
                              'src/test/fuzz/FuzzedDataProvider.h'] + SHARED_EXCLUDED_SUBTREES

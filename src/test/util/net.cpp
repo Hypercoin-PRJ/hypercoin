@@ -56,7 +56,7 @@ void ConnmanTestMsg::Handshake(CNode& node,
     FlushSendBuffer(node); // Drop the verack message added by SendMessages.
     if (node.fDisconnect) return;
     assert(node.nVersion == version);
-    assert(node.GetCommonVersion() == std::min(version, PROTOCOL_VERSION));
+    assert(node.GetCommonVersion() == std::min(version, node.AdvertisedVersion()));
     CNodeStateStats statestats;
     assert(peerman.GetNodeStateStats(node.GetId(), statestats));
     assert(statestats.m_relay_txs == (relay_txs && !node.IsBlockOnlyConn()));
@@ -140,7 +140,7 @@ std::vector<NodeEvictionCandidate> GetRandomNodeEvictionCandidates(int n_candida
     for (int id = 0; id < n_candidates; ++id) {
         candidates.push_back({
             .id=id,
-            .m_connected=std::chrono::seconds{random_context.randrange(100)},
+            .m_connected=NodeSeconds{std::chrono::seconds{random_context.randrange(100)}},
             .m_min_ping_time=std::chrono::microseconds{random_context.randrange(100)},
             .m_last_block_time=std::chrono::seconds{random_context.randrange(100)},
             .m_last_tx_time=std::chrono::seconds{random_context.randrange(100)},
@@ -346,8 +346,13 @@ void DynSock::Pipe::WaitForDataOrEof(UniqueLock<Mutex>& lock)
     });
 }
 
-DynSock::DynSock(std::shared_ptr<Pipes> pipes, std::shared_ptr<Queue> accept_sockets)
+DynSock::DynSock(std::shared_ptr<Pipes> pipes, Queue* accept_sockets)
     : m_pipes{pipes}, m_accept_sockets{accept_sockets}
+{
+}
+
+DynSock::DynSock(std::shared_ptr<Pipes> pipes)
+    : m_pipes{pipes}, m_accept_sockets{}
 {
 }
 
@@ -369,6 +374,7 @@ ssize_t DynSock::Send(const void* buf, size_t len, int) const
 
 std::unique_ptr<Sock> DynSock::Accept(sockaddr* addr, socklen_t* addr_len) const
 {
+    assert(m_accept_sockets && "Accept() called on non-listening DynSock");
     ZeroSock::Accept(addr, addr_len);
     return m_accept_sockets->Pop().value_or(nullptr);
 }
@@ -394,17 +400,17 @@ bool DynSock::WaitMany(std::chrono::milliseconds timeout, EventsPerSock& events_
     for (;;) {
         // Check all sockets for readiness without waiting.
         for (auto& [sock, events] : events_per_sock) {
-            if ((events.requested & Sock::SEND) != 0) {
+            if ((events.requested & Sock::SendEvent) != 0) {
                 // Always ready for Send().
-                events.occurred |= Sock::SEND;
+                events.occurred |= Sock::SendEvent;
                 at_least_one_event_occurred = true;
             }
 
-            if ((events.requested & Sock::RECV) != 0) {
+            if ((events.requested & Sock::RecvEvent) != 0) {
                 auto dyn_sock = reinterpret_cast<const DynSock*>(sock.get());
                 uint8_t b;
-                if (dyn_sock->m_pipes->recv.GetBytes(&b, 1, MSG_PEEK) == 1 || !dyn_sock->m_accept_sockets->Empty()) {
-                    events.occurred |= Sock::RECV;
+                if (dyn_sock->m_pipes->recv.GetBytes(&b, 1, MSG_PEEK) == 1 || (dyn_sock->m_accept_sockets && !dyn_sock->m_accept_sockets->Empty())) {
+                    events.occurred |= Sock::RecvEvent;
                     at_least_one_event_occurred = true;
                 }
             }

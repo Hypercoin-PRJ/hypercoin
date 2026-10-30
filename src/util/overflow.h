@@ -5,16 +5,17 @@
 #ifndef HYPERCOIN_UTIL_OVERFLOW_H
 #define HYPERCOIN_UTIL_OVERFLOW_H
 
+#include <util/check.h>
+
 #include <climits>
 #include <concepts>
 #include <limits>
 #include <optional>
 #include <type_traits>
 
-template <class T>
+template <std::integral T>
 [[nodiscard]] bool AdditionOverflow(const T i, const T j) noexcept
 {
-    static_assert(std::is_integral_v<T>, "Integral required.");
     if constexpr (std::numeric_limits<T>::is_signed) {
         return (i > 0 && j > std::numeric_limits<T>::max() - i) ||
                (i < 0 && j < std::numeric_limits<T>::min() - i);
@@ -39,7 +40,7 @@ template <std::unsigned_integral T, std::unsigned_integral U>
     return true;
 }
 
-template <class T>
+template <std::integral T>
 [[nodiscard]] T SaturatingAdd(const T i, const T j) noexcept
 {
     if constexpr (std::numeric_limits<T>::is_signed) {
@@ -55,6 +56,21 @@ template <class T>
         }
     }
     return i + j;
+}
+
+/**
+ * @brief Integer ceiling division (for unsigned values).
+ *
+ * Computes the smallest integer q such that q * divisor >= dividend.
+ * Both dividend and divisor must be unsigned, and divisor must be non-zero.
+ *
+ * The implementation avoids overflow that can occur with `(dividend + divisor - 1) / divisor`.
+ */
+template <std::unsigned_integral Dividend, std::unsigned_integral Divisor>
+[[nodiscard]] constexpr auto CeilDiv(const Dividend dividend, const Divisor divisor)
+{
+    assert(divisor > 0);
+    return dividend / divisor + (dividend % divisor != 0);
 }
 
 /**

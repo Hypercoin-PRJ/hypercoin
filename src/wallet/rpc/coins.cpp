@@ -66,7 +66,7 @@ static CAmount GetReceived(const CWallet& wallet, const UniValue& params, bool b
             continue;
         }
 
-        for (const CTxOut& txout : wtx.tx->vout) {
+        for (const CTxOut& txout : wtx.GetTx()->vout) {
             if (output_scripts.contains(txout.scriptPubKey)) {
                 amount += txout.nValue;
             }
@@ -77,9 +77,9 @@ static CAmount GetReceived(const CWallet& wallet, const UniValue& params, bool b
 }
 
 
-RPCHelpMan getreceivedbyaddress()
+RPCMethod getreceivedbyaddress()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "getreceivedbyaddress",
         "Returns the total amount received by the given address in transactions with at least minconf confirmations.\n",
                 {
@@ -102,7 +102,7 @@ RPCHelpMan getreceivedbyaddress()
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("getreceivedbyaddress", "\"" + EXAMPLE_ADDRESS[0] + "\", 6")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -119,9 +119,9 @@ RPCHelpMan getreceivedbyaddress()
 }
 
 
-RPCHelpMan getreceivedbylabel()
+RPCMethod getreceivedbylabel()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "getreceivedbylabel",
         "Returns the total amount received by addresses with <label> in transactions with at least [minconf] confirmations.\n",
                 {
@@ -144,7 +144,7 @@ RPCHelpMan getreceivedbylabel()
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("getreceivedbylabel", "\"tabby\", 6, true")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -161,15 +161,16 @@ RPCHelpMan getreceivedbylabel()
 }
 
 
-RPCHelpMan getbalance()
+RPCMethod getbalance()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "getbalance",
         "Returns the total available balance.\n"
                 "The available balance is what the wallet considers currently spendable, and is\n"
                 "thus affected by options which limit spendability such as -spendzeroconfchange.\n",
                 {
-                    {"dummy", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Remains for backward compatibility. Must be excluded or set to \"*\"."},
+                    {"dummy", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Remains for backward compatibility. Must be excluded or set to \"*\".",
+                        RPCArgOptions{.placeholder = true}},
                     {"minconf", RPCArg::Type::NUM, RPCArg::Default{0}, "Only include transactions confirmed at least this many times."},
                     {"include_watchonly", RPCArg::Type::BOOL, RPCArg::Default{false}, "No longer used"},
                     {"avoid_reuse", RPCArg::Type::BOOL, RPCArg::Default{true}, "(only available if avoid_reuse wallet flag is set) Do not include balance in dirty outputs; addresses are considered dirty if they have previously been used in a transaction."},
@@ -185,7 +186,7 @@ RPCHelpMan getbalance()
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("getbalance", "\"*\", 6")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -211,9 +212,9 @@ RPCHelpMan getbalance()
     };
 }
 
-RPCHelpMan lockunspent()
+RPCMethod lockunspent()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "lockunspent",
         "Updates list of temporarily unspendable outputs.\n"
                 "Temporarily lock (unlock=false) or unlock (unlock=true) specified transaction outputs.\n"
@@ -255,7 +256,7 @@ RPCHelpMan lockunspent()
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("lockunspent", "false, \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -309,7 +310,7 @@ RPCHelpMan lockunspent()
 
         const CWalletTx& trans = it->second;
 
-        if (outpt.n >= trans.tx->vout.size()) {
+        if (outpt.n >= trans.GetTx()->vout.size()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout index out of bounds");
         }
 
@@ -344,9 +345,9 @@ RPCHelpMan lockunspent()
     };
 }
 
-RPCHelpMan listlockunspent()
+RPCMethod listlockunspent()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "listlockunspent",
         "Returns list of temporarily unspendable outputs.\n"
                 "See the lockunspent call to lock and unlock transactions for spending.\n",
@@ -373,7 +374,7 @@ RPCHelpMan listlockunspent()
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("listlockunspent", "")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -398,9 +399,9 @@ RPCHelpMan listlockunspent()
     };
 }
 
-RPCHelpMan getbalances()
+RPCMethod getbalances()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "getbalances",
         "Returns an object with all balances in " + CURRENCY_UNIT + ".\n",
         {},
@@ -412,6 +413,7 @@ RPCHelpMan getbalances()
                     {RPCResult::Type::STR_AMOUNT, "trusted", "trusted balance (outputs created by the wallet or confirmed outputs)"},
                     {RPCResult::Type::STR_AMOUNT, "untrusted_pending", "untrusted pending balance (outputs created by others that are in the mempool)"},
                     {RPCResult::Type::STR_AMOUNT, "immature", "balance from immature coinbase outputs"},
+                    {RPCResult::Type::STR_AMOUNT, "nonmempool", "sum of coins that are spent by transactions not in the mempool (usually an over-estimate due to not accounting for change or spends that conflict with each other)"},
                     {RPCResult::Type::STR_AMOUNT, "used", /*optional=*/true, "(only present if avoid_reuse is set) balance from coins sent to addresses that were previously spent from (potentially privacy violating)"},
                 }},
                 RESULT_LAST_PROCESSED_BLOCK,
@@ -420,7 +422,7 @@ RPCHelpMan getbalances()
         RPCExamples{
             HelpExampleCli("getbalances", "") +
             HelpExampleRpc("getbalances", "")},
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> rpc_wallet = GetWalletForJSONRPCRequest(request);
     if (!rpc_wallet) return UniValue::VNULL;
@@ -432,18 +434,17 @@ RPCHelpMan getbalances()
 
     LOCK(wallet.cs_wallet);
 
-    const auto bal = GetBalance(wallet);
+    const auto bal = GetBalance(wallet, /*min_depth=*/0, /*avoid_reuse=*/true, /*include_nonmempool=*/true);
+
     UniValue balances{UniValue::VOBJ};
     {
         UniValue balances_mine{UniValue::VOBJ};
         balances_mine.pushKV("trusted", ValueFromAmount(bal.m_mine_trusted));
         balances_mine.pushKV("untrusted_pending", ValueFromAmount(bal.m_mine_untrusted_pending));
         balances_mine.pushKV("immature", ValueFromAmount(bal.m_mine_immature));
+        balances_mine.pushKV("nonmempool", ValueFromAmount(bal.m_mine_nonmempool));
         if (wallet.IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE)) {
-            // If the AVOID_REUSE flag is set, bal has been set to just the un-reused address balance. Get
-            // the total balance, and then subtract bal to get the reused address balance.
-            const auto full_bal = GetBalance(wallet, 0, false);
-            balances_mine.pushKV("used", ValueFromAmount(full_bal.m_mine_trusted + full_bal.m_mine_untrusted_pending - bal.m_mine_trusted - bal.m_mine_untrusted_pending));
+            balances_mine.pushKV("used", ValueFromAmount(bal.m_mine_used));
         }
         balances.pushKV("mine", std::move(balances_mine));
     }
@@ -453,9 +454,9 @@ RPCHelpMan getbalances()
     };
 }
 
-RPCHelpMan listunspent()
+RPCMethod listunspent()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "listunspent",
         "Returns array of unspent transaction outputs\n"
                 "with between minconf and maxconf (inclusive) confirmations.\n"
@@ -489,12 +490,12 @@ RPCHelpMan listunspent()
                             {RPCResult::Type::NUM, "vout", "the vout value"},
                             {RPCResult::Type::STR, "address", /*optional=*/true, "the hypercoin address"},
                             {RPCResult::Type::STR, "label", /*optional=*/true, "The associated label, or \"\" for the default label"},
-                            {RPCResult::Type::STR, "scriptPubKey", "the output script"},
+                            {RPCResult::Type::STR_HEX, "scriptPubKey", "the output script"},
                             {RPCResult::Type::STR_AMOUNT, "amount", "the transaction output amount in " + CURRENCY_UNIT},
                             {RPCResult::Type::NUM, "confirmations", "The number of confirmations"},
                             {RPCResult::Type::NUM, "ancestorcount", /*optional=*/true, "The number of in-mempool ancestor transactions, including this one (if transaction is in the mempool)"},
                             {RPCResult::Type::NUM, "ancestorsize", /*optional=*/true, "The virtual transaction size of in-mempool ancestors, including this one (if transaction is in the mempool)"},
-                            {RPCResult::Type::STR_AMOUNT, "ancestorfees", /*optional=*/true, "The total fees of in-mempool ancestors (including this one) with fee deltas used for mining priority in " + CURRENCY_ATOM + " (if transaction is in the mempool)"},
+                            {RPCResult::Type::NUM, "ancestorfees", /*optional=*/true, "The total fees of in-mempool ancestors (including this one) with fee deltas used for mining priority in " + CURRENCY_ATOM + " (if transaction is in the mempool)"},
                             {RPCResult::Type::STR_HEX, "redeemScript", /*optional=*/true, "The redeem script if the output script is P2SH"},
                             {RPCResult::Type::STR, "witnessScript", /*optional=*/true, "witness script if the output script is P2WSH or P2SH-P2WSH"},
                             {RPCResult::Type::BOOL, "spendable", "(DEPRECATED) Always true"},
@@ -513,11 +514,11 @@ RPCHelpMan listunspent()
                 RPCExamples{
                     HelpExampleCli("listunspent", "")
             + HelpExampleCli("listunspent", "6 9999999 \"[\\\"" + EXAMPLE_ADDRESS[0] + "\\\",\\\"" + EXAMPLE_ADDRESS[1] + "\\\"]\"")
-            + HelpExampleRpc("listunspent", "6, 9999999 \"[\\\"" + EXAMPLE_ADDRESS[0] + "\\\",\\\"" + EXAMPLE_ADDRESS[1] + "\\\"]\"")
+            + HelpExampleRpc("listunspent", strprintf(R"(6, 9999999, ["%s","%s"])", EXAMPLE_ADDRESS[0], EXAMPLE_ADDRESS[1]))
             + HelpExampleCli("listunspent", "6 9999999 '[]' true '{ \"minimumAmount\": 0.005 }'")
             + HelpExampleRpc("listunspent", "6, 9999999, [] , true, { \"minimumAmount\": 0.005 } ")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;

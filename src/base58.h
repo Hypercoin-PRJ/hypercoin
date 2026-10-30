@@ -14,8 +14,7 @@
 #ifndef HYPERCOIN_BASE58_H
 #define HYPERCOIN_BASE58_H
 
-#include <span.h>
-
+#include <span>
 #include <string>
 #include <vector>
 

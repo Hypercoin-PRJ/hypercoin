@@ -8,17 +8,17 @@
 #include <key.h>
 #include <primitives/transaction.h>
 #include <pubkey.h>
+#include <random.h>
 #include <script/interpreter.h>
 #include <script/script.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
-#include <span.h>
-#include <test/util/random.h>
 #include <uint256.h>
+#include <util/check.h>
 #include <util/translation.h>
 
-#include <cassert>
 #include <map>
+#include <span>
 #include <vector>
 
 enum class InputType {
@@ -42,12 +42,15 @@ static void SignTransactionSingleInput(benchmark::Bench& bench, InputType input_
         keystore.pubkeys.emplace(key_id, pubkey);
 
         // Create specified locking script type
-        CScript prev_spk;
-        switch (input_type) {
-        case InputType::P2WPKH: prev_spk = GetScriptForDestination(WitnessV0KeyHash(pubkey)); break;
-        case InputType::P2TR:   prev_spk = GetScriptForDestination(WitnessV1Taproot(XOnlyPubKey{pubkey})); break;
-        default: assert(false);
-        }
+        CScript prev_spk = [&]() {
+            switch (input_type) {
+            case InputType::P2WPKH:
+                return GetScriptForDestination(WitnessV0KeyHash(pubkey));
+            case InputType::P2TR:
+                return GetScriptForDestination(WitnessV1Taproot(XOnlyPubKey{pubkey}));
+            } // no default case, so the compiler can warn about missing cases
+            assert(false);
+        }();
         prev_spks.push_back(prev_spk);
     }
 
@@ -65,7 +68,7 @@ static void SignTransactionSingleInput(benchmark::Bench& bench, InputType input_
         const CScript& prev_spk = prev_spks[(iter++) % prev_spks.size()];
         coins[prevout] = Coin(CTxOut(10000, prev_spk), /*nHeightIn=*/100, /*fCoinBaseIn=*/false);
         std::map<int, bilingual_str> input_errors;
-        bool complete = SignTransaction(tx, &keystore, coins, SIGHASH_ALL, input_errors);
+        bool complete = SignTransaction(tx, &keystore, coins, {.sighash_type = SIGHASH_ALL}, input_errors);
         assert(complete);
     });
 }

@@ -52,6 +52,7 @@ add_executable(bench_hypercoin
   strencodings.cpp
   txgraph.cpp
   txorphanage.cpp
+  uint256_blob.cpp
   util_time.cpp
   verify_script.cpp
 )
@@ -70,6 +71,10 @@ target_link_libraries(bench_hypercoin
   Boost::headers
 )
 
+if(WITH_EMBEDDED_ASMAP)
+  target_sources(bench_hypercoin PRIVATE asmap.cpp)
+endif()
+
 if(ENABLE_WALLET)
   target_sources(bench_hypercoin
     PRIVATE
@@ -77,6 +82,7 @@ if(ENABLE_WALLET)
       wallet_balance.cpp
       wallet_create.cpp
       wallet_create_tx.cpp
+      wallet_encrypt.cpp
       wallet_loading.cpp
       wallet_ismine.cpp
       wallet_migration.cpp

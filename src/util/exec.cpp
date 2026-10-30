@@ -5,10 +5,13 @@
 #include <util/exec.h>
 
 #include <util/fs.h>
+#ifdef WIN32
 #include <util/subprocess.h>
+#endif
 
+#include <cstdlib>
 #include <string>
-#include <vector>
+#include <system_error>
 
 #ifdef WIN32
 #include <process.h>
@@ -23,17 +26,16 @@ int ExecVp(const char* file, char* const argv[])
 #ifndef WIN32
     return execvp(file, argv);
 #else
-    std::vector<std::wstring> escaped_args;
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    std::vector<std::string> escaped_args;
     for (char* const* arg_ptr{argv}; *arg_ptr; ++arg_ptr) {
-        subprocess::util::quote_argument(converter.from_bytes(*arg_ptr), escaped_args.emplace_back(), false);
+        subprocess::util::quote_argument(std::string{*arg_ptr}, escaped_args.emplace_back(), /*force=*/false);
     }
 
-    std::vector<const wchar_t*> new_argv;
+    std::vector<const char*> new_argv;
     new_argv.reserve(escaped_args.size() + 1);
     for (const auto& s : escaped_args) new_argv.push_back(s.c_str());
     new_argv.push_back(nullptr);
-    return _wexecvp(converter.from_bytes(file).c_str(), new_argv.data());
+    return _execvp(file, new_argv.data());
 #endif
 }
 

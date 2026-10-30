@@ -9,18 +9,18 @@
 #ifndef HYPERCOIN_UTIL_STRENCODINGS_H
 #define HYPERCOIN_UTIL_STRENCODINGS_H
 
-#include <crypto/hex_base.h>
 #include <span.h>
 #include <util/string.h>
 
-#include <algorithm>
 #include <array>
 #include <bit>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -215,18 +215,10 @@ bool TimingResistantEqual(const T& a, const T& b)
  */
 [[nodiscard]] bool ParseFixedPoint(std::string_view, int decimals, int64_t *amount_out);
 
-namespace {
-/** Helper class for the default infn argument to ConvertBits (just returns the input). */
-struct IntIdentity
-{
-    [[maybe_unused]] int operator()(int x) const { return x; }
-};
-
-} // namespace
-
 /** Convert from one power-of-2 number base to another. */
-template<int frombits, int tobits, bool pad, typename O, typename It, typename I = IntIdentity>
-bool ConvertBits(O outfn, It it, It end, I infn = {}) {
+template <int frombits, int tobits, bool pad, typename O, typename It, typename I = std::identity>
+bool ConvertBits(O outfn, It it, It end, I infn = {})
+{
     size_t acc = 0;
     size_t bits = 0;
     constexpr size_t maxv = (1 << tobits) - 1;
@@ -326,6 +318,14 @@ std::string Capitalize(std::string str);
  */
 std::optional<uint64_t> ParseByteUnits(std::string_view str, ByteUnit default_multiplier);
 
+/**
+ *  Locale-independent, ASCII-only comparator
+ *  @param[in] s1 a string to compare
+ *  @param[in] s2 another string to compare
+ *  @returns true if s1 == s2 when both strings are converted to lowercase
+ */
+bool CaseInsensitiveEqual(std::string_view s1, std::string_view s2);
+
 namespace util {
 /** consteval version of HexDigit() without the lookup table. */
 consteval uint8_t ConstevalHexDigit(const char c)
@@ -353,20 +353,6 @@ struct Hex {
     }
 };
 } // namespace detail
-
-struct AsciiCaseInsensitiveKeyEqual {
-    bool operator()(std::string_view s1, std::string_view s2) const
-    {
-        return ToLower(s1) == ToLower(s2);
-    }
-};
-
-struct AsciiCaseInsensitiveHash {
-    size_t operator()(std::string_view s) const
-    {
-        return std::hash<std::string>{}(ToLower(s));
-    }
-};
 
 /**
  * ""_hex is a compile-time user-defined literal returning a

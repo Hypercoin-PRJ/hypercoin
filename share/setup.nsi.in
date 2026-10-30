@@ -72,19 +72,19 @@ ShowUninstDetails show
 Section -Main SEC0000
     SetOutPath $INSTDIR
     SetOverwrite on
-    File @abs_top_builddir@/release/@HYPERCOIN_GUI_NAME@@EXEEXT@
-    File @abs_top_builddir@/release/@HYPERCOIN_WRAPPER_NAME@@EXEEXT@
-    File /oname=COPYING.txt @abs_top_srcdir@/COPYING
-    File /oname=readme.txt @abs_top_srcdir@/doc/README_windows.txt
-    File @abs_top_srcdir@/share/examples/hypercoin.conf
+    File "@BIN_DIR@/@HYPERCOIN_GUI_NAME@@EXEEXT@"
+    File "@BIN_DIR@/@HYPERCOIN_WRAPPER_NAME@@EXEEXT@"
+    File /oname=COPYING.txt "@abs_top_srcdir@/COPYING"
+    File /oname=readme.txt "@abs_top_srcdir@/doc/README_windows.txt"
+    File "@abs_top_srcdir@/share/examples/hypercoin.conf"
     SetOutPath $INSTDIR\share\rpcauth
-    File @abs_top_srcdir@/share/rpcauth/*.*
+    File "@abs_top_srcdir@/share/rpcauth/*.*"
     SetOutPath $INSTDIR\daemon
-    File @abs_top_builddir@/release/@HYPERCOIN_DAEMON_NAME@@EXEEXT@
-    File @abs_top_builddir@/release/@HYPERCOIN_CLI_NAME@@EXEEXT@
-    File @abs_top_builddir@/release/@HYPERCOIN_TX_NAME@@EXEEXT@
-    File @abs_top_builddir@/release/@HYPERCOIN_WALLET_TOOL_NAME@@EXEEXT@
-    File @abs_top_builddir@/release/@HYPERCOIN_TEST_NAME@@EXEEXT@
+    File "@BIN_DIR@/@HYPERCOIN_DAEMON_NAME@@EXEEXT@"
+    File "@BIN_DIR@/@HYPERCOIN_CLI_NAME@@EXEEXT@"
+    File "@BIN_DIR@/@HYPERCOIN_TX_NAME@@EXEEXT@"
+    File "@BIN_DIR@/@HYPERCOIN_WALLET_TOOL_NAME@@EXEEXT@"
+    File "@LIBEXEC_DIR@/@HYPERCOIN_TEST_NAME@@EXEEXT@"
     SetOutPath $INSTDIR
     WriteRegStr HKCU "${REGKEY}\Components" Main 1
 SectionEnd

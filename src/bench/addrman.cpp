@@ -10,13 +10,13 @@
 #include <netgroup.h>
 #include <protocol.h>
 #include <random.h>
-#include <span.h>
 #include <uint256.h>
 #include <util/check.h>
 #include <util/time.h>
 
 #include <cstring>
 #include <optional>
+#include <span>
 #include <vector>
 
 /* A "source" is a source address from which we have received a bunch of other addresses. */
@@ -161,18 +161,12 @@ static void AddrManAddThenGood(benchmark::Bench& bench)
 
     CreateAddresses();
 
-    bench.run([&] {
-        // To make the benchmark independent of the number of evaluations, we always prepare a new addrman.
-        // This is necessary because AddrMan::Good() method modifies the object, affecting the timing of subsequent calls
-        // to the same method and we want to do the same amount of work in every loop iteration.
-        //
-        // This has some overhead (exactly the result of AddrManAdd benchmark), but that overhead is constant so improvements in
-        // AddrMan::Good() will still be noticeable.
-        AddrMan addrman{EMPTY_NETGROUPMAN, /*deterministic=*/false, ADDRMAN_CONSISTENCY_CHECK_RATIO};
-        AddAddressesToAddrMan(addrman);
-
-        markSomeAsGood(addrman);
-    });
+    std::optional<AddrMan> addrman;
+    bench.setup([&] {
+            addrman.emplace(EMPTY_NETGROUPMAN, /*deterministic=*/false, ADDRMAN_CONSISTENCY_CHECK_RATIO);
+            AddAddressesToAddrMan(*addrman);
+        })
+        .run([&] { markSomeAsGood(*addrman); });
 }
 
 BENCHMARK(AddrManAdd);

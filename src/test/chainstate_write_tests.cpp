@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <test/util/setup_common.h>
+#include <test/util/time.h>
 #include <validation.h>
 #include <validationinterface.h>
 
@@ -30,6 +31,7 @@ BOOST_FIXTURE_TEST_CASE(chainstate_write_interval, TestingSetup)
     m_node.validation_signals->RegisterSharedValidationInterface(sub);
     auto& chainstate{Assert(m_node.chainman)->ActiveChainstate()};
     BlockValidationState state_dummy{};
+    FakeNodeClock clock{};
 
     // The first periodic flush sets m_next_write and does not flush
     chainstate.FlushStateToDisk(state_dummy, FlushStateMode::PERIODIC);
@@ -37,12 +39,12 @@ BOOST_FIXTURE_TEST_CASE(chainstate_write_interval, TestingSetup)
     BOOST_CHECK(!sub->m_did_flush);
 
     // The periodic flush interval is between 50 and 70 minutes (inclusive)
-    SetMockTime(GetTime<std::chrono::minutes>() + DATABASE_WRITE_INTERVAL_MIN - 1min);
+    clock += DATABASE_WRITE_INTERVAL_MIN - 1min;
     chainstate.FlushStateToDisk(state_dummy, FlushStateMode::PERIODIC);
     m_node.validation_signals->SyncWithValidationInterfaceQueue();
     BOOST_CHECK(!sub->m_did_flush);
 
-    SetMockTime(GetTime<std::chrono::minutes>() + DATABASE_WRITE_INTERVAL_MAX);
+    clock += DATABASE_WRITE_INTERVAL_MAX;
     chainstate.FlushStateToDisk(state_dummy, FlushStateMode::PERIODIC);
     m_node.validation_signals->SyncWithValidationInterfaceQueue();
     BOOST_CHECK(sub->m_did_flush);
@@ -83,10 +85,11 @@ BOOST_FIXTURE_TEST_CASE(write_during_multiblock_activation, TestChain100Setup)
 
     // Set m_next_write to current time
     chainstate.FlushStateToDisk(state_dummy, FlushStateMode::FORCE_FLUSH);
+    BOOST_CHECK_EQUAL(WITH_LOCK(::cs_main, return chainstate.GetLastFlushedBlock()), second_from_tip->pprev);
     m_node.validation_signals->SyncWithValidationInterfaceQueue();
     // The periodic flush interval is between 50 and 70 minutes (inclusive)
     // The next call to a PERIODIC write will flush
-    SetMockTime(GetMockTime() + DATABASE_WRITE_INTERVAL_MAX);
+    m_clock += DATABASE_WRITE_INTERVAL_MAX;
 
     const auto sub{std::make_shared<TestSubscriber>()};
     m_node.validation_signals->RegisterSharedValidationInterface(sub);
@@ -99,6 +102,7 @@ BOOST_FIXTURE_TEST_CASE(write_during_multiblock_activation, TestChain100Setup)
     // inside the outer loop.
     m_node.validation_signals->SyncWithValidationInterfaceQueue();
     BOOST_CHECK_EQUAL(sub->m_flushed_at_block, second_from_tip);
+    BOOST_CHECK_EQUAL(WITH_LOCK(::cs_main, return chainstate.GetLastFlushedBlock()), second_from_tip);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

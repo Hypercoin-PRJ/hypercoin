@@ -14,4 +14,7 @@
  */
 std::string UrlDecode(std::string_view url_encoded);
 
+/* Encode a URL. */
+std::string UrlEncode(std::string_view str);
+
 #endif // HYPERCOIN_COMMON_URL_H

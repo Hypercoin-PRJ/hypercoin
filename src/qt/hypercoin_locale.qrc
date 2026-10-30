@@ -49,6 +49,7 @@
         <file alias="ko">locale/hypercoin_ko.qm</file>
         <file alias="ku">locale/hypercoin_ku.qm</file>
         <file alias="ku_IQ">locale/hypercoin_ku_IQ.qm</file>
+        <file alias="la">locale/hypercoin_la.qm</file>
         <file alias="lt">locale/hypercoin_lt.qm</file>
         <file alias="lv">locale/hypercoin_lv.qm</file>
         <file alias="mi">locale/hypercoin_mi.qm</file>
@@ -91,8 +92,8 @@
         <file alias="uz@Cyrl">locale/hypercoin_uz@Cyrl.qm</file>
         <file alias="uz@Latn">locale/hypercoin_uz@Latn.qm</file>
         <file alias="ve">locale/hypercoin_ve.qm</file>
+        <file alias="vi">locale/hypercoin_vi.qm</file>
         <file alias="yi">locale/hypercoin_yi.qm</file>
-        <file alias="yo">locale/hypercoin_yo.qm</file>
         <file alias="yue">locale/hypercoin_yue.qm</file>
         <file alias="zh-Hans">locale/hypercoin_zh-Hans.qm</file>
         <file alias="zh-Hant">locale/hypercoin_zh-Hant.qm</file>

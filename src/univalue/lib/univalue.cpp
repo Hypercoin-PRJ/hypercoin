@@ -1,5 +1,5 @@
 // Copyright 2014 BitPay Inc.
-// Copyright 2015 Hypercoin Core Developers
+// Copyright (c) 2015-present The Hypercoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://opensource.org/licenses/mit-license.php.
 

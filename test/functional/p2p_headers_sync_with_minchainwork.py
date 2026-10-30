@@ -15,12 +15,14 @@ from test_framework.messages import (
 )
 
 from test_framework.blocktools import (
+    MAX_FUTURE_BLOCK_TIME,
     NORMAL_GBT_REQUEST_PARAMS,
     create_block,
 )
 
 from test_framework.util import assert_equal
 
+import re
 import time
 
 NODE1_BLOCKS_REQUIRED = 15
@@ -68,7 +70,7 @@ class RejectLowDifficultyHeadersTest(HypercoinTestFramework):
 
         def check_node3_chaintips(num_tips, tip_hash, height):
             node3_chaintips = self.nodes[3].getchaintips()
-            assert len(node3_chaintips) == num_tips
+            assert_equal(len(node3_chaintips), num_tips)
             assert {
                 'height': height,
                 'hash': tip_hash,
@@ -80,7 +82,7 @@ class RejectLowDifficultyHeadersTest(HypercoinTestFramework):
 
         for node in self.nodes[1:3]:
             chaintips = node.getchaintips()
-            assert len(chaintips) == 1
+            assert_equal(len(chaintips), 1)
             assert {
                 'height': 0,
                 'hash': '0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206',
@@ -103,7 +105,7 @@ class RejectLowDifficultyHeadersTest(HypercoinTestFramework):
             'status': 'active',
         } in self.nodes[2].getchaintips()
 
-        assert len(self.nodes[2].getchaintips()) == 1
+        assert_equal(len(self.nodes[2].getchaintips()), 1)
 
         self.log.info("Check that node3 accepted these headers as well")
         check_node3_chaintips(2, self.nodes[0].getbestblockhash(), NODE1_BLOCKS_REQUIRED)
@@ -143,6 +145,16 @@ class RejectLowDifficultyHeadersTest(HypercoinTestFramework):
 
         # getpeerinfo should show a sync in progress
         assert_equal(node.getpeerinfo()[0]['presynced_headers'], 2000)
+
+        self.log.info("Test whether a lagging clock aborts low-work headers sync")
+        node.disconnect_p2ps()
+        node.setmocktime(node.getblockheader(node.getblockhash(0))['mediantime'] - MAX_FUTURE_BLOCK_TIME - 1)
+        p2p = node.add_p2p_connection(P2PInterface())
+        p2p.send_without_ping(headers_message)
+        node.wait_until_stopped(expect_error=True, expected_ret_code=[-6,          # Unix
+                                                                      3,           # Windows native
+                                                                      0xC0000409], # Windows cross builds
+                                expected_stderr=re.compile("Failure when attempting to initiate headers sync: System clock"))
 
     def test_large_reorgs_can_succeed(self):
         self.log.info("Test that a 2000+ block reorg, starting from a point that is more than 2000 blocks before a locator entry, can succeed")

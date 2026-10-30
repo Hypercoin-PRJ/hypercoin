@@ -14,6 +14,7 @@
 #include <test/fuzz/util/net.h>
 #include <test/util/net.h>
 #include <test/util/setup_common.h>
+#include <test/util/time.h>
 #include <util/asmap.h>
 #include <util/chaintype.h>
 #include <util/time.h>
@@ -31,15 +32,16 @@ void initialize_net()
 FUZZ_TARGET(net, .init = initialize_net)
 {
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
-    SetMockTime(ConsumeTime(fuzzed_data_provider));
-    CNode node{ConsumeNode(fuzzed_data_provider)};
+    FakeNodeClock clock{ConsumeTime(fuzzed_data_provider)};
+    FakeSteadyClock steady_clock;
+    CNode node{ConsumeNode(fuzzed_data_provider, steady_clock)};
     node.SetCommonVersion(fuzzed_data_provider.ConsumeIntegral<int>());
     if (const auto service_opt =
             ConsumeDeserializable<CService>(fuzzed_data_provider, ConsumeDeserializationParams<CNetAddr::SerParams>(fuzzed_data_provider)))
     {
         node.SetAddrLocal(*service_opt);
     }
-    LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000) {
+    LIMITED_WHILE (fuzzed_data_provider.ConsumeBool(), 10000) {
         CallOneOf(
             fuzzed_data_provider,
             [&] {
@@ -80,14 +82,15 @@ FUZZ_TARGET(net, .init = initialize_net)
 FUZZ_TARGET(local_address, .init = initialize_net)
 {
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
-    SetMockTime(ConsumeTime(fuzzed_data_provider));
+    FakeNodeClock clock{ConsumeTime(fuzzed_data_provider)};
+    FakeSteadyClock steady_clock;
     CService service{ConsumeService(fuzzed_data_provider)};
-    CNode node{ConsumeNode(fuzzed_data_provider)};
+    CNode node{ConsumeNode(fuzzed_data_provider, steady_clock)};
     {
         LOCK(g_maplocalhost_mutex);
         mapLocalHost.clear();
     }
-    LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000) {
+    LIMITED_WHILE (fuzzed_data_provider.ConsumeBool(), 10000) {
         CallOneOf(
             fuzzed_data_provider,
             [&] {

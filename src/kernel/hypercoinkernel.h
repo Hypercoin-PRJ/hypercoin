@@ -29,7 +29,15 @@
     #endif
 #endif
 
-/* Warning attributes */
+/**
+ * HYPERCOINKERNEL_WARN_UNUSED_RESULT is a compiler attribute used to indicate
+ * that ignoring a function's return value is almost certainly a bug.
+ *
+ * It is used in cases such as a resource leak (e.g. an owning handle returned
+ * by a *_create or *_copy function), or when the returned value is itself an
+ * error/status code. It is not used merely because discarding the result is
+ * wasteful, e.g. on getters or predicates.
+ */
 #if defined(__GNUC__)
     #define HYPERCOINKERNEL_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
 #else
@@ -112,6 +120,12 @@ extern "C" {
  * object.
  *
  * Array lengths follow the pointer argument they describe.
+ *
+ * @section types Type conventions
+ *
+ * Fixed-width integer types (e.g. int32_t, uint32_t) are used for data values
+ * such as heights. Plain int and unsigned int are used for boolean-like values
+ * and flags.
  */
 
 /**
@@ -226,10 +240,23 @@ typedef struct hrck_Block hrck_Block;
 typedef struct hrck_BlockValidationState hrck_BlockValidationState;
 
 /**
+ * Opaque data structure for holding the Consensus Params.
+ */
+typedef struct hrck_ConsensusParams hrck_ConsensusParams;
+
+/**
  * Opaque data structure for holding the currently known best-chain associated
  * with a chainstate.
  */
 typedef struct hrck_Chain hrck_Chain;
+
+/**
+ * Opaque data structure for holding the state of a transaction during validation.
+ *
+ * Contains information indicating whether validation was successful, and if not
+ * which step during transaction validation failed.
+ */
+typedef struct hrck_TxValidationState hrck_TxValidationState;
 
 /**
  * Opaque data structure for holding a block's spent outputs.
@@ -271,9 +298,16 @@ typedef struct hrck_BlockHash hrck_BlockHash;
 /**
  * Opaque data structure for holding a transaction input.
  *
- * Holds information on the @ref hrck_TransactionOutPoint held within.
+ * Holds information on the @ref hrck_TransactionOutPoint, @ref hrck_WitnessStack and script_sig held within.
  */
 typedef struct hrck_TransactionInput hrck_TransactionInput;
+
+/**
+ * Opaque data structure for holding a witness stack.
+ *
+ * Holds a sequence of witness stack items.
+ */
+typedef struct hrck_WitnessStack hrck_WitnessStack;
 
 /**
  * Opaque data structure for holding a transaction out point.
@@ -349,6 +383,8 @@ typedef void (*hrck_ValidationInterfaceBlockDisconnected)(void* user_data, hrck_
 
 /**
  * Function signature for serializing data.
+ *
+ * Returns 0 to indicate success.
  */
 typedef int (*hrck_WriteBytes)(const void* bytes, size_t size, void* userdata);
 
@@ -374,6 +410,25 @@ typedef uint32_t hrck_BlockValidationResult;
 #define hrck_BlockValidationResult_INVALID_PREV ((hrck_BlockValidationResult)(6))    //!< A block this one builds on is invalid
 #define hrck_BlockValidationResult_TIME_FUTURE ((hrck_BlockValidationResult)(7))     //!< block timestamp was > 2 hours in the future (or our clock is bad)
 #define hrck_BlockValidationResult_HEADER_LOW_WORK ((hrck_BlockValidationResult)(8)) //!< the block header may be on a too-little-work chain
+
+/**
+ * Indicates the reason why a transaction failed validation. The subset of
+ * values reachable depends on which validation function was used.
+ */
+typedef uint32_t hrck_TxValidationResult;
+#define hrck_TxValidationResult_UNSET               ((hrck_TxValidationResult)(0))  //!< initial value. Tx has not yet been rejected
+#define hrck_TxValidationResult_CONSENSUS           ((hrck_TxValidationResult)(1))  //!< invalid by consensus rules
+#define hrck_TxValidationResult_INPUTS_NOT_STANDARD ((hrck_TxValidationResult)(2))  //!< inputs (covered by txid) failed policy rules
+#define hrck_TxValidationResult_NOT_STANDARD        ((hrck_TxValidationResult)(3))  //!< otherwise didn't meet local policy rules
+#define hrck_TxValidationResult_MISSING_INPUTS      ((hrck_TxValidationResult)(4))  //!< transaction was missing some of its inputs
+#define hrck_TxValidationResult_PREMATURE_SPEND     ((hrck_TxValidationResult)(5))  //!< transaction spends a coinbase too early, or violates locktime/sequence locks
+#define hrck_TxValidationResult_WITNESS_MUTATED     ((hrck_TxValidationResult)(6))  //!< witness may have been malleated or is prior to SegWit activation
+#define hrck_TxValidationResult_WITNESS_STRIPPED    ((hrck_TxValidationResult)(7))  //!< transaction is missing a witness
+#define hrck_TxValidationResult_CONFLICT            ((hrck_TxValidationResult)(8))  //!< tx already in mempool or conflicts with a tx in the chain
+#define hrck_TxValidationResult_MEMPOOL_POLICY      ((hrck_TxValidationResult)(9))  //!< violated mempool's fee/size/descendant/RBF/etc limits
+#define hrck_TxValidationResult_NO_MEMPOOL          ((hrck_TxValidationResult)(10)) //!< this node does not have a mempool so can't validate the transaction
+#define hrck_TxValidationResult_RECONSIDERABLE      ((hrck_TxValidationResult)(11)) //!< fails some policy, but might be acceptable if submitted in a (different) package
+#define hrck_TxValidationResult_UNKNOWN             ((hrck_TxValidationResult)(12)) //!< transaction was not validated because package failed
 
 /**
  * Holds the validation interface callbacks. The user data pointer may be used
@@ -492,6 +547,40 @@ typedef uint8_t hrck_ChainType;
 #define hrck_ChainType_SIGNET ((hrck_ChainType)(3))
 #define hrck_ChainType_REGTEST ((hrck_ChainType)(4))
 
+/** @name TxValidationState
+ *  Introspection for transaction validation state.
+ */
+///@{
+
+/**
+ * Create a new hrck_TxValidationState.
+ */
+HYPERCOINKERNEL_API hrck_TxValidationState* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_tx_validation_state_create();
+
+/**
+ * Returns the validation mode from an opaque hrck_TxValidationState pointer.
+ */
+HYPERCOINKERNEL_API hrck_ValidationMode hrck_tx_validation_state_get_validation_mode(
+    const hrck_TxValidationState* state) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * Returns the validation result from an opaque hrck_TxValidationState pointer.
+ *
+ * hrck_transaction_check currently produces only hrck_TxValidationResult_UNSET
+ * for valid transactions and hrck_TxValidationResult_CONSENSUS for invalid
+ * ones. Other values remain exposed for forward compatibility with higher-level
+ * validation entry points.
+ */
+HYPERCOINKERNEL_API hrck_TxValidationResult hrck_tx_validation_state_get_tx_validation_result(
+    const hrck_TxValidationState* state) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * Destroy the hrck_TxValidationState.
+ */
+HYPERCOINKERNEL_API void hrck_tx_validation_state_destroy(hrck_TxValidationState* state);
+
+///@}
+
 /** @name Transaction
  * Functions for working with transactions.
  */
@@ -527,7 +616,7 @@ HYPERCOINKERNEL_API hrck_Transaction* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_tr
  *                        passed back through the writer callback.
  * @return                0 on success.
  */
-HYPERCOINKERNEL_API int hrck_transaction_to_bytes(
+HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_to_bytes(
     const hrck_Transaction* transaction,
     hrck_WriteBytes writer,
     void* user_data) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
@@ -538,7 +627,7 @@ HYPERCOINKERNEL_API int hrck_transaction_to_bytes(
  * @param[in] transaction Non-null.
  * @return                The number of outputs.
  */
-HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_count_outputs(
+HYPERCOINKERNEL_API size_t hrck_transaction_count_outputs(
     const hrck_Transaction* transaction) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -550,7 +639,7 @@ HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_c
  * @param[in] output_index The index of the transaction output to be retrieved.
  * @return                 The transaction output
  */
-HYPERCOINKERNEL_API const hrck_TransactionOutput* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_get_output_at(
+HYPERCOINKERNEL_API const hrck_TransactionOutput* hrck_transaction_get_output_at(
     const hrck_Transaction* transaction, size_t output_index) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -562,7 +651,7 @@ HYPERCOINKERNEL_API const hrck_TransactionOutput* HYPERCOINKERNEL_WARN_UNUSED_RE
  * @param[in] input_index The index of the transaction input to be retrieved.
  * @return                 The transaction input
  */
-HYPERCOINKERNEL_API const hrck_TransactionInput* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_get_input_at(
+HYPERCOINKERNEL_API const hrck_TransactionInput* hrck_transaction_get_input_at(
     const hrck_Transaction* transaction, size_t input_index) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -571,7 +660,16 @@ HYPERCOINKERNEL_API const hrck_TransactionInput* HYPERCOINKERNEL_WARN_UNUSED_RES
  * @param[in] transaction Non-null.
  * @return                The number of inputs.
  */
-HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_count_inputs(
+HYPERCOINKERNEL_API size_t hrck_transaction_count_inputs(
+    const hrck_Transaction* transaction) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * @brief Get a transaction's nLockTime value.
+ *
+ * @param[in] transaction Non-null.
+ * @return                The nLockTime value.
+ */
+HYPERCOINKERNEL_API uint32_t hrck_transaction_get_locktime(
     const hrck_Transaction* transaction) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -581,8 +679,28 @@ HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_c
  * @param[in] transaction Non-null.
  * @return                The txid.
  */
-HYPERCOINKERNEL_API const hrck_Txid* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_get_txid(
+HYPERCOINKERNEL_API const hrck_Txid* hrck_transaction_get_txid(
     const hrck_Transaction* transaction) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * @brief Run context-free consensus validation on a hrck_Transaction.
+ *
+ * Performs basic structural consensus checks (consensus/tx_check::CheckTransaction)
+ * without requiring blockchain state.
+ *
+ * @param[in]  tx               Non-null, the transaction to validate.
+ * @param[out] validation_state Non-null, previously created with
+ *                              hrck_tx_validation_state_create.
+ *                              Overwritten in-place with the validation
+ *                              result.
+ * @return                      1 if valid, 0 if invalid.
+ * @note                        Only hrck_TxValidationResult_UNSET and
+ *                              hrck_TxValidationResult_CONSENSUS are
+ *                              reachable via this function.
+ */
+HYPERCOINKERNEL_API int hrck_transaction_check(
+    const hrck_Transaction* tx,
+    hrck_TxValidationState* validation_state) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
 
 /**
  * Destroy the transaction.
@@ -684,7 +802,7 @@ HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_script_pubkey_ve
  *                          passed back through the writer callback.
  * @return                  0 on success.
  */
-HYPERCOINKERNEL_API int hrck_script_pubkey_to_bytes(
+HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_script_pubkey_to_bytes(
     const hrck_ScriptPubkey* script_pubkey,
     hrck_WriteBytes writer,
     void* user_data) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
@@ -720,7 +838,7 @@ HYPERCOINKERNEL_API hrck_TransactionOutput* HYPERCOINKERNEL_WARN_UNUSED_RESULT h
  * @param[in] transaction_output Non-null.
  * @return                       The script pubkey.
  */
-HYPERCOINKERNEL_API const hrck_ScriptPubkey* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_output_get_script_pubkey(
+HYPERCOINKERNEL_API const hrck_ScriptPubkey* hrck_transaction_output_get_script_pubkey(
     const hrck_TransactionOutput* transaction_output) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -729,7 +847,7 @@ HYPERCOINKERNEL_API const hrck_ScriptPubkey* HYPERCOINKERNEL_WARN_UNUSED_RESULT 
  * @param[in] transaction_output Non-null.
  * @return                       The amount.
  */
-HYPERCOINKERNEL_API int64_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_output_get_amount(
+HYPERCOINKERNEL_API int64_t hrck_transaction_output_get_amount(
     const hrck_TransactionOutput* transaction_output) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -848,9 +966,32 @@ HYPERCOINKERNEL_API hrck_ChainParameters* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrc
     hrck_ChainType chain_type);
 
 /**
+ * @brief Create a signet chain parameters struct with a user-provided
+ * challenge.
+ *
+ * @param[in] challenge     The signet challenge value. Blocks must satisfy it in
+ *                          order to be valid.
+ * @param[in] challenge_len The length of the signet challenge.
+ * @return                  An allocated chain parameters opaque struct.
+ */
+HYPERCOINKERNEL_API hrck_ChainParameters* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chain_parameters_create_signet(
+    const void* challenge, size_t challenge_len);
+
+/**
  * Copy the chain parameters.
  */
 HYPERCOINKERNEL_API hrck_ChainParameters* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chain_parameters_copy(
+    const hrck_ChainParameters* chain_parameters) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * @brief Get hrck_ConsensusParams from hrck_ChainParameters. The returned
+ * hrck_ConsensusParams pointer is valid only for the lifetime of the
+ * hrck_ChainParameters object and must not be destroyed by the caller.
+ *
+ * @param[in] chain_parameters  Non-null.
+ * @return                      The hrck_ConsensusParams.
+ */
+HYPERCOINKERNEL_API const hrck_ConsensusParams* hrck_chain_parameters_get_consensus_params(
     const hrck_ChainParameters* chain_parameters) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -965,7 +1106,7 @@ HYPERCOINKERNEL_API void hrck_context_destroy(hrck_Context* context);
  * @param[in] block_tree_entry Non-null.
  * @return                     The previous block tree entry, or null on error or if the current block tree entry is the genesis block.
  */
-HYPERCOINKERNEL_API const hrck_BlockTreeEntry* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_tree_entry_get_previous(
+HYPERCOINKERNEL_API const hrck_BlockTreeEntry* hrck_block_tree_entry_get_previous(
     const hrck_BlockTreeEntry* block_tree_entry) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -983,7 +1124,7 @@ HYPERCOINKERNEL_API hrck_BlockHeader* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_bl
  * @param[in] block_tree_entry Non-null.
  * @return                     The block height.
  */
-HYPERCOINKERNEL_API int32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_tree_entry_get_height(
+HYPERCOINKERNEL_API int32_t hrck_block_tree_entry_get_height(
     const hrck_BlockTreeEntry* block_tree_entry) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -992,7 +1133,7 @@ HYPERCOINKERNEL_API int32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_tree_e
  * @param[in] block_tree_entry Non-null.
  * @return                     The block hash.
  */
-HYPERCOINKERNEL_API const hrck_BlockHash* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_tree_entry_get_block_hash(
+HYPERCOINKERNEL_API const hrck_BlockHash* hrck_block_tree_entry_get_block_hash(
     const hrck_BlockTreeEntry* block_tree_entry) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1003,8 +1144,19 @@ HYPERCOINKERNEL_API const hrck_BlockHash* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrc
  * @param[in] entry2 Non-null.
  * @return           1 if the block tree entries are equal, 0 otherwise.
  */
-HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_tree_entry_equals(
+HYPERCOINKERNEL_API int hrck_block_tree_entry_equals(
     const hrck_BlockTreeEntry* entry1, const hrck_BlockTreeEntry* entry2) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
+
+/**
+ * @brief Return the ancestor of a hrck_BlockTreeEntry at the given height.
+ *
+ * @param[in] block_tree_entry Non-null.
+ * @param[in] height           The height of the requested ancestor.
+ * @return                     The ancestor at the given height.
+ */
+HYPERCOINKERNEL_API const hrck_BlockTreeEntry* hrck_block_tree_entry_get_ancestor(
+    const hrck_BlockTreeEntry* block_tree_entry,
+    int32_t height) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 ///@}
 
@@ -1018,12 +1170,11 @@ HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_tree_entry
  *
  * @param[in] context          Non-null, the created options and through it the chainstate manager will
  *                             associate with this kernel context for the duration of their lifetimes.
- * @param[in] data_directory   Non-null, non-empty path string of the directory containing the
- *                             chainstate data. If the directory does not exist yet, it will be
- *                             created.
- * @param[in] blocks_directory Non-null, non-empty path string of the directory containing the block
- *                             data. If the directory does not exist yet, it will be created.
- * @return                     The allocated chainstate manager options, or null on error.
+ * @param[in] data_directory   Path string of the directory containing the chainstate data. If the directory
+ *                             does not exist yet, it will be created.
+ * @param[in] blocks_directory Path string of the directory containing the block data. If the directory
+ *                             does not exist yet, it will be created.
+ * @return                     The allocated chainstate manager options, or null on error (e.g. if a path is invalid).
  */
 HYPERCOINKERNEL_API hrck_ChainstateManagerOptions* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chainstate_manager_options_create(
     const hrck_Context* context,
@@ -1045,6 +1196,22 @@ HYPERCOINKERNEL_API void hrck_chainstate_manager_options_set_worker_threads_num(
     int worker_threads) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
+ * @brief Set the total database cache used by the chainstate manager.
+ *
+ * The total cache is split internally between the block tree database,
+ * chainstate database, and in-memory coins cache. If this function is not
+ * called, the total cache defaults to 450 MiB.
+ *
+ * @param[in] chainstate_manager_options Non-null, options to be set.
+ * @param[in] database_cache_bytes       The total database cache size in bytes. Values below 4 MiB are rejected.
+ *                                       On 32-bit systems, values above 1 GiB are also rejected.
+ * @return                               0 if the set was successful, non-zero if the set failed.
+ */
+HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chainstate_manager_options_set_database_cache_bytes(
+    hrck_ChainstateManagerOptions* chainstate_manager_options,
+    uint64_t database_cache_bytes) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
  * @brief Sets wipe db in the options. In combination with calling
  * @ref hrck_chainstate_manager_import_blocks this triggers either a full reindex,
  * or a reindex of just the chainstate database.
@@ -1053,6 +1220,8 @@ HYPERCOINKERNEL_API void hrck_chainstate_manager_options_set_worker_threads_num(
  * @param[in] wipe_block_tree_db         Set wipe block tree db. Should only be 1 if wipe_chainstate_db is 1 too.
  * @param[in] wipe_chainstate_db         Set wipe chainstate db.
  * @return                               0 if the set was successful, non-zero if the set failed.
+ * @note                                 When a wipe is set, the caller must invoke @ref hrck_chainstate_manager_import_blocks
+ *                                       on the resulting chainstate manager before using it for anything else.
  */
 HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chainstate_manager_options_set_wipe_dbs(
     hrck_ChainstateManagerOptions* chainstate_manager_options,
@@ -1107,9 +1276,9 @@ HYPERCOINKERNEL_API hrck_ChainstateManager* HYPERCOINKERNEL_WARN_UNUSED_RESULT h
  * known cumulative proof of work.
  *
  * @param[in] chainstate_manager Non-null.
- * @return                       The hrck_BlockTreeEntry.
+ * @return                       The hrck_BlockTreeEntry, or null if no block headers have been loaded.
  */
-HYPERCOINKERNEL_API const hrck_BlockTreeEntry* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chainstate_manager_get_best_entry(
+HYPERCOINKERNEL_API const hrck_BlockTreeEntry* hrck_chainstate_manager_get_best_entry(
     const hrck_ChainstateManager* chainstate_manager) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1117,13 +1286,11 @@ HYPERCOINKERNEL_API const hrck_BlockTreeEntry* HYPERCOINKERNEL_WARN_UNUSED_RESUL
  *
  * @param[in] chainstate_manager        Non-null.
  * @param[in] header                    Non-null hrck_BlockHeader to be validated.
- * @param[out] block_validation_state   The result of the hrck_BlockHeader validation.
- * @return                              0 if hrck_BlockHeader processing completed successfully, non-zero on error.
+ * @return                              The hrck_BlockValidationState containing validation result, or null on error.
  */
-HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chainstate_manager_process_block_header(
+HYPERCOINKERNEL_API hrck_BlockValidationState* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chainstate_manager_process_block_header(
     hrck_ChainstateManager* chainstate_manager,
-    const hrck_BlockHeader* header,
-    hrck_BlockValidationState* block_validation_state) HYPERCOINKERNEL_ARG_NONNULL(1, 2, 3);
+    const hrck_BlockHeader* header) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
 
 /**
  * @brief Triggers the start of a reindex if the wipe options were previously
@@ -1177,7 +1344,7 @@ HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chainstate_manag
  * @param[in] chainstate_manager Non-null.
  * @return                       The chain.
  */
-HYPERCOINKERNEL_API const hrck_Chain* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chainstate_manager_get_active_chain(
+HYPERCOINKERNEL_API const hrck_Chain* hrck_chainstate_manager_get_active_chain(
     const hrck_ChainstateManager* chainstate_manager) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1188,7 +1355,7 @@ HYPERCOINKERNEL_API const hrck_Chain* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_ch
  * @return                       The block tree entry of the block with the passed in hash, or null if
  *                               the block hash is not found.
  */
-HYPERCOINKERNEL_API const hrck_BlockTreeEntry* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chainstate_manager_get_block_tree_entry_by_hash(
+HYPERCOINKERNEL_API const hrck_BlockTreeEntry* hrck_chainstate_manager_get_block_tree_entry_by_hash(
     const hrck_ChainstateManager* chainstate_manager,
     const hrck_BlockHash* block_hash) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
 
@@ -1236,13 +1403,48 @@ HYPERCOINKERNEL_API hrck_Block* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_cr
 HYPERCOINKERNEL_API hrck_Block* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_copy(
     const hrck_Block* block) HYPERCOINKERNEL_ARG_NONNULL(1);
 
+/** Bitflags to control context-free block checks (optional). */
+typedef uint32_t hrck_BlockCheckFlags;
+#define hrck_BlockCheckFlags_BASE   ((hrck_BlockCheckFlags)0)                                                        //!< run the base context-free block checks only
+#define hrck_BlockCheckFlags_POW    ((hrck_BlockCheckFlags)(1U << 0))                                                //!< run CheckProofOfWork via CheckBlockHeader
+#define hrck_BlockCheckFlags_MERKLE ((hrck_BlockCheckFlags)(1U << 1))                                                //!< verify merkle root (and mutation detection)
+#define hrck_BlockCheckFlags_ALL    ((hrck_BlockCheckFlags)(hrck_BlockCheckFlags_POW | hrck_BlockCheckFlags_MERKLE)) //!< enable all optional context-free block checks
+
+/**
+ * @brief Perform context-free validation checks on a hrck_Block.
+ *
+ * Runs the base context-free block checks (size limits, coinbase structure,
+ * transaction checks, and sigop limits) using the supplied
+ * hrck_ConsensusParams. The proof-of-work and merkle-root checks are optional
+ * and can be toggled via @p flags. Note that this does not include any
+ * transaction script, timestamps, order, or other checks that may require more
+ * context.
+ *
+ * @param[in]     block             Non-null, hrck_Block to validate.
+ * @param[in]     consensus_params  Non-null, hrck_ConsensusParams for validation.
+ * @param[in]     flags             Bitmask of hrck_BlockCheckFlags controlling the
+ *                                  optional POW and merkle-root checks. Use
+ *                                  hrck_BlockCheckFlags_BASE to run only the base
+ *                                  checks.
+ * @param[out]    validation_state  Non-null, previously created with
+ *                                  hrck_block_validation_state_create.
+ *                                  Overwritten in-place with the validation
+ *                                  result.
+ * @return                          1 if the hrck_Block passed the checks, 0 otherwise.
+ */
+HYPERCOINKERNEL_API int hrck_block_check(
+    const hrck_Block* block,
+    const hrck_ConsensusParams* consensus_params,
+    hrck_BlockCheckFlags flags,
+    hrck_BlockValidationState* validation_state) HYPERCOINKERNEL_ARG_NONNULL(1, 2, 4);
+
 /**
  * @brief Count the number of transactions contained in a block.
  *
  * @param[in] block Non-null.
  * @return          The number of transactions in the block.
  */
-HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_count_transactions(
+HYPERCOINKERNEL_API size_t hrck_block_count_transactions(
     const hrck_Block* block) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1253,7 +1455,7 @@ HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_count_t
  * @param[in] transaction_index The index of the transaction to be retrieved.
  * @return                      The transaction.
  */
-HYPERCOINKERNEL_API const hrck_Transaction* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_get_transaction_at(
+HYPERCOINKERNEL_API const hrck_Transaction* hrck_block_get_transaction_at(
     const hrck_Block* block, size_t transaction_index) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1286,7 +1488,7 @@ HYPERCOINKERNEL_API hrck_BlockHash* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_bloc
  *                      passed back through the writer callback.
  * @return              0 on success.
  */
-HYPERCOINKERNEL_API int hrck_block_to_bytes(
+HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_to_bytes(
     const hrck_Block* block,
     hrck_WriteBytes writer,
     void* user_data) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
@@ -1348,7 +1550,7 @@ HYPERCOINKERNEL_API void hrck_block_validation_state_destroy(
  * @param[in] chain Non-null.
  * @return          The current height.
  */
-HYPERCOINKERNEL_API int32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chain_get_height(
+HYPERCOINKERNEL_API int32_t hrck_chain_get_height(
     const hrck_Chain* chain) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1360,9 +1562,9 @@ HYPERCOINKERNEL_API int32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chain_get_he
  * @return                 The block tree entry at a certain height in the currently active chain, or null
  *                         if the height is out of bounds.
  */
-HYPERCOINKERNEL_API const hrck_BlockTreeEntry* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chain_get_by_height(
+HYPERCOINKERNEL_API const hrck_BlockTreeEntry* hrck_chain_get_by_height(
     const hrck_Chain* chain,
-    int block_height) HYPERCOINKERNEL_ARG_NONNULL(1);
+    int32_t block_height) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
  * @brief Return true if the passed in chain contains the block tree entry.
@@ -1372,7 +1574,7 @@ HYPERCOINKERNEL_API const hrck_BlockTreeEntry* HYPERCOINKERNEL_WARN_UNUSED_RESUL
  * @return                     1 if the block_tree_entry is in the chain, 0 otherwise.
  *
  */
-HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_chain_contains(
+HYPERCOINKERNEL_API int hrck_chain_contains(
     const hrck_Chain* chain,
     const hrck_BlockTreeEntry* block_tree_entry) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
 
@@ -1411,7 +1613,7 @@ HYPERCOINKERNEL_API hrck_BlockSpentOutputs* HYPERCOINKERNEL_WARN_UNUSED_RESULT h
  * @param[in] block_spent_outputs Non-null.
  * @return                        The number of transaction spent outputs data in the block spent outputs.
  */
-HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_spent_outputs_count(
+HYPERCOINKERNEL_API size_t hrck_block_spent_outputs_count(
     const hrck_BlockSpentOutputs* block_spent_outputs) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1423,7 +1625,7 @@ HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_spent_o
  * @param[in] transaction_spent_outputs_index The index of the transaction spent outputs within the block spent outputs.
  * @return                                    A transaction spent outputs pointer.
  */
-HYPERCOINKERNEL_API const hrck_TransactionSpentOutputs* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_spent_outputs_get_transaction_spent_outputs_at(
+HYPERCOINKERNEL_API const hrck_TransactionSpentOutputs* hrck_block_spent_outputs_get_transaction_spent_outputs_at(
     const hrck_BlockSpentOutputs* block_spent_outputs,
     size_t transaction_spent_outputs_index) HYPERCOINKERNEL_ARG_NONNULL(1);
 
@@ -1455,7 +1657,7 @@ HYPERCOINKERNEL_API hrck_TransactionSpentOutputs* HYPERCOINKERNEL_WARN_UNUSED_RE
  * @param[in] transaction_spent_outputs Non-null
  * @return                              The number of spent transaction outputs for the transaction.
  */
-HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_spent_outputs_count(
+HYPERCOINKERNEL_API size_t hrck_transaction_spent_outputs_count(
     const hrck_TransactionSpentOutputs* transaction_spent_outputs) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1468,7 +1670,7 @@ HYPERCOINKERNEL_API size_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_s
  *                                      transaction spent outputs.
  * @return                              A coin pointer.
  */
-HYPERCOINKERNEL_API const hrck_Coin* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_spent_outputs_get_coin_at(
+HYPERCOINKERNEL_API const hrck_Coin* hrck_transaction_spent_outputs_get_coin_at(
     const hrck_TransactionSpentOutputs* transaction_spent_outputs,
     size_t coin_index) HYPERCOINKERNEL_ARG_NONNULL(1);
 
@@ -1500,13 +1702,93 @@ HYPERCOINKERNEL_API hrck_TransactionInput* HYPERCOINKERNEL_WARN_UNUSED_RESULT hr
  * @param[in] transaction_input Non-null.
  * @return                      The transaction out point.
  */
-HYPERCOINKERNEL_API const hrck_TransactionOutPoint* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_input_get_out_point(
+HYPERCOINKERNEL_API const hrck_TransactionOutPoint* hrck_transaction_input_get_out_point(
     const hrck_TransactionInput* transaction_input) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * @brief Get a transaction input's nSequence value.
+ *
+ * @param[in] transaction_input Non-null.
+ * @return                      The nSequence value.
+ */
+HYPERCOINKERNEL_API uint32_t hrck_transaction_input_get_sequence(
+    const hrck_TransactionInput* transaction_input) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * @brief Get the witness stack of a transaction input. The returned witness
+ * stack is not owned and depends on the lifetime of the transaction input.
+ *
+ * @param[in] transaction_input Non-null.
+ * @return                      The witness stack.
+ */
+HYPERCOINKERNEL_API const hrck_WitnessStack* hrck_transaction_input_get_witness_stack(
+    const hrck_TransactionInput* transaction_input) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * @brief Serialize the script sig of a transaction input through the passed
+ * in callback.
+ *
+ * @param[in] transaction_input Non-null.
+ * @param[in] writer            Non-null, function pointer for writing bytes.
+ * @param[in] user_data         Nullable, passed back through the writer callback.
+ * @return                      The return value of the writer.
+ */
+HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_input_get_script_sig(
+    const hrck_TransactionInput* transaction_input,
+    hrck_WriteBytes writer,
+    void* user_data) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
 
 /**
  * Destroy the transaction input.
  */
 HYPERCOINKERNEL_API void hrck_transaction_input_destroy(hrck_TransactionInput* transaction_input);
+
+///@}
+
+/** @name Witness Stack
+ * Functions for working with witness stacks.
+ */
+///@{
+
+/**
+ * @brief Return the number of items in a witness stack.
+ *
+ * @param[in] witness_stack Non-null.
+ * @return                  The number of witness stack items.
+ */
+HYPERCOINKERNEL_API size_t hrck_witness_stack_count_items(
+    const hrck_WitnessStack* witness_stack) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * @brief Serialize a witness stack item at a given index through the passed in
+ * callback.
+ *
+ * @param[in] witness_stack Non-null.
+ * @param[in] index         Index of the item in the witness stack.
+ * @param[in] writer        Non-null, function pointer for writing bytes.
+ * @param[in] user_data     Nullable, passed back through the writer callback.
+ * @return                  The return value of the writer.
+ * @pre                    index < hrck_witness_stack_count_items(witness_stack)
+ */
+HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_witness_stack_get_item_at(
+    const hrck_WitnessStack* witness_stack,
+    size_t index,
+    hrck_WriteBytes writer,
+    void* user_data) HYPERCOINKERNEL_ARG_NONNULL(1, 3);
+
+/**
+ * @brief Copy a witness stack.
+ *
+ * @param[in] witness_stack Non-null.
+ * @return                  The copied witness stack.
+ */
+HYPERCOINKERNEL_API hrck_WitnessStack* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_witness_stack_copy(
+    const hrck_WitnessStack* witness_stack) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * Destroy the witness stack.
+ */
+HYPERCOINKERNEL_API void hrck_witness_stack_destroy(hrck_WitnessStack* witness_stack);
 
 ///@}
 
@@ -1530,7 +1812,7 @@ HYPERCOINKERNEL_API hrck_TransactionOutPoint* HYPERCOINKERNEL_WARN_UNUSED_RESULT
  * @param[in] transaction_out_point Non-null.
  * @return                          The output index.
  */
-HYPERCOINKERNEL_API uint32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_out_point_get_index(
+HYPERCOINKERNEL_API uint32_t hrck_transaction_out_point_get_index(
     const hrck_TransactionOutPoint* transaction_out_point) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1540,7 +1822,7 @@ HYPERCOINKERNEL_API uint32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction
  * @param[in] transaction_out_point Non-null.
  * @return                          The txid.
  */
-HYPERCOINKERNEL_API const hrck_Txid* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_transaction_out_point_get_txid(
+HYPERCOINKERNEL_API const hrck_Txid* hrck_transaction_out_point_get_txid(
     const hrck_TransactionOutPoint* transaction_out_point) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1571,7 +1853,7 @@ HYPERCOINKERNEL_API hrck_Txid* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_txid_copy
  * @param[in] txid2 Non-null.
  * @return          0 if the txid is not equal.
  */
-HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_txid_equals(
+HYPERCOINKERNEL_API int hrck_txid_equals(
     const hrck_Txid* txid1, const hrck_Txid* txid2) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
 
 /**
@@ -1587,8 +1869,6 @@ HYPERCOINKERNEL_API void hrck_txid_to_bytes(
  * Destroy the txid.
  */
 HYPERCOINKERNEL_API void hrck_txid_destroy(hrck_Txid* txid);
-
-///@}
 
 ///@}
 
@@ -1613,7 +1893,7 @@ HYPERCOINKERNEL_API hrck_Coin* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_coin_copy
  * @param[in] coin Non-null.
  * @return         The block height of the coin.
  */
-HYPERCOINKERNEL_API uint32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_coin_confirmation_height(
+HYPERCOINKERNEL_API uint32_t hrck_coin_confirmation_height(
     const hrck_Coin* coin) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1622,7 +1902,7 @@ HYPERCOINKERNEL_API uint32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_coin_confir
  * @param[in] coin Non-null.
  * @return         1 if the coin is a coinbase coin, 0 otherwise.
  */
-HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_coin_is_coinbase(
+HYPERCOINKERNEL_API int hrck_coin_is_coinbase(
     const hrck_Coin* coin) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1632,7 +1912,7 @@ HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_coin_is_coinbase
  * @param[in] coin Non-null.
  * @return         A transaction output pointer.
  */
-HYPERCOINKERNEL_API const hrck_TransactionOutput* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_coin_get_output(
+HYPERCOINKERNEL_API const hrck_TransactionOutput* hrck_coin_get_output(
     const hrck_Coin* coin) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1660,7 +1940,7 @@ HYPERCOINKERNEL_API hrck_BlockHash* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_bloc
  * @param[in] hash2 Non-null.
  * @return          0 if the block hashes are not equal.
  */
-HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_hash_equals(
+HYPERCOINKERNEL_API int hrck_block_hash_equals(
     const hrck_BlockHash* hash1, const hrck_BlockHash* hash2) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
 
 /**
@@ -1702,7 +1982,7 @@ HYPERCOINKERNEL_API void hrck_block_hash_destroy(hrck_BlockHash* block_hash);
  * @return                          hrck_BlockHeader, or null on error.
  */
 HYPERCOINKERNEL_API hrck_BlockHeader* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_header_create(
-    const void* raw_block_header, size_t raw_block_header_len);
+    const void* raw_block_header, size_t raw_block_header_len) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
  * @brief Copy a hrck_BlockHeader.
@@ -1729,7 +2009,7 @@ HYPERCOINKERNEL_API hrck_BlockHash* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_bloc
  * @param[in] header    Non-null hrck_BlockHeader
  * @return              Previous hrck_BlockHash
  */
-HYPERCOINKERNEL_API const hrck_BlockHash* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_header_get_prev_hash(
+HYPERCOINKERNEL_API const hrck_BlockHash* hrck_block_header_get_prev_hash(
     const hrck_BlockHeader* header) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1738,7 +2018,7 @@ HYPERCOINKERNEL_API const hrck_BlockHash* HYPERCOINKERNEL_WARN_UNUSED_RESULT hrc
  * @param[in] header    Non-null hrck_BlockHeader
  * @return              Block timestamp (Unix epoch seconds)
  */
-HYPERCOINKERNEL_API uint32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_header_get_timestamp(
+HYPERCOINKERNEL_API uint32_t hrck_block_header_get_timestamp(
     const hrck_BlockHeader* header) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1747,7 +2027,7 @@ HYPERCOINKERNEL_API uint32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_heade
  * @param[in] header    Non-null hrck_BlockHeader
  * @return              Difficulty target (compact format)
  */
-HYPERCOINKERNEL_API uint32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_header_get_bits(
+HYPERCOINKERNEL_API uint32_t hrck_block_header_get_bits(
     const hrck_BlockHeader* header) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1756,7 +2036,7 @@ HYPERCOINKERNEL_API uint32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_heade
  * @param[in] header    Non-null hrck_BlockHeader
  * @return              Block version
  */
-HYPERCOINKERNEL_API int32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_header_get_version(
+HYPERCOINKERNEL_API int32_t hrck_block_header_get_version(
     const hrck_BlockHeader* header) HYPERCOINKERNEL_ARG_NONNULL(1);
 
 /**
@@ -1765,13 +2045,46 @@ HYPERCOINKERNEL_API int32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_header
  * @param[in] header    Non-null hrck_BlockHeader
  * @return              Nonce
  */
-HYPERCOINKERNEL_API uint32_t HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_header_get_nonce(
+HYPERCOINKERNEL_API uint32_t hrck_block_header_get_nonce(
     const hrck_BlockHeader* header) HYPERCOINKERNEL_ARG_NONNULL(1);
+
+/**
+ * @brief Serializes the hrck_BlockHeader to bytes.
+ * This is consensus serialization that is also used for the P2P network.
+ *
+ * @param[in] header    Non-null.
+ * @param[out] output   The serialized block header (80 bytes).
+ * @return              0 on success.
+ */
+HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_block_header_to_bytes(
+    const hrck_BlockHeader* header, unsigned char output[80]) HYPERCOINKERNEL_ARG_NONNULL(1, 2);
 
 /**
  * Destroy the hrck_BlockHeader.
  */
 HYPERCOINKERNEL_API void hrck_block_header_destroy(hrck_BlockHeader* header);
+
+///@}
+
+/** @name Testing
+ * Functions intended for testing purposes only.
+ */
+///@{
+
+/**
+ * @brief Override the current time with a fixed timestamp for testing.
+ *
+ * Affects all kernel time reads globally. The caller is responsible
+ * for gating usage (e.g. restricting to regtest) if desired.
+ *
+ * The upper bound (4294967295) matches the maximum value of a block header
+ * timestamp.
+ *
+ * @param[in] timestamp Unix epoch seconds, or 0 to restore the system clock.
+ * @return              0 on success, non-zero if timestamp is outside the
+ *                      valid [0, 4294967295] range.
+ */
+HYPERCOINKERNEL_API int HYPERCOINKERNEL_WARN_UNUSED_RESULT hrck_set_mock_time(int64_t timestamp);
 
 ///@}
 

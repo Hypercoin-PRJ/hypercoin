@@ -22,9 +22,10 @@ public:
     ~DummyDescriptor() = default;
 
     std::string ToString(bool compat_format) const override { return desc; }
+    std::string ToCanonicalString() const override { return desc; }
     std::optional<OutputType> GetOutputType() const override { return OutputType::UNKNOWN; }
 
-    bool IsRange() const override { return false; }
+    bool IsRange() const override { return true; }
     bool IsSolvable() const override { return false; }
     bool IsSingleType() const override { return true; }
     bool HavePrivateKeys(const SigningProvider&) const override { return false; }
@@ -37,9 +38,11 @@ public:
     std::optional<int64_t> MaxSatisfactionWeight(bool) const override { return {}; }
     std::optional<int64_t> MaxSatisfactionElems() const override { return {}; }
     void GetPubKeys(std::set<CPubKey>& pubkeys, std::set<CExtPubKey>& ext_pubs) const override {}
+    bool HasScripts() const override { return true; }
     std::vector<std::string> Warnings() const override { return {}; }
     uint32_t GetMaxKeyExpr() const override { return 0; }
     size_t GetKeyCount() const override { return 0; }
+    bool CanSelfExpand() const final { return false; }
 };
 
 BOOST_FIXTURE_TEST_CASE(wallet_load_descriptors, TestingSetup)
@@ -63,19 +66,11 @@ BOOST_FIXTURE_TEST_CASE(wallet_load_descriptors, TestingSetup)
     }
 
     // Test 2
-    // Now write a valid descriptor with an invalid ID.
-    // As the software produces another ID for the descriptor, the loading process must be aborted.
+    // Now write a valid descriptor with a different ID which must be accepted
     database = CreateMockableWalletDatabase();
 
-    // Verify the error
-    bool found = false;
-    DebugLogHelper logHelper("The descriptor ID calculated by the wallet differs from the one in DB", [&](const std::string* s) {
-        found = true;
-        return false;
-    });
-
     {
-        // Write valid descriptor with invalid ID
+        // Write valid descriptor with arbitrary ID
         WalletBatch batch(*database);
         std::string desc = "wpkh([d34db33f/84h/0h/0h]xpub6DJ2dNUysrn5Vt36jH2KLBT2i1auw1tTSSomg8PhqNiUtx8QX2SvC9nrHu81fT41fvDUnhMjEzQgXnQjKEu3oaqMSzhSrHMxyyoEAmUHQbY/0/*)#cjjspncu";
         WalletDescriptor wallet_descriptor(std::make_shared<DummyDescriptor>(desc), 0, 0, 0, 0);
@@ -83,10 +78,9 @@ BOOST_FIXTURE_TEST_CASE(wallet_load_descriptors, TestingSetup)
     }
 
     {
-        // Now try to load the wallet and verify the error.
+        // Now try to load the wallet and verify the result.
         const std::shared_ptr<CWallet> wallet(new CWallet(m_node.chain.get(), "", std::move(database)));
-        BOOST_CHECK_EQUAL(wallet->PopulateWalletFromDB(_error, _warnings), DBErrors::CORRUPT);
-        BOOST_CHECK(found); // The error must be logged
+        BOOST_CHECK_EQUAL(wallet->PopulateWalletFromDB(_error, _warnings), DBErrors::LOAD_OK);
     }
 }
 

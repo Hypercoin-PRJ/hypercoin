@@ -37,9 +37,16 @@ if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
   set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 endif()
 
+set(IS_SOURCE_TARBALL FALSE)
+# git will expand the next line to "set(IS_SOURCE_TARBALL TRUE)" inside archives:
+#
+set(IS_SOURCE_TARBALL TRUE)
+if(NOT IS_SOURCE_TARBALL AND PROJECT_IS_TOP_LEVEL)
+  find_package(Git QUIET)
+endif()
 add_custom_target(generate_build_info
   BYPRODUCTS ${PROJECT_BINARY_DIR}/src/hypercoin-build-info.h
-  COMMAND ${CMAKE_COMMAND} -DBUILD_INFO_HEADER_PATH=${PROJECT_BINARY_DIR}/src/hypercoin-build-info.h -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/script/GenerateBuildInfo.cmake
+  COMMAND ${CMAKE_COMMAND} -DGIT_EXECUTABLE=${GIT_EXECUTABLE} -DBUILD_INFO_HEADER_PATH=${PROJECT_BINARY_DIR}/src/hypercoin-build-info.h -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${PROJECT_SOURCE_DIR}/cmake/script/GenerateBuildInfo.cmake
   COMMENT "Generating hypercoin-build-info.h"
   VERBATIM
 )
@@ -56,6 +63,8 @@ add_subdirectory(crypto)
 add_subdirectory(util)
 if(ENABLE_IPC)
   add_subdirectory(ipc)
+else()
+  add_library(hypercoin_ipc STATIC EXCLUDE_FROM_ALL ipc/stub.cpp)
 endif()
 
 add_library(hypercoin_consensus STATIC EXCLUDE_FROM_ALL
@@ -97,6 +106,7 @@ add_library(hypercoin_common STATIC EXCLUDE_FROM_ALL
   common/config.cpp
   common/init.cpp
   common/interfaces.cpp
+  common/license_info.cpp
   common/messages.cpp
   common/netif.cpp
   common/pcp.cpp
@@ -143,7 +153,6 @@ target_link_libraries(hypercoin_common
     hypercoin_util
     univalue
     secp256k1
-    Boost::headers
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
     $<$<PLATFORM_ID:Windows>:ws2_32>
 )
@@ -156,17 +165,16 @@ if(ENABLE_WALLET)
   if(BUILD_WALLET_TOOL)
     add_executable(hypercoin-wallet
       hypercoin-wallet.cpp
+      hypercoin-wallet-res.rc
       init/hypercoin-wallet.cpp
       wallet/wallettool.cpp
     )
-    add_windows_resources(hypercoin-wallet hypercoin-wallet-res.rc)
     add_windows_application_manifest(hypercoin-wallet)
     target_link_libraries(hypercoin-wallet
       core_interface
       hypercoin_wallet
       hypercoin_common
       hypercoin_util
-      Boost::headers
     )
     install_binary_component(hypercoin-wallet HAS_MANPAGE)
   endif()
@@ -225,6 +233,7 @@ add_library(hypercoin_node STATIC EXCLUDE_FROM_ALL
   node/mempool_persist.cpp
   node/mempool_persist_args.cpp
   node/miner.cpp
+  node/mining_args.cpp
   node/mini_miner.cpp
   node/minisketchwrapper.cpp
   node/peerman_args.cpp
@@ -239,7 +248,9 @@ add_library(hypercoin_node STATIC EXCLUDE_FROM_ALL
   noui.cpp
   policy/ephemeral_policy.cpp
   policy/fees/block_policy_estimator.cpp
-  policy/fees/block_policy_estimator_args.cpp
+  policy/fees/estimator_args.cpp
+  policy/fees/estimator_man.cpp
+  policy/fees/mempool_estimator.cpp
   policy/packages.cpp
   policy/rbf.cpp
   policy/settings.cpp
@@ -281,10 +292,7 @@ target_link_libraries(hypercoin_node
     leveldb
     minisketch
     univalue
-    Boost::headers
-    $<TARGET_NAME_IF_EXISTS:libevent::core>
-    $<TARGET_NAME_IF_EXISTS:libevent::extra>
-    $<TARGET_NAME_IF_EXISTS:libevent::pthreads>
+    $<TARGET_NAME_IF_EXISTS:Boost::headers>
     $<TARGET_NAME_IF_EXISTS:USDT::headers>
 )
 if(WITH_EMBEDDED_ASMAP)
@@ -297,8 +305,10 @@ endif()
 
 # Hypercoin wrapper executable that can call other executables.
 if(BUILD_HYPERCOIN_BIN)
-  add_executable(hypercoin hypercoin.cpp)
-  add_windows_resources(hypercoin hypercoin-res.rc)
+  add_executable(hypercoin
+    hypercoin.cpp
+    hypercoin-res.rc
+  )
   add_windows_application_manifest(hypercoin)
   target_link_libraries(hypercoin core_interface hypercoin_common hypercoin_util)
   install_binary_component(hypercoin HAS_MANPAGE)
@@ -308,9 +318,9 @@ endif()
 if(BUILD_DAEMON)
   add_executable(hypercoind
     hypercoind.cpp
+    hypercoind-res.rc
     init/hypercoind.cpp
   )
-  add_windows_resources(hypercoind hypercoind-res.rc)
   add_windows_application_manifest(hypercoind)
   target_link_libraries(hypercoind
     core_interface
@@ -347,24 +357,28 @@ target_link_libraries(hypercoin_cli
 
 # Hypercoin Core RPC client
 if(BUILD_CLI)
-  add_executable(hypercoin-cli hypercoin-cli.cpp)
-  add_windows_resources(hypercoin-cli hypercoin-cli-res.rc)
+  add_executable(hypercoin-cli
+    hypercoin-cli.cpp
+    hypercoin-cli-res.rc
+    init/basic.cpp
+  )
   add_windows_application_manifest(hypercoin-cli)
   target_link_libraries(hypercoin-cli
     core_interface
     hypercoin_cli
     hypercoin_common
+    hypercoin_ipc
     hypercoin_util
-    libevent::core
-    libevent::extra
   )
   install_binary_component(hypercoin-cli HAS_MANPAGE)
 endif()
 
 
 if(BUILD_TX)
-  add_executable(hypercoin-tx hypercoin-tx.cpp)
-  add_windows_resources(hypercoin-tx hypercoin-tx-res.rc)
+  add_executable(hypercoin-tx
+    hypercoin-tx.cpp
+    hypercoin-tx-res.rc
+  )
   add_windows_application_manifest(hypercoin-tx)
   target_link_libraries(hypercoin-tx
     core_interface
@@ -377,13 +391,16 @@ endif()
 
 
 if(BUILD_UTIL)
-  add_executable(hypercoin-util hypercoin-util.cpp)
-  add_windows_resources(hypercoin-util hypercoin-util-res.rc)
+  add_executable(hypercoin-util
+    hypercoin-util.cpp
+    hypercoin-util-res.rc
+  )
   add_windows_application_manifest(hypercoin-util)
   target_link_libraries(hypercoin-util
     core_interface
     hypercoin_common
     hypercoin_util
+    univalue
   )
   install_binary_component(hypercoin-util HAS_MANPAGE)
 endif()

@@ -6,6 +6,7 @@
 #include <test/data/tx_valid.json.h>
 #include <test/util/setup_common.h>
 
+#include <chain.h>
 #include <checkqueue.h>
 #include <clientversion.h>
 #include <consensus/amount.h>
@@ -382,7 +383,8 @@ BOOST_AUTO_TEST_CASE(basic_transaction_tests)
     CMutableTransaction tx;
     SpanReader{vch} >> TX_WITH_WITNESS(tx);
     TxValidationState state;
-    BOOST_CHECK_MESSAGE(CheckTransaction(CTransaction(tx), state) && state.IsValid(), "Simple deserialized transaction should be valid.");
+    BOOST_CHECK_MESSAGE(CheckTransaction(CTransaction(tx), state), "Simple deserialized transaction should be valid.");
+    BOOST_CHECK_MESSAGE(state.IsValid(), "Simple deserialized transaction should be valid.");
 
     // Check that duplicate txins fail
     tx.vin.push_back(tx.vin[0]);
@@ -392,8 +394,7 @@ BOOST_AUTO_TEST_CASE(basic_transaction_tests)
 BOOST_AUTO_TEST_CASE(test_Get)
 {
     FillableSigningProvider keystore;
-    CCoinsView coinsDummy;
-    CCoinsViewCache coins(&coinsDummy);
+    CCoinsViewCache coins{&CoinsViewEmpty::Get()};
     std::vector<CMutableTransaction> dummyTransactions =
         SetupDummyInputs(keystore, coins, {11*CENT, 50*CENT, 21*CENT, 22*CENT});
 
@@ -412,7 +413,7 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vout[0].nValue = 90*CENT;
     t1.vout[0].scriptPubKey << OP_1;
 
-    BOOST_CHECK(AreInputsStandard(CTransaction(t1), coins));
+    BOOST_CHECK(ValidateInputsStandardness(CTransaction(t1), coins).IsValid());
 }
 
 static void CreateCreditAndSpend(const FillableSigningProvider& keystore, const CScript& outscript, CTransactionRef& output, CMutableTransaction& input, bool success = true)
@@ -564,7 +565,7 @@ SignatureData CombineSignatures(const CMutableTransaction& input1, const CMutabl
     SignatureData sigdata;
     sigdata = DataFromTransaction(input1, 0, tx->vout[0]);
     sigdata.MergeSignatureData(DataFromTransaction(input2, 0, tx->vout[0]));
-    ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(input1, 0, tx->vout[0].nValue, SIGHASH_ALL), tx->vout[0].scriptPubKey, sigdata);
+    ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(input1, 0, tx->vout[0].nValue, {.sighash_type = SIGHASH_DEFAULT}), tx->vout[0].scriptPubKey, sigdata);
     return sigdata;
 }
 
@@ -705,7 +706,7 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_NONE, false);
     CreateCreditAndSpend(keystore2, scriptMulti, output2, input2, false);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_NONE, false);
-    BOOST_CHECK(*output1 == *output2);
+    BOOST_CHECK(output1->Equals(*output2));
     UpdateInput(input1.vin[0], CombineSignatures(input1, input2, output1));
     CheckWithFlag(output1, input1, STANDARD_SCRIPT_VERIFY_FLAGS, true);
 
@@ -716,7 +717,7 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CreateCreditAndSpend(keystore2, GetScriptForDestination(ScriptHash(scriptMulti)), output2, input2, false);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_NONE, true);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_P2SH, false);
-    BOOST_CHECK(*output1 == *output2);
+    BOOST_CHECK(output1->Equals(*output2));
     UpdateInput(input1.vin[0], CombineSignatures(input1, input2, output1));
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_P2SH, true);
     CheckWithFlag(output1, input1, STANDARD_SCRIPT_VERIFY_FLAGS, true);
@@ -728,7 +729,7 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CreateCreditAndSpend(keystore2, destination_script_multi, output2, input2, false);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_NONE, true);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, false);
-    BOOST_CHECK(*output1 == *output2);
+    BOOST_CHECK(output1->Equals(*output2));
     UpdateInput(input1.vin[0], CombineSignatures(input1, input2, output1));
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, true);
     CheckWithFlag(output1, input1, STANDARD_SCRIPT_VERIFY_FLAGS, true);
@@ -740,7 +741,7 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CreateCreditAndSpend(keystore2, GetScriptForDestination(ScriptHash(destination_script_multi)), output2, input2, false);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_P2SH, true);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, false);
-    BOOST_CHECK(*output1 == *output2);
+    BOOST_CHECK(output1->Equals(*output2));
     UpdateInput(input1.vin[0], CombineSignatures(input1, input2, output1));
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, true);
     CheckWithFlag(output1, input1, STANDARD_SCRIPT_VERIFY_FLAGS, true);
@@ -749,8 +750,7 @@ BOOST_AUTO_TEST_CASE(test_witness)
 BOOST_AUTO_TEST_CASE(test_IsStandard)
 {
     FillableSigningProvider keystore;
-    CCoinsView coinsDummy;
-    CCoinsViewCache coins(&coinsDummy);
+    CCoinsViewCache coins{&CoinsViewEmpty::Get()};
     std::vector<CMutableTransaction> dummyTransactions =
         SetupDummyInputs(keystore, coins, {11*CENT, 50*CENT, 21*CENT, 22*CENT});
 
@@ -1022,8 +1022,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 
 BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
 {
-    CCoinsView coins_dummy;
-    CCoinsViewCache coins(&coins_dummy);
+    CCoinsViewCache coins{&CoinsViewEmpty::Get()};
     CKey key;
     key.MakeNewKey(true);
 
@@ -1053,7 +1052,7 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
 
     // 2490 sigops is below the limit.
     BOOST_CHECK_EQUAL(GetP2SHSigOpCount(CTransaction(tx_max_sigops), coins), 2490);
-    BOOST_CHECK(::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+    BOOST_CHECK(::ValidateInputsStandardness(CTransaction(tx_max_sigops), coins).IsValid());
 
     // Adding one more input will bump this to 2505, hitting the limit.
     tx_create.vout.emplace_back(424242, max_sigops_p2sh);
@@ -1064,8 +1063,17 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
     tx_max_sigops.vin.emplace_back(prev_txid, p2sh_inputs_count, CScript() << ToByteVector(max_sigops_redeem_script));
     AddCoins(coins, CTransaction(tx_create), 0, false);
     BOOST_CHECK_GT((p2sh_inputs_count + 1) * MAX_P2SH_SIGOPS, MAX_TX_LEGACY_SIGOPS);
-    BOOST_CHECK_EQUAL(GetP2SHSigOpCount(CTransaction(tx_max_sigops), coins), 2505);
-    BOOST_CHECK(!::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+    auto legacy_sigops_count = GetP2SHSigOpCount(CTransaction(tx_max_sigops), coins);
+    BOOST_CHECK_EQUAL(legacy_sigops_count, 2505);
+    std::string reject_reason("bad-txns-nonstandard-inputs");
+    std::string sigop_limit_reject_debug_message("non-witness sigops exceed bip54 limit");
+    {
+        auto validation_state = ValidateInputsStandardness(CTransaction(tx_max_sigops), coins);
+        BOOST_CHECK(validation_state.IsInvalid());
+        BOOST_CHECK_EQUAL(validation_state.GetRejectReason(), reject_reason);
+        BOOST_CHECK_EQUAL(validation_state.GetDebugMessage(), sigop_limit_reject_debug_message);
+    }
+
 
     // Now, check the limit can be reached with regular P2PK outputs too. Use a separate
     // preparation transaction, to demonstrate spending coins from a single tx is irrelevant.
@@ -1084,7 +1092,7 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
 
     // The transaction now contains exactly 2500 sigops, the check should pass.
     BOOST_CHECK_EQUAL(p2sh_inputs_count * MAX_P2SH_SIGOPS + p2pk_inputs_count * 1, MAX_TX_LEGACY_SIGOPS);
-    BOOST_CHECK(::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+    BOOST_CHECK(::ValidateInputsStandardness(CTransaction(tx_max_sigops), coins).IsValid());
 
     // Now, add some Segwit inputs. We add one for each defined Segwit output type. The limit
     // is exclusively on non-witness sigops and therefore those should not be counted.
@@ -1100,7 +1108,7 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
 
     // The transaction now still contains exactly 2500 sigops, the check should pass.
     AddCoins(coins, CTransaction(tx_create_segwit), 0, false);
-    BOOST_REQUIRE(::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+    BOOST_REQUIRE(::ValidateInputsStandardness(CTransaction(tx_max_sigops), coins).IsValid());
 
     // Add one more P2PK input. We'll reach the limit.
     tx_create_p2pk.vout.emplace_back(212121, p2pk_script);
@@ -1111,15 +1119,36 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
         tx_max_sigops.vin.emplace_back(prev_txid, i);
     }
     AddCoins(coins, CTransaction(tx_create_p2pk), 0, false);
-    BOOST_CHECK_GT(p2sh_inputs_count * MAX_P2SH_SIGOPS + p2pk_inputs_count * 1, MAX_TX_LEGACY_SIGOPS);
-    BOOST_CHECK(!::AreInputsStandard(CTransaction(tx_max_sigops), coins));
+    auto legacy_sigop_count_p2pk = p2sh_inputs_count * MAX_P2SH_SIGOPS + p2pk_inputs_count * 1;
+    BOOST_CHECK_GT(legacy_sigop_count_p2pk, MAX_TX_LEGACY_SIGOPS);
+    {
+        auto validation_state = ValidateInputsStandardness(CTransaction(tx_max_sigops), coins);
+        BOOST_CHECK(validation_state.IsInvalid());
+        BOOST_CHECK_EQUAL(validation_state.GetRejectReason(), reject_reason);
+        BOOST_CHECK_EQUAL(validation_state.GetDebugMessage(), sigop_limit_reject_debug_message);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(getlegacysigopcount_inaccurate_test)
+{
+    // Legacy sigops are counted inaccurately in both the scriptSig and the
+    // scriptPubKey: a CHECKMULTISIG counts as MAX_PUBKEYS_PER_MULTISIG even when the
+    // preceding OP_N says it takes fewer keys. Counting it accurately would
+    // undercount, letting a block over the sigop limit through.
+    const CScript multisig{CScript() << OP_1 << OP_CHECKMULTISIG};
+
+    CMutableTransaction mtx;
+    mtx.vin.emplace_back(COutPoint{}, multisig);
+    BOOST_CHECK_EQUAL(GetLegacySigOpCount(CTransaction{mtx}), MAX_PUBKEYS_PER_MULTISIG);
+
+    mtx.vout.emplace_back(0, multisig);
+    BOOST_CHECK_EQUAL(GetLegacySigOpCount(CTransaction{mtx}), 2 * MAX_PUBKEYS_PER_MULTISIG);
 }
 
 BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
 {
     auto check_invalid{[](CAmount input_value, CAmount output_value, bool coinbase, int spend_height, TxValidationResult expected_result, std::string_view expected_reason) {
-        CCoinsView coins_dummy;
-        CCoinsViewCache inputs(&coins_dummy);
+        CCoinsViewCache inputs{&CoinsViewEmpty::Get()};
 
         const COutPoint prevout{Txid::FromUint256(uint256::ONE), 0};
         inputs.AddCoin(prevout, Coin{{input_value, CScript() << OP_TRUE}, /*nHeightIn=*/1, coinbase}, /*possible_overwrite=*/false);
@@ -1155,6 +1184,53 @@ BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
                   TxValidationResult::TX_PREMATURE_SPEND, /*expected_reason=*/"bad-txns-premature-spend-of-coinbase");
 }
 
+BOOST_AUTO_TEST_CASE(isfinaltx_sequences_test)
+{
+    constexpr int height{100};
+
+    // Every transaction here has the same unsatisfied nLockTime, so only the
+    // sequences decide the outcome.
+    auto check_final{[](const std::vector<uint32_t>& sequences, bool expected_final) {
+        CMutableTransaction mtx;
+        mtx.nLockTime = height;
+        for (const uint32_t sequence : sequences) {
+            mtx.vin.emplace_back(COutPoint{}, CScript{}, sequence);
+        }
+
+        BOOST_CHECK_EQUAL(IsFinalTx(CTransaction{mtx}, /*nBlockHeight=*/height, /*nBlockTime=*/0), expected_final);
+    }};
+
+    check_final(/*sequences=*/{CTxIn::SEQUENCE_FINAL, CTxIn::SEQUENCE_FINAL}, /*expected_final=*/true);
+
+    // nLockTime is only ignored when every input is SEQUENCE_FINAL
+    check_final(/*sequences=*/{CTxIn::SEQUENCE_FINAL, CTxIn::MAX_SEQUENCE_NONFINAL}, /*expected_final=*/false);
+    check_final(/*sequences=*/{CTxIn::MAX_SEQUENCE_NONFINAL, CTxIn::SEQUENCE_FINAL}, /*expected_final=*/false);
+}
+
+BOOST_AUTO_TEST_CASE(calculatesequencelocks_tx_version_test)
+{
+    constexpr int coin_height{100};
+
+    // A single input with a height-based relative locktime of one block. Only the
+    // height branch is taken, so the block index is never dereferenced.
+    auto check_min_height{[](uint32_t version, int expected_min_height) {
+        CMutableTransaction mtx;
+        mtx.version = version;
+        mtx.vin.emplace_back(COutPoint{}, CScript{}, /*nSequenceIn=*/1);
+
+        std::vector<int> prev_heights{coin_height};
+        const CBlockIndex block{};
+        const auto lock_pair{CalculateSequenceLocks(CTransaction{mtx}, LOCKTIME_VERIFY_SEQUENCE, prev_heights, block)};
+        BOOST_CHECK_EQUAL(lock_pair.first, expected_min_height);
+    }};
+
+    // BIP68 only applies to versions 2 and up
+    check_min_height(/*version=*/0, /*expected_min_height=*/-1);
+    check_min_height(/*version=*/1, /*expected_min_height=*/-1);
+    check_min_height(/*version=*/2, /*expected_min_height=*/coin_height);
+    check_min_height(/*version=*/std::numeric_limits<uint32_t>::max(), /*expected_min_height=*/coin_height);
+}
+
 BOOST_AUTO_TEST_CASE(getvalueout_out_of_range_throws)
 {
     CMutableTransaction mtx;
@@ -1167,8 +1243,7 @@ BOOST_AUTO_TEST_CASE(getvalueout_out_of_range_throws)
 /** Sanity check the return value of SpendsNonAnchorWitnessProg for various output types. */
 BOOST_AUTO_TEST_CASE(spends_witness_prog)
 {
-    CCoinsView coins_dummy;
-    CCoinsViewCache coins(&coins_dummy);
+    CCoinsViewCache coins{&CoinsViewEmpty::Get()};
     CKey key;
     key.MakeNewKey(true);
     const CPubKey pubkey{key.GetPubKey()};

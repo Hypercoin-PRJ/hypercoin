@@ -14,6 +14,7 @@ import copy
 from decimal import Decimal
 
 from test_framework.blocktools import (
+    create_block,
     create_coinbase,
     get_witness_script,
     NORMAL_GBT_REQUEST_PARAMS,
@@ -122,7 +123,8 @@ class MiningTest(HypercoinTestFramework):
         tx_d = self.wallet.send_self_transfer(from_node=node,
                                               fee_rate=Decimal("0.00100"))
 
-        block_template_txs = node.getblocktemplate(NORMAL_GBT_REQUEST_PARAMS)['transactions']
+        block_template = node.getblocktemplate(NORMAL_GBT_REQUEST_PARAMS)
+        block_template_txs = block_template['transactions']
 
         block_template_fees = [tx['fee'] for tx in block_template_txs]
         assert_equal(block_template_fees, [
@@ -131,6 +133,10 @@ class MiningTest(HypercoinTestFramework):
             tx_b["fee"] * COIN,
             tx_c["fee"] * COIN
         ])
+        # verify that coinbasevalue field is set to claim full block reward (subsidy + fees)
+        expected_block_reward = create_coinbase(
+            height=int(block_template["height"]), fees=sum(block_template_fees)).vout[0].nValue
+        assert_equal(block_template["coinbasevalue"], expected_block_reward)
 
         block_template_sigops = [tx['sigops'] for tx in block_template_txs]
         assert_equal(block_template_sigops, [0, 4, 4, 4])
@@ -230,7 +236,7 @@ class MiningTest(HypercoinTestFramework):
         assert_equal(node.getblocktemplate(template_request={
             'data': block.serialize().hex(),
             'mode': 'proposal',
-            'rules': ['segwit'],
+            **NORMAL_GBT_REQUEST_PARAMS,
         }), None)
 
         bad_block = copy.deepcopy(block)
@@ -246,6 +252,41 @@ class MiningTest(HypercoinTestFramework):
         bad_block.nTime = t + MAX_FUTURE_BLOCK_TIME - MAX_TIMEWARP
         bad_block.solve()
         node.submitheader(hexdata=CBlockHeader(bad_block).serialize().hex())
+
+    def test_murch_zawy_mintime(self):
+        self.log.info("Test that GetMinimumTime accounts for the Murch-Zawy rule (BIP54)")
+        node = self.nodes[0]
+
+        self.log.info("Mine the first block of a retarget period two hours in the future")
+        blockchain_info = node.getblockchaininfo()
+        n = DIFFICULTY_ADJUSTMENT_INTERVAL - blockchain_info['blocks'] % DIFFICULTY_ADJUSTMENT_INTERVAL - 1
+        t = blockchain_info['time']
+        for _ in range(n):
+            t += 600
+            node.setmocktime(t)
+            self.generate(self.wallet, 1, sync_fun=self.no_op)
+        node.setmocktime(t + MAX_FUTURE_BLOCK_TIME)
+        self.generate(self.wallet, 1, sync_fun=self.no_op)
+        first_block_time = node.getblock(node.getbestblockhash())['time']
+        assert_equal(first_block_time, t + MAX_FUTURE_BLOCK_TIME)
+
+        self.log.info("Mine to the end of the period with timestamps held back")
+        node.setmocktime(t)
+        self.generate(self.wallet, DIFFICULTY_ADJUSTMENT_INTERVAL - 2, sync_fun=self.no_op)
+        assert_greater_than(first_block_time, node.getblock(node.getbestblockhash())['time'])
+
+        self.log.info("The template for the last block of the period is adjusted to its first block's time")
+        tmpl = node.getblocktemplate(NORMAL_GBT_REQUEST_PARAMS)
+        assert_equal(tmpl['mintime'], first_block_time)
+        assert_equal(tmpl['curtime'], first_block_time)
+
+        block = create_block(tmpl=tmpl)
+        block.solve()
+        node.submitheader(hexdata=CBlockHeader(block).serialize().hex())
+
+        self.log.info("The node mines a valid block at the end of the period despite its early wall clock")
+        self.generate(self.wallet, 1, sync_fun=self.no_op)
+        assert_equal(node.getblock(node.getbestblockhash())['time'], first_block_time)
 
     def test_pruning(self):
         self.log.info("Test that submitblock stores previously pruned block")
@@ -352,21 +393,28 @@ class MiningTest(HypercoinTestFramework):
         self.stop_node(0)
         self.nodes[0].assert_start_raises_init_error(
             extra_args=[f"-blockreservedweight={MAX_BLOCK_WEIGHT + 1}"],
-            expected_msg=f"Error: Specified -blockreservedweight ({MAX_BLOCK_WEIGHT + 1}) exceeds consensus maximum block weight ({MAX_BLOCK_WEIGHT})",
+            expected_msg=f"Error: -blockreservedweight ({MAX_BLOCK_WEIGHT + 1}) exceeds consensus maximum block weight ({MAX_BLOCK_WEIGHT})",
         )
 
         self.log.info(f"Test that node will fail to start when user provide -blockreservedweight below {MINIMUM_BLOCK_RESERVED_WEIGHT}")
         self.stop_node(0)
         self.nodes[0].assert_start_raises_init_error(
             extra_args=[f"-blockreservedweight={MINIMUM_BLOCK_RESERVED_WEIGHT - 1}"],
-            expected_msg=f"Error: Specified -blockreservedweight ({MINIMUM_BLOCK_RESERVED_WEIGHT - 1}) is lower than minimum safety value of ({MINIMUM_BLOCK_RESERVED_WEIGHT})",
+            expected_msg=f"Error: -blockreservedweight ({MINIMUM_BLOCK_RESERVED_WEIGHT - 1}) is lower than minimum safety value of ({MINIMUM_BLOCK_RESERVED_WEIGHT})",
         )
 
         self.log.info("Test that node will fail to start when user provide invalid -blockmaxweight")
         self.stop_node(0)
         self.nodes[0].assert_start_raises_init_error(
             extra_args=[f"-blockmaxweight={MAX_BLOCK_WEIGHT + 1}"],
-            expected_msg=f"Error: Specified -blockmaxweight ({MAX_BLOCK_WEIGHT + 1}) exceeds consensus maximum block weight ({MAX_BLOCK_WEIGHT})",
+            expected_msg=f"Error: -blockmaxweight ({MAX_BLOCK_WEIGHT + 1}) exceeds consensus maximum block weight ({MAX_BLOCK_WEIGHT})",
+        )
+
+        self.log.info("Test that node will fail to start when -blockmaxweight is lower than -blockreservedweight")
+        self.stop_node(0)
+        self.nodes[0].assert_start_raises_init_error(
+            extra_args=[f"-blockmaxweight={DEFAULT_BLOCK_RESERVED_WEIGHT - 1}"],
+            expected_msg=f"Error: -blockreservedweight ({DEFAULT_BLOCK_RESERVED_WEIGHT}) exceeds -blockmaxweight ({DEFAULT_BLOCK_RESERVED_WEIGHT - 1})",
         )
 
     def test_height_in_locktime(self):
@@ -435,6 +483,9 @@ class MiningTest(HypercoinTestFramework):
 
         self.log.info("getblocktemplate: segwit rule must be set")
         assert_raises_rpc_error(-8, "getblocktemplate must be called with the segwit rule set", node.getblocktemplate, {})
+
+        self.log.info("getblocktemplate: result should set the right rules")
+        assert_equal(['csv', '!segwit', 'taproot'], self.nodes[0].getblocktemplate(NORMAL_GBT_REQUEST_PARAMS)['rules'])
 
         self.log.info("submitblock: Test block decode failure")
         assert_raises_rpc_error(-22, "Block decode failed", node.submitblock, block.serialize()[:-15].hex())
@@ -513,6 +564,7 @@ class MiningTest(HypercoinTestFramework):
         self.test_blockmintxfee_parameter()
         self.test_block_max_weight()
         self.test_timewarp()
+        self.test_murch_zawy_mintime()
         self.test_pruning()
         self.test_height_in_locktime()
 

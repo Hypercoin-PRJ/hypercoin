@@ -1,12 +1,12 @@
 package=boost
-$(package)_version = 1.90.0
+$(package)_version = 1.91.0-1
 $(package)_download_path = https://github.com/boostorg/boost/releases/download/boost-$($(package)_version)
 $(package)_file_name = boost-$($(package)_version)-cmake.tar.gz
-$(package)_sha256_hash = 913ca43d49e93d1b158c9862009add1518a4c665e7853b349a6492d158b036d4
+$(package)_sha256_hash = 8a82bd11a720c70923806c36ee5c26dbd2d630c1eaa1d8fad9a7bd5529908a26
 $(package)_build_subdir = build
 
 define $(package)_set_vars
-  $(package)_config_opts = -DBOOST_INCLUDE_LIBRARIES="multi_index;signals2;test"
+  $(package)_config_opts = -DBOOST_INCLUDE_LIBRARIES="multi_index;test"
   $(package)_config_opts += -DBOOST_TEST_HEADERS_ONLY=ON
   $(package)_config_opts += -DBOOST_ENABLE_MPI=OFF
   $(package)_config_opts += -DBOOST_ENABLE_PYTHON=OFF

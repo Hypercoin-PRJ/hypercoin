@@ -4,6 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <common/signmessage.h>
+#include <rpc/register.h> // IWYU pragma: associated
+
 #include <key.h>
 #include <key_io.h>
 #include <rpc/protocol.h>
@@ -13,10 +15,12 @@
 #include <univalue.h>
 
 #include <string>
+#include <string_view>
+#include <vector>
 
-static RPCHelpMan verifymessage()
+static RPCMethod verifymessage()
 {
-    return RPCHelpMan{"verifymessage",
+    return RPCMethod{"verifymessage",
         "Verify a signed message.",
         {
             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The hypercoin address to use for the signature."},
@@ -36,7 +40,7 @@ static RPCHelpMan verifymessage()
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("verifymessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\", \"signature\", \"my message\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
         {
             switch (MessageVerify(std::string{self.Arg<std::string_view>("address")},
                                   std::string{self.Arg<std::string_view>("signature")},
@@ -59,9 +63,9 @@ static RPCHelpMan verifymessage()
     };
 }
 
-static RPCHelpMan signmessagewithprivkey()
+static RPCMethod signmessagewithprivkey()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "signmessagewithprivkey",
         "Sign a message with the private key of an address\n",
         {
@@ -79,7 +83,7 @@ static RPCHelpMan signmessagewithprivkey()
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("signmessagewithprivkey", "\"privkey\", \"my message\"")
         },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
         {
             std::string strPrivkey = request.params[0].get_str();
             std::string strMessage = request.params[1].get_str();
