@@ -141,12 +141,6 @@ Updated RPCs
   will now default to creating version 2 PSBTs. An optional `psbt_version`
   argument is added to these RPCs which allows specifying the version of PSBT to
   create. (#21283)
-- 'taproot' has been removed from 'getdeploymentinfo' because its historical
-  activation height is no longer used anywhere in the codebase. Applications
-  that rely on `deployments.taproot` to detect Taproot support should either
-  assume Taproot to be always active (since Hypercoin Core v24.0), or check for
-  `TAPROOT` in the `script_flags` array returned by `getdeploymentinfo` (since
-  Hypercoin Core v31.0). (#26201)
 - Hypercoin Core now reports a debug message explaining why transaction inputs are
   non-standard. This information is now returned in the responses of the
   transaction-sending RPCs `submitpackage`, `sendrawtransaction`, and
