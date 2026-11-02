@@ -1,8 +1,8 @@
 # OpenBSD Build Guide
 
-**Updated for OpenBSD [7.8](https://www.openbsd.org/78.html)**
+Hypercoin Core is supported on [the two most recent OpenBSD releases](https://www.openbsd.org/faq/faq5.html#Flavors).
 
-This guide describes how to build hypercoind, command-line utilities, and GUI on OpenBSD.
+This guide describes how to build hypercoind, command-line utilities, and GUI on the latest release.
 
 ## Preparation
 
@@ -10,7 +10,7 @@ This guide describes how to build hypercoind, command-line utilities, and GUI on
 Run the following as root to install the base dependencies for building.
 
 ```bash
-pkg_add git cmake boost libevent
+pkg_add git cmake boost
 ```
 
 SQLite is required for the wallet:
@@ -64,7 +64,7 @@ Otherwise, if you don't need QR encoding support, use the `-DWITH_QRENCODE=OFF` 
 #### Notifications
 ###### ZeroMQ
 
-Hypercoin Core can provide notifications via ZeroMQ. If the package is installed, support will be compiled in.
+Hypercoin Core can provide notifications via ZeroMQ. To compile ZMQ support, install the following dependency and pass `-DWITH_ZMQ=ON` when configuring.
 ```bash
 pkg_add zeromq
 ```

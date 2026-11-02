@@ -38,7 +38,7 @@ def assert_net_servicesnames(servicesflag, servicenames):
     servicesflag_generated = 0
     for servicename in servicenames:
         servicesflag_generated |= getattr(test_framework.messages, 'NODE_' + servicename)
-    assert servicesflag_generated == servicesflag
+    assert_equal(servicesflag_generated, servicesflag)
 
 
 def seed_addrman(node):
@@ -63,7 +63,7 @@ class NetTest(HypercoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.extra_args = [
-            ["-minrelaytxfee=0.00001000", "-deprecatedrpc=startingheight"],
+            ["-minrelaytxfee=0.00001000"],
             ["-minrelaytxfee=0.00000500"],
         ]
         # Specify a non-working proxy to make sure no actual connections to public IPs are attempted
@@ -174,7 +174,6 @@ class NetTest(HypercoinTestFramework):
                 "services": "0000000000000000",
                 "servicesnames": [],
                 "session_id": "" if not self.options.v2transport else no_version_peer.v2_state.peer['session_id'].hex(),
-                "startingheight": -1,
                 "subver": "",
                 "synced_blocks": -1,
                 "synced_headers": -1,
@@ -203,7 +202,9 @@ class NetTest(HypercoinTestFramework):
         self.wait_until(lambda: (self.nodes[0].getnettotals()['totalbytesrecv'] >= net_totals_before['totalbytesrecv'] + ping_size * 2), timeout=1)
 
         for peer_before in peer_info_before:
-            peer_after = lambda: next(p for p in self.nodes[0].getpeerinfo() if p['id'] == peer_before['id'])
+            def peer_after():
+                return next(p for p in self.nodes[0].getpeerinfo() if p['id'] == peer_before['id'])
+
             self.wait_until(lambda: peer_after()['bytesrecv_per_msg'].get('pong', 0) >= peer_before['bytesrecv_per_msg'].get('pong', 0) + ping_size, timeout=1)
             self.wait_until(lambda: peer_after()['bytessent_per_msg'].get('ping', 0) >= peer_before['bytessent_per_msg'].get('ping', 0) + ping_size, timeout=1)
 
@@ -271,6 +272,11 @@ class NetTest(HypercoinTestFramework):
         assert_equal(added_nodes[0]['addednode'], "11.22.33.44")
         self.log.info("Check that an invalid command returns an error")
         assert_raises_rpc_error(-1, 'addnode "node" "command"', self.nodes[0].addnode, node=ip_port, command='abc')
+        self.log.info("Check that an empty node address returns an error")
+        for command in ['add', 'remove', 'onetry']:
+            assert_raises_rpc_error(-8, "Node address cannot be empty", self.nodes[0].addnode, node="", command=command)
+            assert_raises_rpc_error(-8, "Node address cannot be empty", self.nodes[0].addnode, node=" ", command=command)
+        assert_equal(len(self.nodes[0].getaddednodeinfo()), 1)
         self.log.info("Check that trying to remove the node again returns an error")
         assert_raises_rpc_error(-24, "Node could not be removed", self.nodes[0].addnode, node=ip_port, command='remove')
         self.log.info("Check that a non-existent node returns an error")
@@ -328,13 +334,13 @@ class NetTest(HypercoinTestFramework):
         assert_equal(res[0]["port"], 8333)
         assert_equal(res[0]["services"], P2P_SERVICES)
 
-        # Test for the absence of onion, I2P and CJDNS addresses.
-        for network in ["onion", "i2p", "cjdns"]:
+        for network in ["onion", "OnIoN", "i2p", "cjdns"]:
             assert_equal(self.nodes[0].getnodeaddresses(0, network), [])
 
         # Test invalid arguments.
         assert_raises_rpc_error(-8, "Address count out of range", self.nodes[0].getnodeaddresses, -1)
-        assert_raises_rpc_error(-8, "Network not recognized: Foo", self.nodes[0].getnodeaddresses, 1, "Foo")
+        for network in ["Foo", "tor"]:
+            assert_raises_rpc_error(-8, f"Network not recognized: {network}", self.nodes[0].getnodeaddresses, 1, network)
 
     def test_addpeeraddress(self):
         self.log.info("Test addpeeraddress")
@@ -501,7 +507,7 @@ class NetTest(HypercoinTestFramework):
                 for bucket_position in getrawaddrman[table_name].keys():
                     entry = getrawaddrman[table_name][bucket_position]
                     expected_entry = list(filter(lambda e: e["address"] == entry["address"], table_info))[0]
-                    assert bucket_position == expected_entry["bucket_position"]
+                    assert_equal(bucket_position, expected_entry["bucket_position"])
                     check_addr_information(entry, expected_entry)
 
         # we expect 4 new and 4 tried table entries in the addrman which were added using seed_addrman()

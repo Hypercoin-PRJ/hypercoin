@@ -8,12 +8,11 @@
 #include <crypto/common.h>
 #include <crypto/siphash.h>
 #include <primitives/transaction.h>
-#include <span.h>
 #include <uint256.h>
 
-#include <concepts>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 class SaltedUint256Hasher
 {
@@ -59,7 +58,7 @@ class SaltedOutpointHasher
     const PresaltedSipHasher m_hasher;
 
 public:
-    SaltedOutpointHasher(bool deterministic = false);
+    SaltedOutpointHasher();
 
     /**
      * Having the hash noexcept allows libstdc++'s unordered_map to recalculate

@@ -5,21 +5,19 @@
 
 #include <noui.h>
 
-#include <logging.h>
 #include <node/interface_ui.h>
+#include <util/hrcsignals.h>
+#include <util/log.h>
 #include <util/translation.h>
 
 #include <string>
 
-#include <boost/signals2/connection.hpp>
-#include <boost/signals2/signal.hpp>
-
 /** Store connections so we can disconnect them when suppressing output */
-boost::signals2::connection noui_ThreadSafeMessageBoxConn;
-boost::signals2::connection noui_ThreadSafeQuestionConn;
-boost::signals2::connection noui_InitMessageConn;
+hrcsignals::connection noui_ThreadSafeMessageBoxConn;
+hrcsignals::connection noui_ThreadSafeQuestionConn;
+hrcsignals::connection noui_InitMessageConn;
 
-bool noui_ThreadSafeMessageBox(const bilingual_str& message, unsigned int style)
+void noui_ThreadSafeMessageBox(const bilingual_str& message, unsigned int style)
 {
     bool fSecure = style & CClientUIInterface::SECURE;
     style &= ~CClientUIInterface::SECURE;
@@ -43,12 +41,12 @@ bool noui_ThreadSafeMessageBox(const bilingual_str& message, unsigned int style)
     }
 
     tfm::format(std::cerr, "%s%s\n", strCaption, message.original);
-    return false;
 }
 
 bool noui_ThreadSafeQuestion(const bilingual_str& /* ignored interactive message */, const std::string& message, unsigned int style)
 {
-    return noui_ThreadSafeMessageBox(Untranslated(message), style);
+    noui_ThreadSafeMessageBox(Untranslated(message), style);
+    return false; // Answer the question with false in the noui context
 }
 
 void noui_InitMessage(const std::string& message)
@@ -58,15 +56,14 @@ void noui_InitMessage(const std::string& message)
 
 void noui_connect()
 {
-    noui_ThreadSafeMessageBoxConn = uiInterface.ThreadSafeMessageBox_connect(noui_ThreadSafeMessageBox);
-    noui_ThreadSafeQuestionConn = uiInterface.ThreadSafeQuestion_connect(noui_ThreadSafeQuestion);
-    noui_InitMessageConn = uiInterface.InitMessage_connect(noui_InitMessage);
+    noui_ThreadSafeMessageBoxConn = uiInterface.ThreadSafeMessageBox.connect(noui_ThreadSafeMessageBox);
+    noui_ThreadSafeQuestionConn = uiInterface.ThreadSafeQuestion.connect(noui_ThreadSafeQuestion);
+    noui_InitMessageConn = uiInterface.InitMessage.connect(noui_InitMessage);
 }
 
-bool noui_ThreadSafeMessageBoxRedirect(const bilingual_str& message, unsigned int style)
+void noui_ThreadSafeMessageBoxRedirect(const bilingual_str& message, unsigned int style)
 {
     LogInfo("%s", message.original);
-    return false;
 }
 
 bool noui_ThreadSafeQuestionRedirect(const bilingual_str& /* ignored interactive message */, const std::string& message, unsigned int style)
@@ -85,9 +82,9 @@ void noui_test_redirect()
     noui_ThreadSafeMessageBoxConn.disconnect();
     noui_ThreadSafeQuestionConn.disconnect();
     noui_InitMessageConn.disconnect();
-    noui_ThreadSafeMessageBoxConn = uiInterface.ThreadSafeMessageBox_connect(noui_ThreadSafeMessageBoxRedirect);
-    noui_ThreadSafeQuestionConn = uiInterface.ThreadSafeQuestion_connect(noui_ThreadSafeQuestionRedirect);
-    noui_InitMessageConn = uiInterface.InitMessage_connect(noui_InitMessageRedirect);
+    noui_ThreadSafeMessageBoxConn = uiInterface.ThreadSafeMessageBox.connect(noui_ThreadSafeMessageBoxRedirect);
+    noui_ThreadSafeQuestionConn = uiInterface.ThreadSafeQuestion.connect(noui_ThreadSafeQuestionRedirect);
+    noui_InitMessageConn = uiInterface.InitMessage.connect(noui_InitMessageRedirect);
 }
 
 void noui_reconnect()

@@ -19,6 +19,7 @@ struct CheckGlobalsImpl {
         g_seeded_g_prng_zero = false;
         g_used_system_time = false;
         SetMockTime(0s);
+        MockableSteadyClock::ClearMockTime();
     }
     ~CheckGlobalsImpl()
     {
@@ -42,8 +43,10 @@ struct CheckGlobalsImpl {
             std::cerr << "\n\n"
                          "The current fuzz target accessed system time.\n\n"
 
-                         "This is acceptable, but requires the fuzz target to call \n"
-                         "SetMockTime() at the beginning of processing the fuzz input.\n\n"
+                         "This is acceptable, but requires the fuzz target to use \n"
+                         "a FakeNodeClock, FakeSteadyClock or call \n"
+                         "SetMockTime() at the \n" "beginning of processing the \n"
+                         "fuzz input.\n\n"
 
                          "Without setting mock time, time-dependent behavior can lead \n"
                          "to non-reproducible bugs or inefficient fuzzing.\n\n"

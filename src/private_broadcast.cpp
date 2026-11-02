@@ -3,20 +3,39 @@
 // file COPYING or https://opensource.org/license/mit/.
 
 #include <private_broadcast.h>
+
 #include <util/check.h>
 
 #include <algorithm>
+#include <ranges>
 
-/// If a transaction is not received back from the network for this duration
-/// after it is broadcast, then we consider it stale / for rebroadcasting.
-static constexpr auto STALE_DURATION{1min};
 
-bool PrivateBroadcast::Add(const CTransactionRef& tx)
+PrivateBroadcast::AddResult PrivateBroadcast::Add(const CTransactionRef& tx)
     EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
 {
     LOCK(m_mutex);
-    const bool inserted{m_transactions.try_emplace(tx).second};
-    return inserted;
+    // Cleanup finished transactions
+    std::erase_if(m_transactions, [this](const auto& entry) {
+        const auto& state{entry.second};
+        return state.resolved && !IsPending(state) &&
+               std::ranges::all_of(state.send_statuses, [](const auto& status) { return status.disconnected; });
+    });
+
+    if (const auto it{m_transactions.find(tx)}; it != m_transactions.end()) {
+        if (it->second.send_statuses.size() < m_max_send_attempts) return AddResult::AlreadyPresent;
+
+        // A transaction that has reached m_max_send_attempts can be explicitly retried by adding it again.
+        it->second.time_added = NodeClock::now();
+        it->second.send_statuses.clear();
+        it->second.planned_sends = INITIAL_CONNECTION_COUNT;
+        it->second.resolved = false;
+        return AddResult::Added;
+    }
+
+    if (m_transactions.size() >= m_max_transactions) return AddResult::QueueFull;
+
+    m_transactions.try_emplace(tx);
+    return AddResult::Added;
 }
 
 std::optional<size_t> PrivateBroadcast::Remove(const CTransactionRef& tx)
@@ -25,10 +44,41 @@ std::optional<size_t> PrivateBroadcast::Remove(const CTransactionRef& tx)
     LOCK(m_mutex);
     const auto handle{m_transactions.extract(tx)};
     if (handle) {
-        const auto p{DerivePriority(handle.mapped())};
-        return p.num_confirmed;
+        const auto& state{handle.mapped()};
+        const size_t planned{std::min(state.planned_sends, m_max_send_attempts)};
+        const size_t actual{state.send_statuses.size()};
+        return planned > actual ? planned - actual : 0;
     }
     return std::nullopt;
+}
+
+bool PrivateBroadcast::MarkResolved(const CTransactionRef& tx)
+{
+    LOCK(m_mutex);
+    const auto it{m_transactions.find(tx)};
+    if (it == m_transactions.end()) return false;
+    it->second.resolved = true;
+    return true;
+}
+
+void PrivateBroadcast::NodeDisconnected(NodeId nodeid)
+{
+    LOCK(m_mutex);
+    if (const auto entry{GetSendStatusByNode(nodeid)}) {
+        entry->send_status.disconnected = true;
+    }
+}
+
+bool PrivateBroadcast::TryGrantRetry(const CTransactionRef& tx)
+{
+    LOCK(m_mutex);
+    const auto it{m_transactions.find(tx)};
+    if (it == m_transactions.end() ||
+        it->second.resolved ||
+        IsPending(it->second) ||
+        it->second.planned_sends >= m_max_send_attempts) return false;
+    ++it->second.planned_sends;
+    return true;
 }
 
 std::optional<CTransactionRef> PrivateBroadcast::PickTxForSend(const NodeId& will_send_to_nodeid, const CService& will_send_to_address)
@@ -36,14 +86,20 @@ std::optional<CTransactionRef> PrivateBroadcast::PickTxForSend(const NodeId& wil
 {
     LOCK(m_mutex);
 
-    const auto it{std::ranges::max_element(
-            m_transactions,
-            [](const auto& a, const auto& b) { return a < b; },
-            [](const auto& el) { return DerivePriority(el.second); })};
+    if (GetSendStatusByNode(will_send_to_nodeid).has_value()) { // nodeid reuse, shouldn't send >1 tx to a given node
+        Assume(false);
+        return std::nullopt;
+    }
 
-    if (it != m_transactions.end()) {
-        auto& [tx, sent_to]{*it};
-        sent_to.emplace_back(will_send_to_nodeid, will_send_to_address, NodeClock::now());
+    auto pending_transactions{m_transactions | std::views::filter([this](const auto& entry) { return IsPending(entry.second); })};
+    const auto it{std::ranges::max_element(
+            pending_transactions,
+            [](const auto& a, const auto& b) { return a < b; },
+            [](const auto& el) { return DerivePriority(el.second.send_statuses); })};
+
+    if (it != pending_transactions.end()) {
+        auto& [tx, state]{*it};
+        state.send_statuses.emplace_back(will_send_to_nodeid, will_send_to_address, NodeClock::now());
         return tx;
     }
 
@@ -71,34 +127,26 @@ void PrivateBroadcast::NodeConfirmedReception(const NodeId& nodeid)
     }
 }
 
-bool PrivateBroadcast::DidNodeConfirmReception(const NodeId& nodeid)
-    EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
-{
-    LOCK(m_mutex);
-    const auto tx_and_status{GetSendStatusByNode(nodeid)};
-    if (tx_and_status.has_value()) {
-        return tx_and_status.value().send_status.confirmed.has_value();
-    }
-    return false;
-}
-
 bool PrivateBroadcast::HavePendingTransactions()
     EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
 {
     LOCK(m_mutex);
-    return !m_transactions.empty();
+    return std::ranges::any_of(m_transactions, [this](const auto& entry) { return IsPending(entry.second); });
 }
 
 std::vector<CTransactionRef> PrivateBroadcast::GetStale() const
     EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
 {
     LOCK(m_mutex);
-    const auto stale_time{NodeClock::now() - STALE_DURATION};
+    const auto now{NodeClock::now()};
     std::vector<CTransactionRef> stale;
-    for (const auto& [tx, send_status] : m_transactions) {
-        const Priority p{DerivePriority(send_status)};
-        if (p.last_confirmed < stale_time) {
-            stale.push_back(tx);
+    for (const auto& [tx, state] : m_transactions) {
+        if (state.resolved || state.planned_sends >= m_max_send_attempts) continue;
+        const Priority p{DerivePriority(state.send_statuses)};
+        if (p.num_confirmed == 0) {
+            if (state.time_added < now - INITIAL_STALE_DURATION) stale.push_back(tx);
+        } else {
+            if (p.last_confirmed < now - STALE_DURATION) stale.push_back(tx);
         }
     }
     return stale;
@@ -111,16 +159,25 @@ std::vector<PrivateBroadcast::TxBroadcastInfo> PrivateBroadcast::GetBroadcastInf
     std::vector<TxBroadcastInfo> entries;
     entries.reserve(m_transactions.size());
 
-    for (const auto& [tx, sent_to] : m_transactions) {
+    for (const auto& [tx, state] : m_transactions) {
+        if (state.resolved) continue;
         std::vector<PeerSendInfo> peers;
-        peers.reserve(sent_to.size());
-        for (const auto& status : sent_to) {
+        peers.reserve(state.send_statuses.size());
+        for (const auto& status : state.send_statuses) {
             peers.emplace_back(PeerSendInfo{.address = status.address, .sent = status.picked, .received = status.confirmed});
         }
-        entries.emplace_back(TxBroadcastInfo{.tx = tx, .peers = std::move(peers)});
+        const size_t attempts_remaining{m_max_send_attempts - std::min(state.send_statuses.size(), m_max_send_attempts)};
+        entries.emplace_back(TxBroadcastInfo{.tx = tx, .time_added = state.time_added, .attempts_remaining = attempts_remaining, .peers = std::move(peers)});
     }
 
     return entries;
+}
+
+bool PrivateBroadcast::IsPending(const TxSendStatus& status) const
+{
+    // Deliberately ignore resolved so all initially scheduled connections can complete.
+    const size_t limit{std::min(status.planned_sends, m_max_send_attempts)};
+    return status.send_statuses.size() < limit;
 }
 
 PrivateBroadcast::Priority PrivateBroadcast::DerivePriority(const std::vector<SendStatus>& sent_to)
@@ -141,8 +198,8 @@ std::optional<PrivateBroadcast::TxAndSendStatusForNode> PrivateBroadcast::GetSen
     EXCLUSIVE_LOCKS_REQUIRED(m_mutex)
 {
     AssertLockHeld(m_mutex);
-    for (auto& [tx, sent_to] : m_transactions) {
-        for (auto& send_status : sent_to) {
+    for (auto& [tx, state] : m_transactions) {
+        for (auto& send_status : state.send_statuses) {
             if (send_status.nodeid == nodeid) {
                 return TxAndSendStatusForNode{.tx = tx, .send_status = send_status};
             }

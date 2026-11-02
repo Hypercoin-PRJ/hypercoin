@@ -16,7 +16,7 @@ get_target_property(qt_lib_type Qt6::Core TYPE)
 function(import_plugins target)
   if(qt_lib_type STREQUAL "STATIC_LIBRARY")
     set(plugins Qt6::QMinimalIntegrationPlugin)
-    if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|FreeBSD)$")
+    if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|FreeBSD|OpenBSD)$")
       list(APPEND plugins Qt6::QXcbIntegrationPlugin)
     elseif(WIN32)
       list(APPEND plugins Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin)
@@ -255,12 +255,12 @@ endif()
 
 add_subdirectory(locale)
 
-add_executable(hypercoin-qt
+add_executable(hypercoin-qt WIN32
   main.cpp
+  res/hypercoin-qt-res.rc
   ../init/hypercoin-qt.cpp
 )
 
-add_windows_resources(hypercoin-qt res/hypercoin-qt-res.rc)
 add_windows_application_manifest(hypercoin-qt)
 
 target_link_libraries(hypercoin-qt
@@ -271,12 +271,9 @@ target_link_libraries(hypercoin-qt
 
 import_plugins(hypercoin-qt)
 install_binary_component(hypercoin-qt HAS_MANPAGE)
-if(WIN32)
-  set_target_properties(hypercoin-qt PROPERTIES WIN32_EXECUTABLE TRUE)
-endif()
 
 if(ENABLE_IPC)
-  add_executable(hypercoin-gui
+  add_executable(hypercoin-gui WIN32
     main.cpp
     ../init/hypercoin-gui.cpp
   )
@@ -288,9 +285,6 @@ if(ENABLE_IPC)
   )
   import_plugins(hypercoin-gui)
   install_binary_component(hypercoin-gui INTERNAL)
-  if(WIN32)
-    set_target_properties(hypercoin-gui PROPERTIES WIN32_EXECUTABLE TRUE)
-  endif()
 endif()
 
 if(BUILD_GUI_TESTS)
@@ -306,7 +300,6 @@ else()
   add_custom_target(translate COMMAND ${CMAKE_COMMAND}
     -D "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     -D "COPYRIGHT_HOLDERS=${COPYRIGHT_HOLDERS}"
-    -D "LCONVERT_EXECUTABLE=$<TARGET_FILE:Qt6::lconvert>"
     -D "LUPDATE_EXECUTABLE=$<TARGET_FILE:Qt6::lupdate>"
     -D "XGETTEXT_EXECUTABLE=${XGETTEXT_EXECUTABLE}"
     -P ${PROJECT_SOURCE_DIR}/share/qt/translate.cmake

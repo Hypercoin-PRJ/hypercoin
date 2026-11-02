@@ -2,10 +2,11 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <interfaces/echo.h>
-#include <interfaces/handler.h>
+#include <interfaces/echo.h>    // IWYU pragma: associated
+#include <interfaces/handler.h> // IWYU pragma: associated
 
-#include <boost/signals2/connection.hpp>
+#include <util/hrcsignals.h>
+
 #include <memory>
 #include <utility>
 
@@ -23,11 +24,11 @@ public:
 class SignalHandler : public interfaces::Handler
 {
 public:
-    explicit SignalHandler(boost::signals2::connection connection) : m_connection(std::move(connection)) {}
+    explicit SignalHandler(hrcsignals::connection connection) : m_connection(std::move(connection)) {}
 
     void disconnect() override { m_connection.disconnect(); }
 
-    boost::signals2::scoped_connection m_connection;
+    hrcsignals::scoped_connection m_connection;
 };
 
 class EchoImpl : public interfaces::Echo
@@ -44,7 +45,7 @@ std::unique_ptr<Handler> MakeCleanupHandler(std::function<void()> cleanup)
     return std::make_unique<common::CleanupHandler>(std::move(cleanup));
 }
 
-std::unique_ptr<Handler> MakeSignalHandler(boost::signals2::connection connection)
+std::unique_ptr<Handler> MakeSignalHandler(hrcsignals::connection connection)
 {
     return std::make_unique<common::SignalHandler>(std::move(connection));
 }

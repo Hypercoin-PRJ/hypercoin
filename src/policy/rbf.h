@@ -7,7 +7,7 @@
 
 #include <consensus/amount.h>
 #include <primitives/transaction.h>
-#include <threadsafety.h>
+#include <sync.h>
 #include <txmempool.h>
 #include <util/feefrac.h>
 
@@ -23,7 +23,7 @@ class uint256;
 
 /** Maximum number of unique clusters that can be affected by an RBF (Rule #5);
  * see GetEntriesForConflicts() */
-static constexpr uint32_t MAX_REPLACEMENT_CANDIDATES{100};
+inline constexpr uint32_t MAX_REPLACEMENT_CANDIDATES{100};
 
 /** The rbf state of unconfirmed transactions */
 enum class RBFTransactionState {

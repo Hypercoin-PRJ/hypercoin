@@ -5,41 +5,32 @@
 #include <coins.h>
 
 #include <consensus/consensus.h>
+#include <primitives/block.h>
 #include <random.h>
 #include <uint256.h>
 #include <util/log.h>
+#include <util/threadpool.h>
 #include <util/trace.h>
+
+#include <ranges>
+#include <unordered_set>
 
 TRACEPOINT_SEMAPHORE(utxocache, add);
 TRACEPOINT_SEMAPHORE(utxocache, spent);
 TRACEPOINT_SEMAPHORE(utxocache, uncache);
 
-std::optional<Coin> CCoinsView::GetCoin(const COutPoint& outpoint) const { return std::nullopt; }
-std::optional<Coin> CCoinsView::PeekCoin(const COutPoint& outpoint) const { return GetCoin(outpoint); }
-uint256 CCoinsView::GetBestBlock() const { return uint256(); }
-std::vector<uint256> CCoinsView::GetHeadBlocks() const { return std::vector<uint256>(); }
-void CCoinsView::BatchWrite(CoinsViewCacheCursor& cursor, const uint256& hashBlock)
+SaltedCoinsCacheHasher::SaltedCoinsCacheHasher(bool deterministic)
+    : m_hasher{
+          deterministic ? 0x8e819f2607a18de6 : FastRandomContext().rand64(),
+          deterministic ? 0xf4020d2e3983b0eb : FastRandomContext().rand64()}
 {
-    for (auto it{cursor.Begin()}; it != cursor.End(); it = cursor.NextAndMaybeErase(*it)) { }
 }
 
-std::unique_ptr<CCoinsViewCursor> CCoinsView::Cursor() const { return nullptr; }
-
-bool CCoinsView::HaveCoin(const COutPoint &outpoint) const
+CoinsViewEmpty& CoinsViewEmpty::Get()
 {
-    return GetCoin(outpoint).has_value();
+    static CoinsViewEmpty instance;
+    return instance;
 }
-
-CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }
-std::optional<Coin> CCoinsViewBacked::GetCoin(const COutPoint& outpoint) const { return base->GetCoin(outpoint); }
-std::optional<Coin> CCoinsViewBacked::PeekCoin(const COutPoint& outpoint) const { return base->PeekCoin(outpoint); }
-bool CCoinsViewBacked::HaveCoin(const COutPoint &outpoint) const { return base->HaveCoin(outpoint); }
-uint256 CCoinsViewBacked::GetBestBlock() const { return base->GetBestBlock(); }
-std::vector<uint256> CCoinsViewBacked::GetHeadBlocks() const { return base->GetHeadBlocks(); }
-void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
-void CCoinsViewBacked::BatchWrite(CoinsViewCacheCursor& cursor, const uint256& hashBlock) { base->BatchWrite(cursor, hashBlock); }
-std::unique_ptr<CCoinsViewCursor> CCoinsViewBacked::Cursor() const { return base->Cursor(); }
-size_t CCoinsViewBacked::EstimateSize() const { return base->EstimateSize(); }
 
 std::optional<Coin> CCoinsViewCache::PeekCoin(const COutPoint& outpoint) const
 {
@@ -49,9 +40,9 @@ std::optional<Coin> CCoinsViewCache::PeekCoin(const COutPoint& outpoint) const
     return base->PeekCoin(outpoint);
 }
 
-CCoinsViewCache::CCoinsViewCache(CCoinsView* baseIn, bool deterministic) :
-    CCoinsViewBacked(baseIn), m_deterministic(deterministic),
-    cacheCoins(0, SaltedOutpointHasher(/*deterministic=*/deterministic), CCoinsMap::key_equal{}, &m_cache_coins_memory_resource)
+CCoinsViewCache::CCoinsViewCache(CCoinsView* in_base, bool deterministic) :
+    CCoinsViewBacked(in_base), m_deterministic(deterministic),
+    cacheCoins(0, SaltedCoinsCacheHasher{/*deterministic=*/deterministic}, CCoinsMap::key_equal{}, &m_cache_coins_memory_resource)
 {
     m_sentinel.second.SelfRef(m_sentinel);
 }
@@ -129,9 +120,9 @@ void CCoinsViewCache::AddCoin(const COutPoint &outpoint, Coin&& coin, bool possi
            (bool)it->second.coin.IsCoinBase());
 }
 
-void CCoinsViewCache::EmplaceCoinInternalDANGER(COutPoint&& outpoint, Coin&& coin) {
+void CCoinsViewCache::EmplaceCoinInternalDANGER(const COutPoint& outpoint, Coin&& coin) {
     const auto mem_usage{coin.DynamicMemoryUsage()};
-    auto [it, inserted] = cacheCoins.try_emplace(std::move(outpoint), std::move(coin));
+    auto [it, inserted] = cacheCoins.try_emplace(outpoint, std::move(coin));
     if (inserted) {
         CCoinsCacheEntry::SetDirty(*it, m_sentinel);
         ++m_dirty_count;
@@ -185,7 +176,8 @@ const Coin& CCoinsViewCache::AccessCoin(const COutPoint &outpoint) const {
     }
 }
 
-bool CCoinsViewCache::HaveCoin(const COutPoint &outpoint) const {
+bool CCoinsViewCache::HaveCoin(const COutPoint& outpoint) const
+{
     CCoinsMap::const_iterator it = FetchCoin(outpoint);
     return (it != cacheCoins.end() && !it->second.coin.IsSpent());
 }
@@ -196,16 +188,17 @@ bool CCoinsViewCache::HaveCoinInCache(const COutPoint &outpoint) const {
 }
 
 uint256 CCoinsViewCache::GetBestBlock() const {
-    if (hashBlock.IsNull())
-        hashBlock = base->GetBestBlock();
-    return hashBlock;
+    if (m_block_hash.IsNull())
+        m_block_hash = base->GetBestBlock();
+    return m_block_hash;
 }
 
-void CCoinsViewCache::SetBestBlock(const uint256 &hashBlockIn) {
-    hashBlock = hashBlockIn;
+void CCoinsViewCache::SetBestBlock(const uint256& in_block_hash)
+{
+    m_block_hash = in_block_hash;
 }
 
-void CCoinsViewCache::BatchWrite(CoinsViewCacheCursor& cursor, const uint256& hashBlockIn)
+void CCoinsViewCache::BatchWrite(CoinsViewCacheCursor& cursor, const uint256& in_block_hash)
 {
     for (auto it{cursor.Begin()}; it != cursor.End(); it = cursor.NextAndMaybeErase(*it)) {
         if (!it->second.IsDirty()) { // TODO a cursor can only contain dirty entries
@@ -273,13 +266,13 @@ void CCoinsViewCache::BatchWrite(CoinsViewCacheCursor& cursor, const uint256& ha
             }
         }
     }
-    SetBestBlock(hashBlockIn);
+    SetBestBlock(in_block_hash);
 }
 
 void CCoinsViewCache::Flush(bool reallocate_cache)
 {
     auto cursor{CoinsViewCacheCursor(m_dirty_count, m_sentinel, cacheCoins, /*will_erase=*/true)};
-    base->BatchWrite(cursor, hashBlock);
+    base->BatchWrite(cursor, m_block_hash);
     Assume(m_dirty_count == 0);
     cacheCoins.clear();
     if (reallocate_cache) {
@@ -291,7 +284,7 @@ void CCoinsViewCache::Flush(bool reallocate_cache)
 void CCoinsViewCache::Sync()
 {
     auto cursor{CoinsViewCacheCursor(m_dirty_count, m_sentinel, cacheCoins, /*will_erase=*/false)};
-    base->BatchWrite(cursor, hashBlock);
+    base->BatchWrite(cursor, m_block_hash);
     Assume(m_dirty_count == 0);
     if (m_sentinel.second.Next() != &m_sentinel) {
         /* BatchWrite must clear flags of all entries */
@@ -345,7 +338,7 @@ void CCoinsViewCache::ReallocateCache()
     cacheCoins.~CCoinsMap();
     m_cache_coins_memory_resource.~CCoinsMapMemoryResource();
     ::new (&m_cache_coins_memory_resource) CCoinsMapMemoryResource{};
-    ::new (&cacheCoins) CCoinsMap{0, SaltedOutpointHasher{/*deterministic=*/m_deterministic}, CCoinsMap::key_equal{}, &m_cache_coins_memory_resource};
+    ::new (&cacheCoins) CCoinsMap{0, SaltedCoinsCacheHasher{/*deterministic=*/m_deterministic}, CCoinsMap::key_equal{}, &m_cache_coins_memory_resource};
 }
 
 void CCoinsViewCache::SanityCheck() const
@@ -378,6 +371,45 @@ void CCoinsViewCache::SanityCheck() const
     }
     assert(count_dirty == count_linked && count_dirty == m_dirty_count);
     assert(recomputed_usage == cachedCoinsUsage);
+}
+
+CCoinsViewCache::ResetGuard CoinsViewOverlay::StartFetching(const CBlock& block LIFETIMEBOUND) noexcept
+{
+    Assert(m_futures.empty());
+    Assert(m_inputs.empty());
+    Assert(m_input_head.load(std::memory_order_relaxed) == 0);
+    Assert(m_input_tail == 0);
+    if (const auto workers_count{m_thread_pool->WorkersCount()}; workers_count > 0 && block.vtx.size() > 1) {
+        // Loop through the block inputs and set their prevouts in the queue.
+        // Filter inputs that spend outputs created earlier in the same block. These outputs will be created
+        // directly in the cache from the tx that creates them, so they will not be requested from a base view.
+        std::unordered_set<Txid, SaltedCoinsCacheHasher> earlier_txids;
+        earlier_txids.reserve(block.vtx.size());
+        earlier_txids.emplace(block.vtx[0]->GetHash());
+        for (const auto& tx : block.vtx | std::views::drop(1)) {
+            for (const auto& input : tx->vin) {
+                if (!earlier_txids.contains(input.prevout.hash)) m_inputs.emplace_back(input.prevout);
+            }
+            earlier_txids.emplace(tx->GetHash());
+        }
+        // Only submit tasks if we have something to fetch.
+        if (m_inputs.size()) {
+            std::vector<std::function<void()>> tasks(workers_count, [this] {
+                while (ProcessInput()) {}
+            });
+            if (auto futures{m_thread_pool->Submit(std::move(tasks))}) {
+                m_futures = std::move(*futures);
+            } else {
+                // Submit can fail if a shared owner of the thread pool outside of this class calls Stop() or
+                // Interrupt() on a different thread after we call WorkersCount() above. In that case parallel
+                // fetching will not make progress, so we clear the inputs to fall back to single threaded fetching.
+                LogWarning("Failed to submit prevout fetch tasks (%s); falling back to single-threaded fetching for this block.", SubmitErrorString(futures.error()));
+                m_inputs.clear();
+                StopFetching(); // Assert nothing changed if we failed to start tasks.
+            }
+        }
+    }
+    return CreateResetGuard();
 }
 
 static const uint64_t MIN_TRANSACTION_OUTPUT_WEIGHT{WITNESS_SCALE_FACTOR * ::GetSerializeSize(CTxOut())};

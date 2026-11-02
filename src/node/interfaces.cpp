@@ -2,75 +2,88 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <addrdb.h>
+#include <hypercoin-build-config.h> // IWYU pragma: keep
+
 #include <banman.h>
 #include <blockfilter.h>
 #include <chain.h>
 #include <chainparams.h>
+#include <coins.h>
 #include <common/args.h>
+#include <common/settings.h>
+#include <consensus/amount.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
-#include <deploymentstatus.h>
 #include <external_signer.h>
+#include <httprpc.h>
 #include <index/blockfilterindex.h>
 #include <init.h>
 #include <interfaces/chain.h>
 #include <interfaces/handler.h>
 #include <interfaces/mining.h>
 #include <interfaces/node.h>
+#include <interfaces/rpc.h>
 #include <interfaces/types.h>
-#include <interfaces/wallet.h>
-#include <kernel/chain.h>
 #include <kernel/context.h>
-#include <kernel/mempool_entry.h>
+#include <key.h>
 #include <logging.h>
 #include <mapport.h>
 #include <net.h>
 #include <net_processing.h>
+#include <net_types.h>
 #include <netaddress.h>
 #include <netbase.h>
 #include <node/blockstorage.h>
 #include <node/coin.h>
 #include <node/context.h>
 #include <node/interface_ui.h>
-#include <node/mini_miner.h>
-#include <node/miner.h>
 #include <node/kernel_notifications.h>
+#include <node/miner.h>
+#include <node/mini_miner.h>
+#include <node/mining_args.h>
+#include <node/mining_types.h>
 #include <node/transaction.h>
 #include <node/types.h>
 #include <node/warnings.h>
 #include <policy/feerate.h>
-#include <policy/fees/block_policy_estimator.h>
+#include <policy/fees/estimator_man.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
-#include <policy/settings.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <rpc/blockchain.h>
 #include <rpc/protocol.h>
+#include <rpc/request.h>
 #include <rpc/server.h>
-#include <support/allocators/secure.h>
 #include <sync.h>
 #include <txmempool.h>
 #include <uint256.h>
 #include <univalue.h>
+#include <util/hrcsignals.h>
 #include <util/check.h>
+#include <util/expected.h>
+#include <util/fees.h>
 #include <util/result.h>
 #include <util/signalinterrupt.h>
 #include <util/string.h>
+#include <util/time.h>
 #include <util/translation.h>
 #include <validation.h>
 #include <validationinterface.h>
 
-#include <hypercoin-build-config.h> // IWYU pragma: keep
-
 #include <any>
+#include <atomic>
+#include <condition_variable>
+#include <cstdint>
+#include <cstdlib>
+#include <functional>
+#include <map>
 #include <memory>
 #include <optional>
-#include <stdexcept>
+#include <string>
+#include <tuple>
 #include <utility>
-
-#include <boost/signals2/signal.hpp>
+#include <vector>
 
 using interfaces::BlockRef;
 using interfaces::BlockTemplate;
@@ -81,9 +94,11 @@ using interfaces::Handler;
 using interfaces::MakeSignalHandler;
 using interfaces::Mining;
 using interfaces::Node;
+using interfaces::Rpc;
 using interfaces::WalletLoader;
 using kernel::ChainstateRole;
 using node::BlockAssembler;
+using node::BlockCreateOptions;
 using node::BlockWaitOptions;
 using node::CoinbaseTx;
 using util::Join;
@@ -187,7 +202,7 @@ public:
         args().WriteSettingsFile();
     }
     void mapPort(bool enable) override { StartMapPort(enable); }
-    bool getProxy(Network net, Proxy& proxy_info) override { return GetProxy(net, proxy_info); }
+    std::optional<Proxy> getProxy(Network net) override { return GetProxy(net); }
     size_t getNodeCount(ConnectionDirection flags) override
     {
         return m_context->connman ? m_context->connman->GetNodeCount(flags) : 0;
@@ -373,50 +388,50 @@ public:
     }
     std::unique_ptr<Handler> handleInitMessage(InitMessageFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.InitMessage_connect(fn));
+        return MakeSignalHandler(::uiInterface.InitMessage.connect(fn));
     }
     std::unique_ptr<Handler> handleMessageBox(MessageBoxFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.ThreadSafeMessageBox_connect(fn));
+        return MakeSignalHandler(::uiInterface.ThreadSafeMessageBox.connect(fn));
     }
     std::unique_ptr<Handler> handleQuestion(QuestionFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.ThreadSafeQuestion_connect(fn));
+        return MakeSignalHandler(::uiInterface.ThreadSafeQuestion.connect(fn));
     }
     std::unique_ptr<Handler> handleShowProgress(ShowProgressFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.ShowProgress_connect(fn));
+        return MakeSignalHandler(::uiInterface.ShowProgress.connect(fn));
     }
     std::unique_ptr<Handler> handleInitWallet(InitWalletFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.InitWallet_connect(fn));
+        return MakeSignalHandler(::uiInterface.InitWallet.connect(fn));
     }
     std::unique_ptr<Handler> handleNotifyNumConnectionsChanged(NotifyNumConnectionsChangedFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.NotifyNumConnectionsChanged_connect(fn));
+        return MakeSignalHandler(::uiInterface.NotifyNumConnectionsChanged.connect(fn));
     }
     std::unique_ptr<Handler> handleNotifyNetworkActiveChanged(NotifyNetworkActiveChangedFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.NotifyNetworkActiveChanged_connect(fn));
+        return MakeSignalHandler(::uiInterface.NotifyNetworkActiveChanged.connect(fn));
     }
     std::unique_ptr<Handler> handleNotifyAlertChanged(NotifyAlertChangedFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.NotifyAlertChanged_connect(fn));
+        return MakeSignalHandler(::uiInterface.NotifyAlertChanged.connect(fn));
     }
     std::unique_ptr<Handler> handleBannedListChanged(BannedListChangedFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.BannedListChanged_connect(fn));
+        return MakeSignalHandler(::uiInterface.BannedListChanged.connect(fn));
     }
     std::unique_ptr<Handler> handleNotifyBlockTip(NotifyBlockTipFn fn) override
     {
-        return MakeSignalHandler(::uiInterface.NotifyBlockTip_connect([fn](SynchronizationState sync_state, const CBlockIndex& block, double verification_progress) {
+        return MakeSignalHandler(::uiInterface.NotifyBlockTip.connect([fn](SynchronizationState sync_state, const CBlockIndex& block, double verification_progress) {
             fn(sync_state, BlockTip{block.nHeight, block.GetBlockTime(), block.GetBlockHash()}, verification_progress);
         }));
     }
     std::unique_ptr<Handler> handleNotifyHeaderTip(NotifyHeaderTipFn fn) override
     {
         return MakeSignalHandler(
-            ::uiInterface.NotifyHeaderTip_connect([fn](SynchronizationState sync_state, int64_t height, int64_t timestamp, bool presync) {
+            ::uiInterface.NotifyHeaderTip.connect([fn](SynchronizationState sync_state, int64_t height, int64_t timestamp, bool presync) {
                 fn(sync_state, BlockTip{(int)height, timestamp, uint256{}}, presync);
             }));
     }
@@ -723,15 +738,15 @@ public:
         }
         return {};
     }
-    CFeeRate estimateSmartFee(int num_blocks, bool conservative, FeeCalculation* calc) override
+    util::Expected<FeeRateEstimation, FeeRateEstimationError> getFeeRateEstimate(int num_blocks, bool conservative) const override
     {
-        if (!m_node.fee_estimator) return {};
-        return m_node.fee_estimator->estimateSmartFee(num_blocks, calc, conservative);
+        if (!m_node.fee_estimator_man) return EstimationError(FeeRateEstimatorType::AUTO, /*returned_target=*/0, /*error=*/{});
+        return m_node.fee_estimator_man->GetFeeRateEstimate(num_blocks, conservative);
     }
-    unsigned int estimateMaxBlocks() override
+    unsigned int maximumFeeEstimationTargetBlocks() const override
     {
-        if (!m_node.fee_estimator) return 0;
-        return m_node.fee_estimator->HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE);
+        if (!m_node.fee_estimator_man) return 0;
+        return m_node.fee_estimator_man->MaximumTarget();
     }
     CFeeRate mempoolMinFee() override
     {
@@ -828,7 +843,7 @@ public:
         });
         if (!action) return false;
         // Now dump value to disk if requested
-        return *action != interfaces::SettingsAction::WRITE || args().WriteSettingsFile();
+        return *action != interfaces::SettingsAction::WRITE || (args().GetSettingsPath() && args().WriteSettingsFile());
     }
     bool overwriteRwSetting(const std::string& name, common::SettingsValue value, interfaces::SettingsAction action) override
     {
@@ -865,11 +880,11 @@ public:
 class BlockTemplateImpl : public BlockTemplate
 {
 public:
-    explicit BlockTemplateImpl(BlockAssembler::Options assemble_options,
+    explicit BlockTemplateImpl(BlockCreateOptions create_options,
                                std::unique_ptr<CBlockTemplate> block_template,
-                               NodeContext& node) : m_assemble_options(std::move(assemble_options)),
-                                                    m_block_template(std::move(block_template)),
-                                                    m_node(node)
+                               const NodeContext& node) : m_create_options(std::move(create_options)),
+                                                          m_block_template(std::move(block_template)),
+                                                          m_node(node)
     {
         assert(m_block_template);
     }
@@ -904,16 +919,23 @@ public:
         return TransactionMerklePath(m_block_template->block, 0);
     }
 
-    bool submitSolution(uint32_t version, uint32_t timestamp, uint32_t nonce, CTransactionRef coinbase) override
+    bool submitSolution(uint32_t version, uint32_t timestamp, uint32_t nonce, CTransactionRef coinbase, std::string& reason, std::string& debug) override
     {
+        if (!coinbase) return false;
         AddMerkleRootAndCoinbase(m_block_template->block, std::move(coinbase), version, timestamp, nonce);
-        return chainman().ProcessNewBlock(std::make_shared<const CBlock>(m_block_template->block), /*force_processing=*/true, /*min_pow_checked=*/true, /*new_block=*/nullptr);
+        return SubmitBlock(chainman(), std::make_shared<const CBlock>(m_block_template->block), reason, debug);
     }
 
     std::unique_ptr<BlockTemplate> waitNext(BlockWaitOptions options) override
     {
-        auto new_template = WaitAndCreateNewBlock(chainman(), notifications(), m_node.mempool.get(), m_block_template, options, m_assemble_options, m_interrupt_wait);
-        if (new_template) return std::make_unique<BlockTemplateImpl>(m_assemble_options, std::move(new_template), m_node);
+        auto new_template = WaitAndCreateNewBlock(chainman(),
+                                                  notifications(),
+                                                  m_node.mempool.get(),
+                                                  m_block_template,
+                                                  /*wait_options=*/options,
+                                                  /*create_options=*/m_create_options,
+                                                  /*interrupt_wait=*/m_interrupt_wait);
+        if (new_template) return std::make_unique<BlockTemplateImpl>(m_create_options, std::move(new_template), m_node);
         return nullptr;
     }
 
@@ -922,20 +944,20 @@ public:
         InterruptWait(notifications(), m_interrupt_wait);
     }
 
-    const BlockAssembler::Options m_assemble_options;
+    const BlockCreateOptions m_create_options;
 
     const std::unique_ptr<CBlockTemplate> m_block_template;
 
     bool m_interrupt_wait{false};
     ChainstateManager& chainman() { return *Assert(m_node.chainman); }
     KernelNotifications& notifications() { return *Assert(m_node.notifications); }
-    NodeContext& m_node;
+    const NodeContext& m_node;
 };
 
 class MinerImpl : public Mining
 {
 public:
-    explicit MinerImpl(NodeContext& node) : m_node(node) {}
+    explicit MinerImpl(const NodeContext& node) : m_node(node) {}
 
     bool isTestChain() override
     {
@@ -959,16 +981,6 @@ public:
 
     std::unique_ptr<BlockTemplate> createNewBlock(const BlockCreateOptions& options, bool cooldown) override
     {
-        // Reject too-small values instead of clamping so callers don't silently
-        // end up mining with different options than requested. This matches the
-        // behavior of the `-blockreservedweight` startup option, which rejects
-        // values below MINIMUM_BLOCK_RESERVED_WEIGHT.
-        if (options.block_reserved_weight && options.block_reserved_weight < MINIMUM_BLOCK_RESERVED_WEIGHT) {
-            throw std::runtime_error(strprintf("block_reserved_weight (%zu) must be at least %u weight units",
-                                               *options.block_reserved_weight,
-                                               MINIMUM_BLOCK_RESERVED_WEIGHT));
-        }
-
         // Ensure m_tip_block is set so consumers of BlockTemplate can rely on that.
         std::optional<BlockRef> maybe_tip{waitTipChanged(uint256::ZERO, MillisecondsDouble::max())};
 
@@ -988,10 +1000,14 @@ public:
             // Also wait during the final catch-up moments after IBD.
             if (!CooldownIfHeadersAhead(chainman(), notifications(), *maybe_tip, m_interrupt_mining)) return {};
         }
-
-        BlockAssembler::Options assemble_options{options};
-        ApplyArgsManOptions(*Assert(m_node.args), assemble_options);
-        return std::make_unique<BlockTemplateImpl>(assemble_options, BlockAssembler{chainman().ActiveChainstate(), context()->mempool.get(), assemble_options}.CreateNewBlock(), m_node);
+        const BlockCreateOptions create_options{MergeMiningOptions(options, m_node.mining_args)};
+        return std::make_unique<BlockTemplateImpl>(create_options,
+                                                   BlockAssembler{
+                                                       chainman().ActiveChainstate(),
+                                                       m_node.mempool.get(),
+                                                       create_options,
+                                                   }.CreateNewBlock(),
+                                                   m_node);
     }
 
     void interrupt() override
@@ -1008,11 +1024,60 @@ public:
         return state.IsValid();
     }
 
-    NodeContext* context() override { return &m_node; }
+    bool submitBlock(const CBlock& block_in, std::string& reason, std::string& debug) override
+    {
+        return SubmitBlock(chainman(), std::make_shared<const CBlock>(block_in), reason, debug);
+    }
+
+    std::vector<CTransactionRef> getTransactionsByTxID(const std::vector<Txid>& txids) override
+    {
+        if (!m_node.mempool) return {};
+
+        std::vector<CTransactionRef> results;
+        results.reserve(txids.size());
+        LOCK(m_node.mempool->cs);
+        for (const auto& txid : txids) {
+            results.emplace_back(m_node.mempool->get(txid));
+        }
+        return results;
+    }
+
+    std::vector<CTransactionRef> getTransactionsByWitnessID(const std::vector<Wtxid>& wtxids) override
+    {
+        if (!m_node.mempool) return {};
+
+        std::vector<CTransactionRef> results;
+        results.reserve(wtxids.size());
+        LOCK(m_node.mempool->cs);
+        for (const auto& wtxid : wtxids) {
+            results.emplace_back(m_node.mempool->get(wtxid));
+        }
+        return results;
+    }
+
+    const NodeContext* context() override { return &m_node; }
     ChainstateManager& chainman() { return *Assert(m_node.chainman); }
     KernelNotifications& notifications() { return *Assert(m_node.notifications); }
     // Treat as if guarded by notifications().m_tip_block_mutex
     bool m_interrupt_mining{false};
+    const NodeContext& m_node;
+};
+
+class RpcImpl : public Rpc
+{
+public:
+    explicit RpcImpl(NodeContext& node) : m_node(node) {}
+
+    UniValue executeRpc(UniValue request, std::string uri, std::string user) override
+    {
+        JSONRPCRequest req;
+        req.context = &m_node;
+        req.URI = std::move(uri);
+        req.authUser = std::move(user);
+        HTTPStatusCode status;
+        return ExecuteHTTPRPC(request, req, status);
+    }
+
     NodeContext& m_node;
 };
 } // namespace
@@ -1021,7 +1086,7 @@ public:
 namespace interfaces {
 std::unique_ptr<Node> MakeNode(node::NodeContext& context) { return std::make_unique<node::NodeImpl>(context); }
 std::unique_ptr<Chain> MakeChain(node::NodeContext& context) { return std::make_unique<node::ChainImpl>(context); }
-std::unique_ptr<Mining> MakeMining(node::NodeContext& context, bool wait_loaded)
+std::unique_ptr<Mining> MakeMining(const node::NodeContext& context, bool wait_loaded)
 {
     if (wait_loaded) {
         node::KernelNotifications& kernel_notifications(*Assert(context.notifications));
@@ -1034,4 +1099,5 @@ std::unique_ptr<Mining> MakeMining(node::NodeContext& context, bool wait_loaded)
     }
     return std::make_unique<node::MinerImpl>(context);
 }
+std::unique_ptr<Rpc> MakeRpc(node::NodeContext& context) { return std::make_unique<node::RpcImpl>(context); }
 } // namespace interfaces

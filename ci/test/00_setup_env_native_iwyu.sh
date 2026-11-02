@@ -6,20 +6,23 @@
 
 export LC_ALL=C.UTF-8
 
-export CI_IMAGE_NAME_TAG="mirror.gcr.io/debian:trixie"  # To build codegen, CMake must be 3.31 or newer.
+export CI_IMAGE_NAME_TAG="mirror.gcr.io/ubuntu:26.04"  # To build codegen, CMake must be 3.31 or newer.
 export CONTAINER_NAME=ci_native_iwyu
-export TIDY_LLVM_V="21"
-export APT_LLVM_V="${TIDY_LLVM_V}"
-export PACKAGES="clang-${TIDY_LLVM_V} clang-format-${TIDY_LLVM_V} libclang-${TIDY_LLVM_V}-dev llvm-${TIDY_LLVM_V}-dev jq libevent-dev libboost-dev libzmq3-dev systemtap-sdt-dev qt6-base-dev qt6-tools-dev qt6-l10n-tools libqrencode-dev libsqlite3-dev libcapnp-dev capnproto"
+export IWYU_LLVM_V="23"
+export APT_LLVM_V="${IWYU_LLVM_V}"
+export PACKAGES="clang-${IWYU_LLVM_V} clang-format-${IWYU_LLVM_V} libclang-${IWYU_LLVM_V}-dev llvm-${IWYU_LLVM_V}-dev jq libboost-dev libzmq3-dev systemtap-sdt-dev qt6-base-dev qt6-tools-dev qt6-l10n-tools libqrencode-dev libsqlite3-dev libcapnp-dev capnproto"
 export NO_DEPENDS=1
 export RUN_UNIT_TESTS=false
 export RUN_FUNCTIONAL_TESTS=false
 export RUN_FUZZ_TESTS=false
 export RUN_CHECK_DEPS=false
 export RUN_IWYU=true
-export GOAL="codegen"
+# Adding non-codegen targets to the build goal is a workaround
+# for https://gitlab.kitware.com/cmake/cmake/-/work_items/27862
+# and https://github.com/hypercoin-core/libmultiprocess/issues/284.
+export GOAL="codegen hypercoin_node_raw_data_headers mp_headers mptest_headers hypercoin_ipc_headers hypercoin_ipc_test_headers hypercoin_ipc_fuzz_headers"
 export HYPERCOIN_CONFIG="\
  --preset dev-mode -DBUILD_GUI=OFF \
- -DCMAKE_C_COMPILER=clang-${TIDY_LLVM_V} \
- -DCMAKE_CXX_COMPILER=clang++-${TIDY_LLVM_V} \
+ -DCMAKE_C_COMPILER=clang-${IWYU_LLVM_V} \
+ -DCMAKE_CXX_COMPILER=clang++-${IWYU_LLVM_V} \
 "

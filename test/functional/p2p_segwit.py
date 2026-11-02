@@ -10,7 +10,6 @@ from test_framework.blocktools import (
     WITNESS_COMMITMENT_HEADER,
     add_witness_commitment,
     create_block,
-    create_coinbase,
 )
 from test_framework.messages import (
     MAX_BIP125_RBF_SEQUENCE,
@@ -30,6 +29,7 @@ from test_framework.messages import (
     MSG_WTX,
     NODE_NETWORK,
     NODE_WITNESS,
+    WITNESS_SCALE_FACTOR,
     msg_no_witness_block,
     msg_getdata,
     msg_headers,
@@ -230,7 +230,7 @@ class SegWitTest(HypercoinTestFramework):
         tip = self.nodes[0].getbestblockhash()
         height = self.nodes[0].getblockcount() + 1
         block_time = self.nodes[0].getblockheader(tip)["mediantime"] + 1
-        block = create_block(int(tip, 16), create_coinbase(height), block_time)
+        block = create_block(int(tip, 16), height=height, ntime=block_time)
         return block
 
     def update_witness_block_with_transactions(self, block, tx_list, nonce=0):
@@ -374,14 +374,14 @@ class SegWitTest(HypercoinTestFramework):
         self.test_node.send_without_ping(msg_headers())
 
         self.test_node.announce_block_and_wait_for_getdata(block1, use_header=False)
-        assert self.test_node.last_message["getdata"].inv[0].type == blocktype
+        assert_equal(self.test_node.last_message["getdata"].inv[0].type, blocktype)
         test_witness_block(self.nodes[0], self.test_node, block1, True)
 
         block2 = self.build_next_block()
         block2.solve()
 
         self.test_node.announce_block_and_wait_for_getdata(block2, use_header=True)
-        assert self.test_node.last_message["getdata"].inv[0].type == blocktype
+        assert_equal(self.test_node.last_message["getdata"].inv[0].type, blocktype)
         test_witness_block(self.nodes[0], self.test_node, block2, True)
 
         # Check that we can getdata for witness blocks or regular blocks,
@@ -410,8 +410,8 @@ class SegWitTest(HypercoinTestFramework):
             block = self.build_next_block()
             self.update_witness_block_with_transactions(block, [])
             # This gives us a witness commitment.
-            assert len(block.vtx[0].wit.vtxinwit) == 1
-            assert len(block.vtx[0].wit.vtxinwit[0].scriptWitness.stack) == 1
+            assert_equal(len(block.vtx[0].wit.vtxinwit), 1)
+            assert_equal(len(block.vtx[0].wit.vtxinwit[0].scriptWitness.stack), 1)
             test_witness_block(self.nodes[0], self.test_node, block, accepted=True)
             # Now try to retrieve it...
             rpc_block = self.nodes[0].getblock(block.hash_hex, False)
@@ -529,7 +529,7 @@ class SegWitTest(HypercoinTestFramework):
         # Verify that if a peer doesn't set nServices to include NODE_WITNESS,
         # the getdata is just for the non-witness portion.
         self.old_node.announce_tx_and_wait_for_getdata(tx)
-        assert self.old_node.last_message["getdata"].inv[0].type == MSG_TX
+        assert_equal(self.old_node.last_message["getdata"].inv[0].type, MSG_TX)
 
         # Since we haven't delivered the tx yet, inv'ing the same tx from
         # a witness transaction ought not result in a getdata.
@@ -616,7 +616,9 @@ class SegWitTest(HypercoinTestFramework):
                     'txid': tx3.txid_hex,
                     'wtxid': tx3.wtxid_hex,
                     'allowed': True,
+                    'vsize_adjusted': tx3.get_vsize(),
                     'vsize': tx3.get_vsize(),
+                    'vsize_bip141': tx3.get_vsize(),
                     'fees': {
                         'base': Decimal('0.00001000'),
                     },
@@ -634,7 +636,9 @@ class SegWitTest(HypercoinTestFramework):
                     'txid': tx3.txid_hex,
                     'wtxid': tx3.wtxid_hex,
                     'allowed': True,
+                    'vsize_adjusted': tx3.get_vsize(),
                     'vsize': tx3.get_vsize(),
+                    'vsize_bip141': tx3.get_vsize(),
                     'fees': {
                         'base': Decimal('0.00011000'),
                     },
@@ -790,7 +794,7 @@ class SegWitTest(HypercoinTestFramework):
         block_3.vtx[0].vout[0].nValue -= 1
         block_3.vtx[0].vout[-1].nValue += 1
         block_3.hashMerkleRoot = block_3.calc_merkle_root()
-        assert len(block_3.vtx[0].vout) == 4  # 3 OP_returns
+        assert_equal(len(block_3.vtx[0].vout), 4)  # 3 OP_returns
         block_3.solve()
         test_witness_block(self.nodes[0], self.test_node, block_3, accepted=True)
 
@@ -831,7 +835,7 @@ class SegWitTest(HypercoinTestFramework):
         assert block.get_weight() < MAX_BLOCK_WEIGHT
         assert_equal(None, self.nodes[0].submitblock(block.serialize().hex()))
 
-        assert self.nodes[0].getbestblockhash() == block.hash_hex
+        assert_equal(self.nodes[0].getbestblockhash(), block.hash_hex)
 
         # Build a relayable-but-invalid block
         relayable_block = self.build_next_block()
@@ -943,7 +947,7 @@ class SegWitTest(HypercoinTestFramework):
         block.vtx[0].vout.pop()
         add_witness_commitment(block)
         block.solve()
-        assert block.get_weight() == MAX_BLOCK_WEIGHT
+        assert_equal(block.get_weight(), MAX_BLOCK_WEIGHT)
 
         test_witness_block(self.nodes[0], self.test_node, block, accepted=True)
 
@@ -1101,7 +1105,7 @@ class SegWitTest(HypercoinTestFramework):
 
         # This script is 19 max pushes (9937 bytes), then 64 more opcode-bytes.
         long_witness_script = CScript([b'a' * MAX_SCRIPT_ELEMENT_SIZE] * 19 + [OP_DROP] * 63 + [OP_TRUE])
-        assert len(long_witness_script) == MAX_WITNESS_SCRIPT_LENGTH + 1
+        assert_equal(len(long_witness_script), MAX_WITNESS_SCRIPT_LENGTH + 1)
         long_script_pubkey = script_to_p2wsh_script(long_witness_script)
 
         block = self.build_next_block()
@@ -1123,7 +1127,7 @@ class SegWitTest(HypercoinTestFramework):
 
         # Try again with one less byte in the witness script
         witness_script = CScript([b'a' * MAX_SCRIPT_ELEMENT_SIZE] * 19 + [OP_DROP] * 62 + [OP_TRUE])
-        assert len(witness_script) == MAX_WITNESS_SCRIPT_LENGTH
+        assert_equal(len(witness_script), MAX_WITNESS_SCRIPT_LENGTH)
         script_pubkey = script_to_p2wsh_script(witness_script)
 
         tx.vout[0] = CTxOut(tx.vout[0].nValue, script_pubkey)
@@ -1358,7 +1362,7 @@ class SegWitTest(HypercoinTestFramework):
             temp_utxo.append(UTXO(tx.txid_int, 0, tx.vout[0].nValue))
 
         self.generate(self.nodes[0], 1)  # Mine all the transactions
-        assert len(self.nodes[0].getrawmempool()) == 0
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
         # Finally, verify that version 0 -> version 2 transactions
         # are standard
@@ -1869,6 +1873,7 @@ class SegWitTest(HypercoinTestFramework):
         # sig ops
         outputs = (MAX_SIGOP_COST // sigops_per_script) + 2
         extra_sigops_available = MAX_SIGOP_COST % sigops_per_script
+        p2sh_outputs = MAX_SIGOP_COST // (sigops_per_script * WITNESS_SCALE_FACTOR) + 1
 
         # We chose the number of checkmultisigs/checksigs to make this work:
         assert extra_sigops_available < 100  # steer clear of MAX_OPS_PER_SCRIPT
@@ -1892,6 +1897,7 @@ class SegWitTest(HypercoinTestFramework):
             tx.vout.append(CTxOut(split_value, script_pubkey))
         tx.vout[-2].scriptPubKey = script_pubkey_toomany
         tx.vout[-1].scriptPubKey = script_pubkey_justright
+        tx.vout += [CTxOut(0, script_to_p2sh_script(witness_script)) for _ in range(p2sh_outputs)]
 
         block_1 = self.build_next_block()
         self.update_witness_block_with_transactions(block_1, [tx])
@@ -1920,7 +1926,7 @@ class SegWitTest(HypercoinTestFramework):
         tx2.vout.append(CTxOut(0, script_pubkey_checksigs))
         tx2.vin.pop()
         tx2.wit.vtxinwit.pop()
-        tx2.vout[0].nValue -= tx.vout[-2].nValue
+        tx2.vout[0].nValue -= tx.vout[outputs - 2].nValue
         block_3 = self.build_next_block()
         self.update_witness_block_with_transactions(block_3, [tx2])
         test_witness_block(self.nodes[0], self.test_node, block_3, accepted=False, reason='bad-blk-sigops')
@@ -1946,7 +1952,20 @@ class SegWitTest(HypercoinTestFramework):
         self.update_witness_block_with_transactions(block_5, [tx2])
         test_witness_block(self.nodes[0], self.test_node, block_5, accepted=True)
 
-        # TODO: test p2sh sigop counting
+        p2sh_tx = CTransaction()
+        p2sh_tx.vin = [CTxIn(COutPoint(tx.txid_int, outputs + i), CScript([witness_script])) for i in range(p2sh_outputs)]
+        p2sh_tx.vout.append(CTxOut(0, CScript([OP_TRUE])))
+        block_6 = self.build_next_block()
+        self.update_witness_block_with_transactions(block_6, [p2sh_tx])
+        test_witness_block(self.nodes[0], self.test_node, block_6, accepted=False, reason='bad-blk-sigops')
+
+        # Add witness data to verify that the transaction's P2SH sigops are still counted.
+        p2sh_tx.vin.append(CTxIn(COutPoint(tx.txid_int, outputs - 2), b""))
+        p2sh_tx.wit.vtxinwit = [CTxInWitness() for _ in p2sh_tx.vin]
+        p2sh_tx.wit.vtxinwit[-1].scriptWitness.stack = [witness_script_toomany]
+        block_7 = self.build_next_block()
+        self.update_witness_block_with_transactions(block_7, [p2sh_tx])
+        test_witness_block(self.nodes[0], self.test_node, block_7, accepted=False, reason='bad-blk-sigops')
 
         # Cleanup and prep for next test
         self.utxo.pop(0)

@@ -2,12 +2,15 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <interfaces/init.h> // IWYU pragma: associated
+
 #include <init.h>
 #include <interfaces/chain.h>
 #include <interfaces/echo.h>
-#include <interfaces/init.h>
 #include <interfaces/ipc.h>
+#include <interfaces/mining.h>
 #include <interfaces/node.h>
+#include <interfaces/rpc.h>
 #include <interfaces/wallet.h>
 #include <node/context.h>
 #include <util/check.h>
@@ -36,6 +39,7 @@ public:
         return MakeWalletLoader(chain, *Assert(m_node.args));
     }
     std::unique_ptr<interfaces::Echo> makeEcho() override { return interfaces::MakeEcho(); }
+    std::unique_ptr<interfaces::Rpc> makeRpc() override { return interfaces::MakeRpc(m_node); }
     interfaces::Ipc* ipc() override { return m_ipc.get(); }
     bool canListenIpc() override { return true; }
     const char* exeName() override { return EXE_NAME; }

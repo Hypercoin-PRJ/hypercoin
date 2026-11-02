@@ -7,38 +7,34 @@
 
 #include <common/settings.h>
 #include <consensus/amount.h>
-#include <logging.h>
 #include <net.h>
 #include <net_types.h>
 #include <netaddress.h>
 #include <netbase.h>
-#include <support/allocators/secure.h>
+#include <primitives/transaction.h>
+#include <uint256.h>
+#include <util/log.h>
 #include <util/translation.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
 
-class BanMan;
 class CFeeRate;
-class CNodeStats;
 class Coin;
 class UniValue;
-class Proxy;
 enum class SynchronizationState;
 struct CNodeStateStats;
-struct bilingual_str;
 namespace node {
 enum class TransactionError;
 struct NodeContext;
 } // namespace node
-namespace wallet {
-class CCoinControl;
-} // namespace wallet
 
 namespace interfaces {
 class Handler;
@@ -123,7 +119,7 @@ public:
     virtual void mapPort(bool enable) = 0;
 
     //! Get proxy.
-    virtual bool getProxy(Network net, Proxy& proxy_info) = 0;
+    virtual std::optional<Proxy> getProxy(Network net) = 0;
 
     //! Get number of connections.
     virtual size_t getNodeCount(ConnectionDirection flags) = 0;
@@ -218,8 +214,7 @@ public:
     virtual std::unique_ptr<Handler> handleInitMessage(InitMessageFn fn) = 0;
 
     //! Register handler for message box messages.
-    using MessageBoxFn =
-        std::function<bool(const bilingual_str& message, unsigned int style)>;
+    using MessageBoxFn = std::function<void(const bilingual_str& message, unsigned int style)>;
     virtual std::unique_ptr<Handler> handleMessageBox(MessageBoxFn fn) = 0;
 
     //! Register handler for question messages.

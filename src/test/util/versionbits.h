@@ -1,0 +1,13 @@
+// Copyright (c) 2026-present The Hypercoin Core developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef HYPERCOIN_TEST_UTIL_VERSIONBITS_H
+#define HYPERCOIN_TEST_UTIL_VERSIONBITS_H
+
+#include <versionbits.h>
+
+/** Total possible bits available for versionbits per original BIP 9 specification */
+inline constexpr int VERSIONBITS_MAX_NUM_BITS{29};
+
+#endif // HYPERCOIN_TEST_UTIL_VERSIONBITS_H

@@ -5,6 +5,7 @@
 """Test mempool limiting together/eviction with the wallet."""
 
 from decimal import Decimal
+import time
 
 from test_framework.mempool_util import (
     fill_mempool,
@@ -179,7 +180,7 @@ class MempoolLimitTest(HypercoinTestFramework):
         # Package should be submitted, temporarily exceeding maxmempool, and then evicted.
         res = node.submitpackage(package_hex)
         assert_equal(res["package_msg"], "transaction failed")
-        assert len([tx_res for _, tx_res in res["tx-results"].items() if "error" in tx_res and tx_res["error"] == "bad-txns-inputs-missingorspent"])
+        assert "bad-txns-inputs-missingorspent" in [tx_res["error"] for _, tx_res in res["tx-results"].items() if "error" in tx_res]
 
         # Maximum size must never be exceeded.
         assert_greater_than(node.getmempoolinfo()["maxmempool"], node.getmempoolinfo()["bytes"])
@@ -205,7 +206,9 @@ class MempoolLimitTest(HypercoinTestFramework):
         self.log.info('Check that mempoolminfee is minrelaytxfee')
         assert_equal(node.getmempoolinfo()['minrelaytxfee'], node.getmempoolinfo()["mempoolminfee"])
 
+        node.setmocktime(int(time.time())-3600)
         fill_mempool(self, node)
+        node.setmocktime(0) # bump time forward so the rate limit buckets refresh and don't block broadcast
 
         # Deliberately try to create a tx with a fee less than the minimum mempool fee to assert that it does not get added to the mempool
         self.log.info('Create a mempool tx that will not pass mempoolminfee')

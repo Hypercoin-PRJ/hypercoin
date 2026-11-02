@@ -8,6 +8,7 @@
 #include <kernel/hypercoinkernel.h>
 
 #include <array>
+#include <chrono>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -79,6 +80,22 @@ enum class BlockValidationResult : hrck_BlockValidationResult {
     HEADER_LOW_WORK = hrck_BlockValidationResult_HEADER_LOW_WORK
 };
 
+enum class TxValidationResult : hrck_TxValidationResult {
+    UNSET               = hrck_TxValidationResult_UNSET,
+    CONSENSUS           = hrck_TxValidationResult_CONSENSUS,
+    INPUTS_NOT_STANDARD = hrck_TxValidationResult_INPUTS_NOT_STANDARD,
+    NOT_STANDARD        = hrck_TxValidationResult_NOT_STANDARD,
+    MISSING_INPUTS      = hrck_TxValidationResult_MISSING_INPUTS,
+    PREMATURE_SPEND     = hrck_TxValidationResult_PREMATURE_SPEND,
+    WITNESS_MUTATED     = hrck_TxValidationResult_WITNESS_MUTATED,
+    WITNESS_STRIPPED    = hrck_TxValidationResult_WITNESS_STRIPPED,
+    CONFLICT            = hrck_TxValidationResult_CONFLICT,
+    MEMPOOL_POLICY      = hrck_TxValidationResult_MEMPOOL_POLICY,
+    NO_MEMPOOL          = hrck_TxValidationResult_NO_MEMPOOL,
+    RECONSIDERABLE      = hrck_TxValidationResult_RECONSIDERABLE,
+    UNKNOWN             = hrck_TxValidationResult_UNKNOWN
+};
+
 enum class ScriptVerifyStatus : hrck_ScriptVerifyStatus {
     OK = hrck_ScriptVerifyStatus_OK,
     ERROR_INVALID_FLAGS_COMBINATION = hrck_ScriptVerifyStatus_ERROR_INVALID_FLAGS_COMBINATION,
@@ -97,12 +114,23 @@ enum class ScriptVerificationFlags : hrck_ScriptVerificationFlags {
     ALL = hrck_ScriptVerificationFlags_ALL
 };
 
+enum class BlockCheckFlags : hrck_BlockCheckFlags {
+    BASE = hrck_BlockCheckFlags_BASE,
+    POW = hrck_BlockCheckFlags_POW,
+    MERKLE = hrck_BlockCheckFlags_MERKLE,
+    ALL = hrck_BlockCheckFlags_ALL
+};
+
 template <typename T>
 struct is_bitmask_enum : std::false_type {
 };
 
 template <>
 struct is_bitmask_enum<ScriptVerificationFlags> : std::true_type {
+};
+
+template <>
+struct is_bitmask_enum<BlockCheckFlags> : std::true_type {
 };
 
 template <typename T>
@@ -162,7 +190,7 @@ T check(T ptr)
     return ptr;
 }
 
-template <typename Collection, typename ValueType>
+template <typename Collection, typename ValueType, auto GetFunc>
 class Iterator
 {
 public:
@@ -181,8 +209,7 @@ public:
     Iterator(const Collection* ptr, size_t idx) : m_collection{ptr}, m_idx{idx} {}
 
     // This is just a view, so return a copy.
-    auto operator*() const { return (*m_collection)[m_idx]; }
-    auto operator->() const { return (*m_collection)[m_idx]; }
+    auto operator*() const { return std::invoke(GetFunc, *m_collection, m_idx); }
 
     auto& operator++() { m_idx++; return *this; }
     auto operator++(int) { Iterator tmp = *this; ++(*this); return tmp; }
@@ -198,7 +225,7 @@ public:
 
     auto operator-(const Iterator& other) const { return static_cast<difference_type>(m_idx) - static_cast<difference_type>(other.m_idx); }
 
-    ValueType operator[](difference_type n) const { return (*m_collection)[m_idx + n]; }
+    ValueType operator[](difference_type n) const { return *(*this + n); }
 
     auto operator<=>(const Iterator& other) const { return m_idx <=> other.m_idx; }
 
@@ -221,7 +248,7 @@ class Range
 public:
     using value_type = std::invoke_result_t<decltype(GetFunc), const Container&, size_t>;
     using difference_type = std::ptrdiff_t;
-    using iterator = Iterator<Range, value_type>;
+    using iterator = Iterator<Container, value_type, GetFunc>;
     using const_iterator = iterator;
 
 private:
@@ -233,8 +260,8 @@ public:
         static_assert(std::ranges::random_access_range<Range>);
     }
 
-    iterator begin() const { return iterator(this, 0); }
-    iterator end() const { return iterator(this, size()); }
+    iterator begin() const { return iterator(m_container, 0); }
+    iterator end() const { return iterator(m_container, size()); }
 
     const_iterator cbegin() const { return begin(); }
     const_iterator cend() const { return end(); }
@@ -330,8 +357,10 @@ public:
     Handle(Handle&& other) noexcept : m_ptr(other.m_ptr) { other.m_ptr = nullptr; }
     Handle& operator=(Handle&& other) noexcept
     {
-        DestroyFunc(m_ptr);
-        m_ptr = std::exchange(other.m_ptr, nullptr);
+        if (this != &other) {
+            DestroyFunc(m_ptr);
+            m_ptr = std::exchange(other.m_ptr, nullptr);
+        }
         return *this;
     }
 
@@ -370,6 +399,7 @@ public:
 class PrecomputedTransactionData;
 class Transaction;
 class TransactionOutput;
+class BlockValidationState;
 
 template <typename Derived>
 class ScriptPubkeyApi
@@ -535,6 +565,49 @@ public:
 };
 
 template <typename Derived>
+class WitnessStackApi
+{
+private:
+    auto impl() const
+    {
+        return static_cast<const Derived*>(this)->get();
+    }
+
+    friend Derived;
+    WitnessStackApi() = default;
+
+public:
+    size_t CountItems() const
+    {
+        return hrck_witness_stack_count_items(impl());
+    }
+
+    std::vector<std::byte> GetItem(size_t index) const
+    {
+        struct Item { const hrck_WitnessStack* stack; size_t index; };
+        Item item{impl(), index};
+        return write_bytes(&item, +[](const Item* c, hrck_WriteBytes w, void* ud) {
+            return hrck_witness_stack_get_item_at(c->stack, c->index, w, ud);
+        });
+    }
+
+    MAKE_RANGE_METHOD(Items, Derived, &WitnessStackApi<Derived>::CountItems, &WitnessStackApi<Derived>::GetItem, *static_cast<const Derived*>(this))
+};
+
+class WitnessStackView : public View<hrck_WitnessStack>, public WitnessStackApi<WitnessStackView>
+{
+public:
+    explicit WitnessStackView(const hrck_WitnessStack* ptr) : View{ptr} {}
+};
+
+class WitnessStack : public Handle<hrck_WitnessStack, hrck_witness_stack_copy, hrck_witness_stack_destroy>, public WitnessStackApi<WitnessStack>
+{
+public:
+    WitnessStack(const WitnessStackView& view)
+        : Handle(view) {}
+};
+
+template <typename Derived>
 class TransactionInputApi
 {
 private:
@@ -550,6 +623,21 @@ public:
     OutPointView OutPoint() const
     {
         return OutPointView{hrck_transaction_input_get_out_point(impl())};
+    }
+
+    uint32_t GetSequence() const
+    {
+        return hrck_transaction_input_get_sequence(impl());
+    }
+
+    WitnessStackView GetWitnessStack() const
+    {
+        return WitnessStackView{hrck_transaction_input_get_witness_stack(impl())};
+    }
+
+    std::vector<std::byte> GetScriptSig() const
+    {
+        return write_bytes(impl(), hrck_transaction_input_get_script_sig);
     }
 };
 
@@ -594,6 +682,11 @@ public:
     TransactionInputView GetInput(size_t index) const
     {
         return TransactionInputView{hrck_transaction_get_input_at(impl(), index)};
+    }
+
+    uint32_t GetLocktime() const
+    {
+        return hrck_transaction_get_locktime(impl());
     }
 
     TxidView Txid() const
@@ -746,6 +839,16 @@ public:
     {
         return hrck_block_header_get_nonce(impl());
     }
+
+    std::array<std::byte, 80> ToBytes() const
+    {
+        std::array<std::byte, 80> header;
+        int res{hrck_block_header_to_bytes(impl(), reinterpret_cast<unsigned char*>(header.data()))};
+        if (res != 0) {
+            throw std::runtime_error("Failed to serialize block header");
+        }
+        return header;
+    }
 };
 
 class BlockHeaderView : public View<hrck_BlockHeader>, public BlockHeaderApi<BlockHeaderView>
@@ -767,6 +870,12 @@ public:
         : Handle{header} {}
 };
 
+class ConsensusParamsView : public View<hrck_ConsensusParams>
+{
+public:
+    explicit ConsensusParamsView(const hrck_ConsensusParams* ptr) : View{ptr} {}
+};
+
 class Block : public Handle<hrck_Block, hrck_block_copy, hrck_block_destroy>
 {
 public:
@@ -786,6 +895,10 @@ public:
     {
         return TransactionView{hrck_block_get_transaction_at(get(), index)};
     }
+
+    bool Check(const ConsensusParamsView& consensus_params,
+        BlockCheckFlags flags,
+        BlockValidationState& state) const;
 
     MAKE_RANGE_METHOD(Transactions, Block, &Block::CountTransactions, &Block::GetTransaction, *this)
 
@@ -882,6 +995,12 @@ public:
     {
         return BlockHeader{hrck_block_tree_entry_get_block_header(get())};
     }
+
+    BlockTreeEntry GetAncestor(int32_t height) const
+    {
+        return BlockTreeEntry{hrck_block_tree_entry_get_ancestor(get(), height)};
+    }
+
 };
 
 class KernelNotifications
@@ -939,8 +1058,39 @@ class BlockValidationState : public Handle<hrck_BlockValidationState, hrck_block
 public:
     explicit BlockValidationState() : Handle{hrck_block_validation_state_create()} {}
 
-    BlockValidationState(const BlockValidationStateView& view) : Handle{view} {}
+    explicit BlockValidationState(const BlockValidationStateView& view) : Handle{view} {}
+
+    explicit BlockValidationState(hrck_BlockValidationState* state) : Handle{state} {}
 };
+
+inline bool Block::Check(const ConsensusParamsView& consensus_params,
+    BlockCheckFlags flags,
+    BlockValidationState& state) const
+{
+    return hrck_block_check(get(), consensus_params.get(), static_cast<hrck_BlockCheckFlags>(flags), state.get()) == 1;
+}
+
+class TxValidationState : public UniqueHandle<hrck_TxValidationState, hrck_tx_validation_state_destroy>
+{
+public:
+    using UniqueHandle::UniqueHandle; // inherit ctor
+    explicit TxValidationState() : UniqueHandle{hrck_tx_validation_state_create()} {}
+
+    ValidationMode GetValidationMode() const
+    {
+        return static_cast<ValidationMode>(hrck_tx_validation_state_get_validation_mode(get()));
+    }
+
+    TxValidationResult GetTxValidationResult() const
+    {
+        return static_cast<TxValidationResult>(hrck_tx_validation_state_get_tx_validation_result(get()));
+    }
+};
+
+inline bool CheckTransaction(const Transaction& tx, TxValidationState& state)
+{
+    return hrck_transaction_check(tx.get(), state.get()) == 1;
+}
 
 class ValidationInterface
 {
@@ -959,8 +1109,16 @@ public:
 class ChainParams : public Handle<hrck_ChainParameters, hrck_chain_parameters_copy, hrck_chain_parameters_destroy>
 {
 public:
-    ChainParams(ChainType chain_type)
+    explicit ChainParams(ChainType chain_type)
         : Handle{hrck_chain_parameters_create(static_cast<hrck_ChainType>(chain_type))} {}
+
+    explicit ChainParams(std::span<const std::byte> signet_challenge)
+        : Handle{hrck_chain_parameters_create_signet(signet_challenge.data(), signet_challenge.size())} {}
+
+    ConsensusParamsView GetConsensusParams() const
+    {
+        return ConsensusParamsView{hrck_chain_parameters_get_consensus_params(get())};
+    }
 };
 
 class ContextOptions : public UniqueHandle<hrck_ContextOptions, hrck_context_options_destroy>
@@ -1042,6 +1200,11 @@ public:
         hrck_chainstate_manager_options_set_worker_threads_num(get(), worker_threads);
     }
 
+    bool SetDatabaseCacheBytes(uint64_t database_cache_bytes)
+    {
+        return hrck_chainstate_manager_options_set_database_cache_bytes(get(), database_cache_bytes) == 0;
+    }
+
     bool SetWipeDbs(bool wipe_block_tree, bool wipe_chainstate)
     {
         return hrck_chainstate_manager_options_set_wipe_dbs(get(), wipe_block_tree, wipe_chainstate) == 0;
@@ -1068,12 +1231,12 @@ public:
         return hrck_chain_get_height(get());
     }
 
-    int CountEntries() const
+    int32_t CountEntries() const
     {
         return hrck_chain_get_height(get()) + 1;
     }
 
-    BlockTreeEntry GetByHeight(int height) const
+    BlockTreeEntry GetByHeight(int32_t height) const
     {
         auto index{hrck_chain_get_by_height(get(), height)};
         if (!index) throw std::runtime_error("No entry in the chain at the provided height");
@@ -1217,9 +1380,10 @@ public:
         return res == 0;
     }
 
-    bool ProcessBlockHeader(const BlockHeader& header, BlockValidationState& state)
+    BlockValidationState ProcessBlockHeader(const BlockHeader& header)
     {
-        return hrck_chainstate_manager_process_block_header(get(), header.get(), state.get()) == 0;
+        auto state = hrck_chainstate_manager_process_block_header(get(), header.get());
+        return BlockValidationState{state};
     }
 
     ChainView GetChain() const
@@ -1251,6 +1415,13 @@ public:
         return hrck_block_spent_outputs_read(get(), entry.get());
     }
 };
+
+inline void set_mock_time(std::chrono::seconds timestamp)
+{
+    if (hrck_set_mock_time(timestamp.count()) != 0) {
+        throw std::runtime_error("timestamp out of range");
+    }
+}
 
 } // namespace hrck
 

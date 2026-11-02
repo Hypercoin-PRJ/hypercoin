@@ -39,6 +39,6 @@ private:
     MatchFn m_match;
 };
 
-#define ASSERT_DEBUG_LOG(message) DebugLogHelper UNIQUE_NAME(debugloghelper)(message)
+#define ASSERT_DEBUG_LOG(message) DebugLogHelper HYPERCOIN_UNIQUE_NAME(debugloghelper)(message)
 
 #endif // HYPERCOIN_TEST_UTIL_LOGGING_H

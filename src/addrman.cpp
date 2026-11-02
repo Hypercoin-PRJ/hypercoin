@@ -9,9 +9,9 @@
 #include <addrman_impl.h>
 
 #include <hash.h>
-#include <logging.h>
 #include <logging/timer.h>
 #include <netaddress.h>
+#include <netgroup.h>
 #include <protocol.h>
 #include <random.h>
 #include <serialize.h>
@@ -19,31 +19,12 @@
 #include <tinyformat.h>
 #include <uint256.h>
 #include <util/check.h>
+#include <util/log.h>
 #include <util/time.h>
 
 #include <cmath>
 #include <optional>
 
-/** Over how many buckets entries with tried addresses from a single group (/16 for IPv4) are spread */
-static constexpr uint32_t ADDRMAN_TRIED_BUCKETS_PER_GROUP{8};
-/** Over how many buckets entries with new addresses originating from a single group are spread */
-static constexpr uint32_t ADDRMAN_NEW_BUCKETS_PER_SOURCE_GROUP{64};
-/** Maximum number of times an address can occur in the new table */
-static constexpr int32_t ADDRMAN_NEW_BUCKETS_PER_ADDRESS{8};
-/** How old addresses can maximally be */
-static constexpr auto ADDRMAN_HORIZON{30 * 24h};
-/** After how many failed attempts we give up on a new node */
-static constexpr int32_t ADDRMAN_RETRIES{3};
-/** How many successive failures are allowed ... */
-static constexpr int32_t ADDRMAN_MAX_FAILURES{10};
-/** ... in at least this duration */
-static constexpr auto ADDRMAN_MIN_FAIL{7 * 24h};
-/** How recent a successful connection should be before we allow an address to be evicted from tried */
-static constexpr auto ADDRMAN_REPLACEMENT{4h};
-/** The maximum number of tried addr collisions to store */
-static constexpr size_t ADDRMAN_SET_TRIED_COLLISION_SIZE{10};
-/** The maximum time we'll spend trying to resolve a tried table collision */
-static constexpr auto ADDRMAN_TEST_WINDOW{40min};
 
 int AddrInfo::GetTriedBucket(const uint256& nKey, const NetGroupManager& netgroupman) const
 {
@@ -663,8 +644,8 @@ bool AddrManImpl::Good_(const CService& addr, bool test_before_evict, NodeSecond
         }
         // Output the entry we'd be colliding with, for debugging purposes
         auto colliding_entry = mapInfo.find(vvTried[tried_bucket][tried_bucket_pos]);
-        LogDebug(BCLog::ADDRMAN, "Collision with %s while attempting to move %s to tried table. Collisions=%d\n",
-                 colliding_entry != mapInfo.end() ? colliding_entry->second.ToStringAddrPort() : "",
+        LogDebug(BCLog::ADDRMAN, "Collision with %s while attempting to move %s to tried table. Collisions=%d",
+                 colliding_entry != mapInfo.end() ? colliding_entry->second.ToStringAddrPort() : "<unknown-addr>",
                  addr.ToStringAddrPort(),
                  m_tried_collisions.size());
         return false;
@@ -929,7 +910,10 @@ void AddrManImpl::ResolveCollisions_()
             int tried_bucket_pos = info_new.GetBucketPosition(nKey, false, tried_bucket);
             if (!info_new.IsValid()) { // id_new may no longer map to a valid address
                 erase_collision = true;
-            } else if (vvTried[tried_bucket][tried_bucket_pos] != -1) { // The position in the tried bucket is not empty
+            } else {
+                // A pending tried collision implies that the destination tried slot
+                // remains occupied until we resolve it.
+                Assume(vvTried[tried_bucket][tried_bucket_pos] != -1);
 
                 // Get the to-be-evicted address that is being tested
                 nid_type id_old = vvTried[tried_bucket][tried_bucket_pos];
@@ -958,9 +942,6 @@ void AddrManImpl::ResolveCollisions_()
                     Good_(info_new, false, current_time);
                     erase_collision = true;
                 }
-            } else { // Collision is not actually a collision anymore
-                Good_(info_new, false, Now<NodeSeconds>());
-                erase_collision = true;
             }
         }
 
@@ -996,6 +977,7 @@ std::pair<CAddress, NodeSeconds> AddrManImpl::SelectTriedCollision_()
     int tried_bucket = newInfo.GetTriedBucket(nKey, m_netgroupman);
     int tried_bucket_pos = newInfo.GetBucketPosition(nKey, false, tried_bucket);
 
+    Assume(vvTried[tried_bucket][tried_bucket_pos] != -1);
     const AddrInfo& info_old = mapInfo[vvTried[tried_bucket][tried_bucket_pos]];
     return {info_old, info_old.m_last_try};
 }

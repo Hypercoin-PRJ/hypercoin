@@ -2,27 +2,25 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <common/args.h>
+#include <common/args.h> // IWYU pragma: associated
 
 #include <common/settings.h>
-#include <logging.h>
 #include <sync.h>
 #include <tinyformat.h>
 #include <univalue.h>
-#include <util/chaintype.h>
+#include <util/check.h>
 #include <util/fs.h>
+#include <util/log.h>
 #include <util/string.h>
 
 #include <algorithm>
-#include <cassert>
-#include <cstdlib>
-#include <filesystem>
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <list>
 #include <map>
-#include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -99,7 +97,7 @@ bool ArgsManager::ReadConfigStream(std::istream& stream, const std::string& file
     }
     for (const std::pair<std::string, std::string>& option : options) {
         KeyInfo key = InterpretKey(option.first);
-        std::optional<unsigned int> flags = GetArgFlags('-' + key.name);
+        std::optional<unsigned int> flags = GetArgFlags_('-' + key.name);
         if (!IsConfSupported(key, error)) return false;
         if (flags) {
             std::optional<common::SettingsValue> value = InterpretValue(key, &option.second, *flags, error);
@@ -119,13 +117,26 @@ bool ArgsManager::ReadConfigStream(std::istream& stream, const std::string& file
     return true;
 }
 
+bool ArgsManager::ReadConfigString(const std::string& str_config)
+{
+    std::istringstream streamConfig(str_config);
+    {
+        LOCK(cs_args);
+        m_settings.ro_config.clear();
+        m_config_sections.clear();
+    }
+    std::string error;
+    return ReadConfigStream(streamConfig, "", error);
+}
+
 bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
 {
     {
         LOCK(cs_args);
         m_settings.ro_config.clear();
         m_config_sections.clear();
-        m_config_path = AbsPathForConfigVal(*this, GetPathArg("-conf", HYPERCOIN_CONF_FILENAME), /*net_specific=*/false);
+        const auto conf_val = GetPathArg_("-conf", HYPERCOIN_CONF_FILENAME);
+        m_config_path = (conf_val.is_absolute() || conf_val.empty()) ? conf_val : fsbridge::AbsPathJoin(GetDataDir(/*net_specific=*/false), conf_val);
     }
 
     const auto conf_path{GetConfigFilePath()};

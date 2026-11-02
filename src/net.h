@@ -56,49 +56,53 @@ class CScheduler;
 struct bilingual_str;
 
 /** Time after which to disconnect, after waiting for a ping response (or inactivity). */
-static constexpr std::chrono::minutes TIMEOUT_INTERVAL{20};
+inline constexpr std::chrono::minutes TIMEOUT_INTERVAL{20};
 /** Run the feeler connection loop once every 2 minutes. **/
-static constexpr auto FEELER_INTERVAL = 2min;
+inline constexpr auto FEELER_INTERVAL = 2min;
 /** Run the extra block-relay-only connection loop once every 5 minutes. **/
-static constexpr auto EXTRA_BLOCK_RELAY_ONLY_PEER_INTERVAL = 5min;
+inline constexpr auto EXTRA_BLOCK_RELAY_ONLY_PEER_INTERVAL = 5min;
 /** Maximum length of incoming protocol messages (no message over 4 MB is currently acceptable). */
-static const unsigned int MAX_PROTOCOL_MESSAGE_LENGTH = 4 * 1000 * 1000;
+inline constexpr unsigned int MAX_PROTOCOL_MESSAGE_LENGTH = 4 * 1000 * 1000;
 /** Maximum length of the user agent string in `version` message */
-static const unsigned int MAX_SUBVERSION_LENGTH = 256;
+inline constexpr unsigned int MAX_SUBVERSION_LENGTH = 256;
 /** Maximum number of automatic outgoing nodes over which we'll relay everything (blocks, tx, addrs, etc) */
-static const int MAX_OUTBOUND_FULL_RELAY_CONNECTIONS = 8;
+inline constexpr int MAX_OUTBOUND_FULL_RELAY_CONNECTIONS = 8;
 /** Maximum number of addnode outgoing nodes */
-static const int MAX_ADDNODE_CONNECTIONS = 8;
+inline constexpr int MAX_ADDNODE_CONNECTIONS = 8;
 /** Maximum number of block-relay-only outgoing connections */
-static const int MAX_BLOCK_RELAY_ONLY_CONNECTIONS = 2;
+inline constexpr int MAX_BLOCK_RELAY_ONLY_CONNECTIONS = 2;
 /** Maximum number of feeler connections */
-static const int MAX_FEELER_CONNECTIONS = 1;
+inline constexpr int MAX_FEELER_CONNECTIONS = 1;
 /** Maximum number of private broadcast connections */
-static constexpr size_t MAX_PRIVATE_BROADCAST_CONNECTIONS{64};
+inline constexpr size_t MAX_PRIVATE_BROADCAST_CONNECTIONS{64};
 /** -listen default */
-static const bool DEFAULT_LISTEN = true;
+inline constexpr bool DEFAULT_LISTEN = true;
 /** The maximum number of peer connections to maintain. */
-static const unsigned int DEFAULT_MAX_PEER_CONNECTIONS = 125;
+inline constexpr unsigned int DEFAULT_MAX_PEER_CONNECTIONS{200};
+/** Maximum value of -maxconnections */
+inline constexpr int MAX_PEER_CONNECTIONS{2'000};
+/** Default percentage of inbound connection slots that tx-relaying peers can use */
+inline constexpr int DEFAULT_FULL_RELAY_INBOUND_PCT{50};
 /** The default for -maxuploadtarget. 0 = Unlimited */
-static const std::string DEFAULT_MAX_UPLOAD_TARGET{"0M"};
+inline const std::string DEFAULT_MAX_UPLOAD_TARGET{"0M"};
 /** Default for blocks only*/
-static const bool DEFAULT_BLOCKSONLY = false;
+inline constexpr bool DEFAULT_BLOCKSONLY = false;
 /** -peertimeout default */
-static const int64_t DEFAULT_PEER_CONNECT_TIMEOUT = 60;
+inline constexpr int64_t DEFAULT_PEER_CONNECT_TIMEOUT = 60;
 /** Default for -privatebroadcast. */
-static constexpr bool DEFAULT_PRIVATE_BROADCAST{false};
+inline constexpr bool DEFAULT_PRIVATE_BROADCAST{false};
 /** Number of file descriptors required for message capture **/
-static const int NUM_FDS_MESSAGE_CAPTURE = 1;
+inline constexpr int NUM_FDS_MESSAGE_CAPTURE = 1;
 /** Interval for ASMap Health Check **/
-static constexpr std::chrono::hours ASMAP_HEALTH_CHECK_INTERVAL{24};
+inline constexpr std::chrono::hours ASMAP_HEALTH_CHECK_INTERVAL{24};
 
-static constexpr bool DEFAULT_FORCEDNSSEED{false};
-static constexpr bool DEFAULT_DNSSEED{true};
-static constexpr bool DEFAULT_FIXEDSEEDS{true};
-static const size_t DEFAULT_MAXRECEIVEBUFFER = 5 * 1000;
-static const size_t DEFAULT_MAXSENDBUFFER    = 1 * 1000;
+inline constexpr bool DEFAULT_FORCEDNSSEED{false};
+inline constexpr bool DEFAULT_DNSSEED{true};
+inline constexpr bool DEFAULT_FIXEDSEEDS{true};
+inline constexpr size_t DEFAULT_MAXRECEIVEBUFFER = 5 * 1000;
+inline constexpr size_t DEFAULT_MAXSENDBUFFER    = 1 * 1000;
 
-static constexpr bool DEFAULT_V2_TRANSPORT{true};
+inline constexpr bool DEFAULT_V2_TRANSPORT{true};
 
 typedef int64_t NodeId;
 
@@ -164,8 +168,8 @@ enum
 std::optional<CService> GetLocalAddrForPeer(CNode& node);
 
 void ClearLocal();
-bool AddLocal(const CService& addr, int nScore = LOCAL_NONE);
-bool AddLocal(const CNetAddr& addr, int nScore = LOCAL_NONE);
+bool AddLocal(const CService& addr, int nScore = LOCAL_NONE, bool add_even_if_unreachable = false);
+bool AddLocal(const CNetAddr& addr, int nScore = LOCAL_NONE, bool add_even_if_unreachable = false);
 void RemoveLocal(const CService& addr);
 bool SeenLocal(const CService& addr);
 bool IsLocal(const CService& addr);
@@ -192,11 +196,11 @@ class CNodeStats
 {
 public:
     NodeId nodeid;
-    std::chrono::seconds m_last_send;
-    std::chrono::seconds m_last_recv;
+    NodeClock::time_point m_last_send;
+    NodeClock::time_point m_last_recv;
     std::chrono::seconds m_last_tx_time;
     std::chrono::seconds m_last_block_time;
-    std::chrono::seconds m_connected;
+    NodeClock::time_point m_connected;
     std::string m_addr_name;
     int nVersion;
     std::string cleanSubVer;
@@ -205,14 +209,13 @@ public:
     bool m_bip152_highbandwidth_to;
     // Peer requested high bandwidth connection
     bool m_bip152_highbandwidth_from;
-    int m_starting_height;
     uint64_t nSendBytes;
     mapMsgTypeSize mapSendBytesPerMsgType;
     uint64_t nRecvBytes;
     mapMsgTypeSize mapRecvBytesPerMsgType;
     NetPermissionFlags m_permission_flags;
-    std::chrono::microseconds m_last_ping_time;
-    std::chrono::microseconds m_min_ping_time;
+    NodeClock::duration m_last_ping_time;
+    NodeClock::duration m_min_ping_time;
     // Our address, as reported by the peer
     std::string addrLocal;
     // Address of this peer
@@ -238,7 +241,8 @@ class CNetMessage
 {
 public:
     DataStream m_recv;                   //!< received message data
-    std::chrono::microseconds m_time{0}; //!< time of message receipt
+    /// time of message receipt
+    NodeClock::time_point m_time{NodeClock::epoch};
     uint32_t m_message_size{0};          //!< size of the payload
     uint32_t m_raw_message_size{0};      //!< used wire size of the message (including header/checksum)
     std::string m_type;
@@ -292,7 +296,7 @@ public:
      * If reject_message=true is returned the message itself is invalid, but (other than false
      * returned by ReceivedBytes) the transport is not in an inconsistent state.
      */
-    virtual CNetMessage GetReceivedMessage(std::chrono::microseconds time, bool& reject_message) = 0;
+    virtual CNetMessage GetReceivedMessage(NodeClock::time_point time, bool& reject_message) = 0;
 
     // 2. Sending side functions, for converting messages into bytes to be sent over the wire.
 
@@ -444,7 +448,7 @@ public:
         return ret >= 0;
     }
 
-    CNetMessage GetReceivedMessage(std::chrono::microseconds time, bool& reject_message) override EXCLUSIVE_LOCKS_REQUIRED(!m_recv_mutex);
+    CNetMessage GetReceivedMessage(NodeClock::time_point time, bool& reject_message) override EXCLUSIVE_LOCKS_REQUIRED(!m_recv_mutex);
 
     bool SetMessageToSend(CSerializedNetMsg& msg) noexcept override EXCLUSIVE_LOCKS_REQUIRED(!m_send_mutex);
     BytesToSend GetBytesToSend(bool have_next_message) const noexcept override EXCLUSIVE_LOCKS_REQUIRED(!m_send_mutex);
@@ -653,7 +657,7 @@ public:
     // Receive side functions.
     bool ReceivedMessageComplete() const noexcept override EXCLUSIVE_LOCKS_REQUIRED(!m_recv_mutex);
     bool ReceivedBytes(std::span<const uint8_t>& msg_bytes) noexcept override EXCLUSIVE_LOCKS_REQUIRED(!m_recv_mutex, !m_send_mutex);
-    CNetMessage GetReceivedMessage(std::chrono::microseconds time, bool& reject_message) noexcept override EXCLUSIVE_LOCKS_REQUIRED(!m_recv_mutex);
+    CNetMessage GetReceivedMessage(NodeClock::time_point time, bool& reject_message) noexcept override EXCLUSIVE_LOCKS_REQUIRED(!m_recv_mutex);
 
     // Send side functions.
     bool SetMessageToSend(CSerializedNetMsg& msg) noexcept override EXCLUSIVE_LOCKS_REQUIRED(!m_send_mutex);
@@ -669,6 +673,7 @@ public:
 struct CNodeOptions
 {
     NetPermissionFlags permission_flags = NetPermissionFlags::None;
+    std::optional<Proxy> proxy_override = {};
     std::unique_ptr<i2p::sam::Session> i2p_sam_session = nullptr;
     bool prefer_evict = false;
     size_t recv_flood_size{DEFAULT_MAXRECEIVEBUFFER * 1000};
@@ -707,10 +712,14 @@ public:
 
     uint64_t nRecvBytes GUARDED_BY(cs_vRecv){0};
 
-    std::atomic<std::chrono::seconds> m_last_send{0s};
-    std::atomic<std::chrono::seconds> m_last_recv{0s};
+    std::atomic<NodeClock::time_point> m_last_send{NodeClock::epoch};
+    std::atomic<NodeClock::time_point> m_last_recv{NodeClock::epoch};
     //! Unix epoch time at peer connection
-    const std::chrono::seconds m_connected;
+    const NodeClock::time_point m_connected;
+
+    //! Proxy to use regardless of global proxy settings if reconnecting to this node.
+    const std::optional<Proxy> m_proxy_override;
+
     // Address of this peer
     const CAddress addr;
     // Bind address of our side of the connection
@@ -742,6 +751,8 @@ public:
     const uint64_t nKeyedNetGroup;
     std::atomic_bool fPauseRecv{false};
     std::atomic_bool fPauseSend{false};
+    /** When was fPauseSend last set from false to true */
+    std::atomic<NodeClock::time_point> m_pause_send_since{NodeClock::epoch};
 
     /** Network key used to prevent fingerprinting our node across networks.
      *  Influenced by the network and the bind address (+ bind port for inbounds) */
@@ -826,6 +837,13 @@ public:
         return m_conn_type == ConnectionType::PRIVATE_BROADCAST;
     }
 
+    /** Protocol version advertised in our VERSION message.
+     *  Private broadcast connections use a fixed version to maximise anonymity. */
+    int AdvertisedVersion() const
+    {
+        return IsPrivateBroadcastConn() ? WTXID_RELAY_VERSION : PROTOCOL_VERSION;
+    }
+
     bool IsInboundConn() const {
         return m_conn_type == ConnectionType::INBOUND;
     }
@@ -877,25 +895,25 @@ public:
      *  eviction logic. */
     std::atomic_bool m_bloom_filter_loaded{false};
 
-    /** UNIX epoch time of the last block received from this peer that we had
-     * not yet seen (e.g. not already received from another peer), that passed
-     * preliminary validity checks and was saved to disk, even if we don't
-     * connect the block or it eventually fails connection. Used as an inbound
-     * peer eviction criterium in CConnman::AttemptToEvictConnection. */
+    /// UNIX epoch time of the last block received from this peer that we had
+    /// not yet seen (e.g. not already received from another peer), that passed
+    /// preliminary validity checks and was saved to disk, even if we don't
+    /// connect the block or it eventually fails to connect. Used as an inbound
+    /// peer eviction criterion in CConnman::AttemptToEvictConnection.
     std::atomic<std::chrono::seconds> m_last_block_time{0s};
 
-    /** UNIX epoch time of the last transaction received from this peer that we
-     * had not yet seen (e.g. not already received from another peer) and that
-     * was accepted into our mempool. Used as an inbound peer eviction criterium
-     * in CConnman::AttemptToEvictConnection. */
+    /// UNIX epoch time of the last transaction received from this peer that we
+    /// had not yet seen (e.g. not already received from another peer) and that
+    /// was accepted into our mempool. Used as an inbound peer eviction criterion
+    /// in CConnman::AttemptToEvictConnection.
     std::atomic<std::chrono::seconds> m_last_tx_time{0s};
 
-    /** Last measured round-trip time. Used only for RPC/GUI stats/debugging.*/
-    std::atomic<std::chrono::microseconds> m_last_ping_time{0us};
+    /// Last measured round-trip duration. Used only for stats.
+    std::atomic<NodeClock::duration> m_last_ping_time{0us};
 
-    /** Lowest measured round-trip time. Used as an inbound peer eviction
-     * criterium in CConnman::AttemptToEvictConnection. */
-    std::atomic<std::chrono::microseconds> m_min_ping_time{std::chrono::microseconds::max()};
+    /// Lowest measured round-trip duration. Used as an inbound peer eviction
+    /// criterion in CConnman::AttemptToEvictConnection.
+    std::atomic<NodeClock::duration> m_min_ping_time{NodeClock::duration::max()};
 
     CNode(NodeId id,
           std::shared_ptr<Sock> sock,
@@ -968,23 +986,22 @@ public:
     std::string ConnectionTypeAsString() const { return ::ConnectionTypeAsString(m_conn_type); }
 
     /**
-     * Helper function to optionally log the IP address.
+     * Helper function to log the peer id, optionally including IP address.
      *
-     * @param[in] log_ip whether to include the IP address
-     * @return " peeraddr=..." or ""
+     * @return "peer=..." and optionally ", peeraddr=..."
      */
-    std::string LogIP(bool log_ip) const;
+    std::string LogPeer() const;
 
     /**
      * Helper function to log disconnects.
      *
-     * @param[in] log_ip whether to include the IP address
-     * @return "disconnecting peer=..." and optionally "peeraddr=..."
+     * @return "disconnecting peer=..." and optionally ", peeraddr=..."
      */
-    std::string DisconnectMsg(bool log_ip) const;
+    std::string DisconnectMsg() const;
 
-    /** A ping-pong round trip has completed successfully. Update latest and minimum ping times. */
-    void PongReceived(std::chrono::microseconds ping_time) {
+    /// A ping-pong round trip has completed successfully. Update latest and minimum ping durations.
+    void PongReceived(NodeClock::duration ping_time)
+    {
         m_last_ping_time = ping_time;
         m_min_ping_time = std::min(m_min_ping_time.load(), ping_time);
     }
@@ -1075,7 +1092,8 @@ public:
     struct Options
     {
         ServiceFlags m_local_services = NODE_NONE;
-        int m_max_automatic_connections = 0;
+        int m_max_automatic_connections = DEFAULT_MAX_PEER_CONNECTIONS;
+        int m_full_relay_inbound_percent = DEFAULT_FULL_RELAY_INBOUND_PCT;
         CClientUIInterface* uiInterface = nullptr;
         NetEventsInterface* m_msgproc = nullptr;
         BanMan* m_banman = nullptr;
@@ -1111,6 +1129,7 @@ public:
         m_max_outbound_block_relay = std::min(MAX_BLOCK_RELAY_ONLY_CONNECTIONS, m_max_automatic_connections - m_max_outbound_full_relay);
         m_max_automatic_outbound = m_max_outbound_full_relay + m_max_outbound_block_relay + m_max_feeler;
         m_max_inbound = std::max(0, m_max_automatic_connections - m_max_automatic_outbound);
+        m_max_inbound_full_relay = std::max(0, static_cast<int>(connOptions.m_full_relay_inbound_percent / 100.0 * m_max_inbound));
         m_use_addrman_outgoing = connOptions.m_use_addrman_outgoing;
         m_client_interface = connOptions.uiInterface;
         m_banman = connOptions.m_banman;
@@ -1155,9 +1174,10 @@ public:
     bool Start(CScheduler& scheduler, const Options& options) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex, !m_added_nodes_mutex, !m_addr_fetches_mutex, !mutexMsgProc);
 
     void StopThreads();
-    void StopNodes() EXCLUSIVE_LOCKS_REQUIRED(!m_reconnections_mutex);
-    void Stop() EXCLUSIVE_LOCKS_REQUIRED(!m_reconnections_mutex)
+    void StopNodes() EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex, !m_reconnections_mutex);
+    void Stop() EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex, !m_reconnections_mutex)
     {
+        AssertLockNotHeld(m_nodes_mutex);
         AssertLockNotHeld(m_reconnections_mutex);
         StopThreads();
         StopNodes();
@@ -1186,8 +1206,8 @@ public:
                                const char* pszDest,
                                ConnectionType conn_type,
                                bool use_v2transport,
-                               const std::optional<Proxy>& proxy_override = std::nullopt)
-        EXCLUSIVE_LOCKS_REQUIRED(!m_unused_i2p_sessions_mutex);
+                               const std::optional<Proxy>& proxy_override)
+        EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex, !m_unused_i2p_sessions_mutex);
 
     /// Group of private broadcast related members.
     class PrivateBroadcast
@@ -1255,18 +1275,18 @@ public:
         friend struct ConnmanTestMsg;
     } m_private_broadcast;
 
-    bool CheckIncomingNonce(uint64_t nonce);
+    bool CheckIncomingNonce(uint64_t nonce) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
     void ASMapHealthCheck();
 
     // alias for thread safety annotations only, not defined
-    RecursiveMutex& GetNodesMutex() const LOCK_RETURNED(m_nodes_mutex);
+    Mutex& GetNodesMutex() const LOCK_RETURNED(m_nodes_mutex);
 
-    bool ForNode(NodeId id, std::function<bool(CNode* pnode)> func);
+    bool ForNode(NodeId id, std::function<bool(CNode* pnode)> func) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     void PushMessage(CNode* pnode, CSerializedNetMsg&& msg) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
 
     using NodeFn = std::function<void(CNode*)>;
-    void ForEachNode(const NodeFn& func)
+    void ForEachNode(const NodeFn& func) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex)
     {
         LOCK(m_nodes_mutex);
         for (auto&& node : m_nodes) {
@@ -1275,7 +1295,7 @@ public:
         }
     };
 
-    void ForEachNode(const NodeFn& func) const
+    void ForEachNode(const NodeFn& func) const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex)
     {
         LOCK(m_nodes_mutex);
         for (auto&& node : m_nodes) {
@@ -1321,21 +1341,32 @@ public:
     void StartExtraBlockRelayPeers();
 
     // Count the number of full-relay peer we have.
-    int GetFullOutboundConnCount() const;
+    int GetFullOutboundConnCount() const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
     // Return the number of outbound peers we have in excess of our target (eg,
     // if we previously called SetTryNewOutboundPeer(true), and have since set
     // to false, we may have extra peers that we wish to disconnect). This may
     // return a value less than (num_outbound_connections - num_outbound_slots)
     // in cases where some outbound connections are not yet fully connected, or
     // not yet fully disconnected.
-    int GetExtraFullOutboundCount() const;
+    int GetExtraFullOutboundCount() const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
     // Count the number of block-relay-only peers we have over our limit.
-    int GetExtraBlockRelayCount() const;
+    int GetExtraBlockRelayCount() const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
+    /**
+     * If we are at capacity for inbound tx-relay peers, attempt to evict one.
+     * @param[in]   protect_peer      NodeId of a peer we want to protect
+     * @return      bool              Returns true if successful (either there is
+     *                                no need for eviction, or a peer was evicted).
+     *                                Returns false, if we are full but couldn't find
+     *                                a peer to evict (all eligible peers are protected)
+     *                                so that the caller can deal with this.
+     */
+    bool EvictTxPeerIfFull(std::optional<NodeId> protect_peer = std::nullopt) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     bool AddNode(const AddedNodeParams& add) EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex);
     bool RemoveAddedNode(std::string_view node) EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex);
     bool AddedNodesContain(const CAddress& addr) const EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex);
-    std::vector<AddedNodeInfo> GetAddedNodeInfo(bool include_connected) const EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex);
+    std::vector<AddedNodeInfo> GetAddedNodeInfo(bool include_connected) const
+        EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex, !m_nodes_mutex);
 
     /**
      * Attempts to open a connection. Currently only used from tests.
@@ -1350,16 +1381,17 @@ public:
      *                          - Max total outbound connection capacity filled
      *                          - Max connection capacity for type is filled
      */
-    bool AddConnection(const std::string& address, ConnectionType conn_type, bool use_v2transport) EXCLUSIVE_LOCKS_REQUIRED(!m_unused_i2p_sessions_mutex);
+    bool AddConnection(const std::string& address, ConnectionType conn_type, bool use_v2transport)
+        EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex, !m_unused_i2p_sessions_mutex);
 
-    size_t GetNodeCount(ConnectionDirection) const;
+    size_t GetNodeCount(ConnectionDirection) const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
     std::map<CNetAddr, LocalServiceInfo> getNetLocalAddresses() const;
     uint32_t GetMappedAS(const CNetAddr& addr) const;
-    void GetNodeStats(std::vector<CNodeStats>& vstats) const;
-    bool DisconnectNode(std::string_view node);
-    bool DisconnectNode(const CSubNet& subnet);
-    bool DisconnectNode(const CNetAddr& addr);
-    bool DisconnectNode(NodeId id);
+    void GetNodeStats(std::vector<CNodeStats>& vstats) const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
+    bool DisconnectNode(std::string_view node) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
+    bool DisconnectNode(const CSubNet& subnet, bool disconnect_private_broadcast = true) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
+    bool DisconnectNode(const CNetAddr& addr) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
+    bool DisconnectNode(NodeId id) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     //! Used to convey which local services we are offering peers during node
     //! connection.
@@ -1397,7 +1429,7 @@ public:
     void WakeMessageHandler() EXCLUSIVE_LOCKS_REQUIRED(!mutexMsgProc);
 
     /** Return true if we should disconnect the peer for failing an inactivity check. */
-    bool ShouldRunInactivityChecks(const CNode& node, std::chrono::microseconds now) const;
+    bool ShouldRunInactivityChecks(const CNode& node, NodeClock::time_point now) const;
 
     bool MultipleManualOrFullOutboundConns(Network net) const EXCLUSIVE_LOCKS_REQUIRED(m_nodes_mutex);
 
@@ -1423,14 +1455,32 @@ private:
     bool Bind(const CService& addr, unsigned int flags, NetPermissionFlags permissions);
     bool InitBinds(const Options& options);
 
-    void ThreadOpenAddedConnections() EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex, !m_unused_i2p_sessions_mutex, !m_reconnections_mutex);
+    /// \anchor addcon
+    void ThreadOpenAddedConnections() EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex,
+                                                               !m_nodes_mutex,
+                                                               !m_reconnections_mutex,
+                                                               !m_unused_i2p_sessions_mutex);
+
     void AddAddrFetch(const std::string& strDest) EXCLUSIVE_LOCKS_REQUIRED(!m_addr_fetches_mutex);
-    void ProcessAddrFetch() EXCLUSIVE_LOCKS_REQUIRED(!m_addr_fetches_mutex, !m_unused_i2p_sessions_mutex);
-    void ThreadOpenConnections(std::vector<std::string> connect, std::span<const std::string> seed_nodes) EXCLUSIVE_LOCKS_REQUIRED(!m_addr_fetches_mutex, !m_added_nodes_mutex, !m_nodes_mutex, !m_unused_i2p_sessions_mutex, !m_reconnections_mutex);
-    void ThreadMessageHandler() EXCLUSIVE_LOCKS_REQUIRED(!mutexMsgProc);
-    void ThreadI2PAcceptIncoming();
-    void ThreadPrivateBroadcast() EXCLUSIVE_LOCKS_REQUIRED(!m_unused_i2p_sessions_mutex);
-    void AcceptConnection(const ListenSocket& hListenSocket);
+
+    void ProcessAddrFetch() EXCLUSIVE_LOCKS_REQUIRED(!m_addr_fetches_mutex,
+                                                     !m_nodes_mutex,
+                                                     !m_unused_i2p_sessions_mutex);
+
+    /// \anchor opencon
+    void ThreadOpenConnections(std::vector<std::string> connect, std::span<const std::string> seed_nodes)
+        EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex,
+                                 !m_addr_fetches_mutex,
+                                 !m_nodes_mutex,
+                                 !m_reconnections_mutex,
+                                 !m_unused_i2p_sessions_mutex);
+
+    /// \anchor msghand
+    void ThreadMessageHandler() EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex, !mutexMsgProc);
+    /// \anchor i2paccept
+    void ThreadI2PAcceptIncoming() EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
+    void ThreadPrivateBroadcast() EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex, !m_unused_i2p_sessions_mutex);
+    void AcceptConnection(const ListenSocket& hListenSocket) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     /**
      * Create a `CNode` object from a socket that has just been accepted and add the node to
@@ -1443,12 +1493,13 @@ private:
     void CreateNodeFromAcceptedSocket(std::unique_ptr<Sock>&& sock,
                                       NetPermissionFlags permission_flags,
                                       const CService& addr_bind,
-                                      const CService& addr);
+                                      const CService& addr)
+        EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     void DisconnectNodes() EXCLUSIVE_LOCKS_REQUIRED(!m_reconnections_mutex, !m_nodes_mutex);
-    void NotifyNumConnectionsChanged();
+    void NotifyNumConnectionsChanged() EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
     /** Return true if the peer is inactive and should be disconnected. */
-    bool InactivityCheck(const CNode& node, std::chrono::microseconds now) const;
+    bool InactivityCheck(const CNode& node, NodeClock::time_point now) const;
 
     /**
      * Generate a collection of sockets to check for IO readiness.
@@ -1460,7 +1511,7 @@ private:
     /**
      * Check connected and listening sockets for IO readiness and process them accordingly.
      */
-    void SocketHandler() EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex, !mutexMsgProc);
+    void SocketHandler() EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex, !m_total_bytes_sent_mutex, !mutexMsgProc);
 
     /**
      * Do the read/write for connected sockets that are ready for IO.
@@ -1475,9 +1526,12 @@ private:
      * Accept incoming connections, one from each read-ready listening socket.
      * @param[in] events_per_sock Sockets that are ready for IO.
      */
-    void SocketHandlerListening(const Sock::EventsPerSock& events_per_sock);
+    void SocketHandlerListening(const Sock::EventsPerSock& events_per_sock)
+        EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
+    /// \anchor net
     void ThreadSocketHandler() EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex, !mutexMsgProc, !m_nodes_mutex, !m_reconnections_mutex);
+    /// \anchor dnsseed
     void ThreadDNSAddressSeed() EXCLUSIVE_LOCKS_REQUIRED(!m_addr_fetches_mutex, !m_nodes_mutex);
 
     uint64_t CalculateKeyedNetGroup(const CNetAddr& ad) const;
@@ -1489,7 +1543,7 @@ private:
      * @param[in] host String of the form "host[:port]", e.g. "localhost" or "localhost:8333" or "1.2.3.4:8333".
      * @return true if connected to `host`.
      */
-    bool AlreadyConnectedToHost(std::string_view host) const;
+    bool AlreadyConnectedToHost(std::string_view host) const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     /**
      * Determine whether we're already connected to a given address:port.
@@ -1498,14 +1552,20 @@ private:
      * @param[in] addr_port Address and port to check.
      * @return true if connected to addr_port.
      */
-    bool AlreadyConnectedToAddressPort(const CService& addr_port) const;
+    bool AlreadyConnectedToAddressPort(const CService& addr_port) const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     /**
      * Determine whether we're already connected to a given address.
      */
-    bool AlreadyConnectedToAddress(const CNetAddr& addr) const;
+    bool AlreadyConnectedToAddress(const CNetAddr& addr) const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
-    bool AttemptToEvictConnection();
+    /**
+     * Try to find an inbound connection to evict.
+     * @param[in] evict_tx_relay_peer_only  Whether to only select full relay peers for eviction
+     * @param[in] protect_peer              Protect peer with node id
+     * @return                              True if a node was marked for disconnect
+     */
+    bool AttemptToEvictConnection(bool evict_tx_relay_peer_only, std::optional<NodeId> protect_peer = std::nullopt) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     /**
      * Open a new P2P connection.
@@ -1523,7 +1583,7 @@ private:
                        ConnectionType conn_type,
                        bool use_v2transport,
                        const std::optional<Proxy>& proxy_override)
-        EXCLUSIVE_LOCKS_REQUIRED(!m_unused_i2p_sessions_mutex);
+        EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex, !m_unused_i2p_sessions_mutex);
 
     void AddWhitelistPermissionFlags(NetPermissionFlags& flags, std::optional<CNetAddr> addr, const std::vector<NetWhitelistPermissions>& ranges) const;
 
@@ -1549,7 +1609,7 @@ private:
     /**
      * Return vector of current BLOCK_RELAY peers.
      */
-    std::vector<CAddress> GetCurrentBlockRelayOnlyConns() const;
+    std::vector<CAddress> GetCurrentBlockRelayOnlyConns() const EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     /**
      * Search for a "preferred" network, a reachable network to which we
@@ -1561,7 +1621,7 @@ private:
      *
      * @return           bool        Whether a preferred network was found.
      */
-    bool MaybePickPreferredNetwork(std::optional<Network>& network);
+    bool MaybePickPreferredNetwork(std::optional<Network>& network) EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex);
 
     // Whether the node should be passed out in ForEach* callbacks
     static bool NodeFullyConnected(const CNode* pnode);
@@ -1605,7 +1665,7 @@ private:
     mutable Mutex m_added_nodes_mutex;
     std::vector<CNode*> m_nodes GUARDED_BY(m_nodes_mutex);
     std::list<CNode*> m_nodes_disconnected;
-    mutable RecursiveMutex m_nodes_mutex;
+    mutable Mutex m_nodes_mutex;
     std::atomic<NodeId> nLastNodeId{0};
     unsigned int nPrevNodeCount{0};
 
@@ -1678,6 +1738,7 @@ private:
     int m_max_feeler{MAX_FEELER_CONNECTIONS};
     int m_max_automatic_outbound;
     int m_max_inbound;
+    int m_max_inbound_full_relay;
 
     bool m_use_addrman_outgoing;
     CClientUIInterface* m_client_interface;
@@ -1778,6 +1839,7 @@ private:
     /** Struct for entries in m_reconnections. */
     struct ReconnectionInfo
     {
+        std::optional<Proxy> proxy_override;
         CAddress addr_connect;
         CountingSemaphoreGrant<> grant;
         std::string destination;
@@ -1791,7 +1853,8 @@ private:
     std::list<ReconnectionInfo> m_reconnections GUARDED_BY(m_reconnections_mutex);
 
     /** Attempt reconnections, if m_reconnections non-empty. */
-    void PerformReconnections() EXCLUSIVE_LOCKS_REQUIRED(!m_reconnections_mutex, !m_unused_i2p_sessions_mutex);
+    void PerformReconnections()
+        EXCLUSIVE_LOCKS_REQUIRED(!m_nodes_mutex, !m_reconnections_mutex, !m_unused_i2p_sessions_mutex);
 
     /**
      * Cap on the size of `m_unused_i2p_sessions`, to ensure it does not
@@ -1807,6 +1870,7 @@ private:
     {
     public:
         explicit NodesSnapshot(const CConnman& connman, bool shuffle)
+            EXCLUSIVE_LOCKS_REQUIRED(!connman.m_nodes_mutex)
         {
             {
                 LOCK(connman.m_nodes_mutex);

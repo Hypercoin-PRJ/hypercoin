@@ -34,8 +34,6 @@ GENERATE_OPTIONS = {
     "fuzz": [
         "-DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON",
         "-DVCPKG_MANIFEST_FEATURES=wallet",
-        "-DBUILD_GUI=OFF",
-        "-DWITH_ZMQ=OFF",
         "-DBUILD_FOR_FUZZING=ON",
         "-DCMAKE_COMPILE_WARNING_AS_ERROR=ON",
     ],
@@ -71,8 +69,13 @@ def generate(ci_type):
         "-B",
         "build",
         "-Werror=dev",
-        "--preset",
-        "vs2026",
+        "--preset=vs2026",
+        # Using x64-windows-release for both host and target triplets
+        # to ensure vcpkg builds only release packages, thereby optimizing
+        # build time.
+        # See https://github.com/microsoft/vcpkg/issues/50927.
+        "-DVCPKG_HOST_TRIPLET=x64-windows-release",
+        "-DVCPKG_TARGET_TRIPLET=x64-windows-release",
     ] + GENERATE_OPTIONS[ci_type]
     if run(command, check=False).returncode != 0:
         print("=== ⚠️ ===")
@@ -193,7 +196,7 @@ def run_tests(ci_type):
             "--jobs",
             num_procs,
             "--quiet",
-            f"--tmpdirprefix={workspace}",
+            f"--tmpdirprefix={workspace / '_ _'}",
             "--combinedlogslen=99999999",
             *shlex.split(os.environ.get("TEST_RUNNER_EXTRA", "").strip()),
         ]

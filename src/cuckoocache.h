@@ -6,6 +6,7 @@
 #define HYPERCOIN_CUCKOOCACHE_H
 
 #include <util/fastrange.h>
+#include <util/overflow.h>
 
 #include <algorithm>
 #include <array>
@@ -63,7 +64,7 @@ public:
     explicit bit_packed_atomic_flags(uint32_t size)
     {
         // pad out the size if needed
-        size = (size + 7) / 8;
+        size = CeilDiv(size, 8u);
         mem.reset(new std::atomic<uint8_t>[size]);
         for (uint32_t i = 0; i < size; ++i)
             mem[i].store(0xFF);
@@ -328,7 +329,7 @@ public:
     /** setup initializes the container to store no more than new_size
      * elements and no less than 2 elements.
      *
-     * setup should only be called once.
+     * setup should only be called once. TestOnlyReset() is the exception.
      *
      * @param new_size the desired number of elements to store
      * @returns the maximum number of elements storable
@@ -481,6 +482,14 @@ public:
                 return true;
             }
         return false;
+    }
+
+    /** Empty the cache and re-run setup(). */
+    void TestOnlyReset()
+    {
+        table.clear();
+        epoch_flags.clear();
+        setup(0);
     }
 };
 } // namespace CuckooCache

@@ -28,8 +28,6 @@
 
 #include <functional>
 
-const std::function<void(const std::string&)> G_TEST_LOG_FUN{};
-
 const std::function<std::vector<const char*>()> G_TEST_COMMAND_LINE_ARGUMENTS{};
 
 const std::function<std::string()> G_TEST_GET_FULL_NAME{};
@@ -62,12 +60,18 @@ int main(int argc, char* argv[])
     // Prefer the "minimal" platform for the test instead of the normal default
     // platform ("xcb", "windows", or "cocoa") so tests can't unintentionally
     // interfere with any background GUIs and don't require extra resources.
-    #if defined(WIN32)
-        if (getenv("QT_QPA_PLATFORM") == nullptr) _putenv_s("QT_QPA_PLATFORM", "minimal");
-    #else
-        setenv("QT_QPA_PLATFORM", "minimal", 0 /* overwrite */);
-    #endif
+#if defined(WIN32)
+    if (getenv("QT_QPA_PLATFORM") == nullptr) _putenv_s("QT_QPA_PLATFORM", "minimal");
+#else
+    setenv("QT_QPA_PLATFORM", "minimal", 0 /* overwrite */);
+#endif
 
+#ifdef Q_OS_MACOS
+    // QMacStyle assumes a Cocoa platform window, which the minimal platform
+    // does not provide. In particular, painting a QGroupBox can make Qt call
+    // addSubview: on an invalid native object (QTBUG-49686).
+    setenv("QT_STYLE_OVERRIDE", "fusion", 0 /* overwrite */);
+#endif
 
     QCoreApplication::setOrganizationName(QAPP_ORG_NAME);
     QCoreApplication::setApplicationName(QAPP_APP_NAME_DEFAULT "-test");

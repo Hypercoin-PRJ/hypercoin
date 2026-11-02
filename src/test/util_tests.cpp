@@ -4,6 +4,7 @@
 
 #include <clientversion.h>
 #include <common/signmessage.h>
+#include <compat/compat.h>
 #include <hash.h>
 #include <key.h>
 #include <script/parsing.h>
@@ -12,7 +13,9 @@
 #include <test/util/common.h>
 #include <test/util/random.h>
 #include <test/util/setup_common.h>
+#include <test/util/time.h>
 #include <uint256.h>
+#include <univalue.h>
 #include <util/bitdeque.h>
 #include <util/byte_units.h>
 #include <util/fs.h>
@@ -23,6 +26,7 @@
 #include <util/strencodings.h>
 #include <util/string.h>
 #include <util/time.h>
+#include <util/tokenbucket.h>
 #include <util/vector.h>
 
 #include <array>
@@ -35,7 +39,7 @@
 #include <optional>
 #include <string>
 #include <thread>
-#include <univalue.h>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -296,17 +300,20 @@ BOOST_AUTO_TEST_CASE(util_Join)
 BOOST_AUTO_TEST_CASE(util_ReplaceAll)
 {
     const std::string original("A test \"%s\" string '%s'.");
-    auto test_replaceall = [&original](const std::string& search, const std::string& substitute, const std::string& expected) {
-        auto test = original;
+    auto test_replaceall{[](std::string test, std::string_view search, std::string_view substitute, std::string_view expected) {
         ReplaceAll(test, search, substitute);
         BOOST_CHECK_EQUAL(test, expected);
-    };
+    }};
 
-    test_replaceall("", "foo", original);
-    test_replaceall(original, "foo", "foo");
-    test_replaceall("%s", "foo", "A test \"foo\" string 'foo'.");
-    test_replaceall("\"", "foo", "A test foo%sfoo string '%s'.");
-    test_replaceall("'", "foo", "A test \"%s\" string foo%sfoo.");
+    test_replaceall(original, "", "foo", original);
+    test_replaceall(original, "missing", "foo", original);
+    test_replaceall(original, original, "foo", "foo");
+    test_replaceall(original, "%s", "foo", "A test \"foo\" string 'foo'.");
+    test_replaceall(original, "\"", "foo", "A test foo%sfoo string '%s'.");
+    test_replaceall(original, "'", "foo", "A test \"%s\" string foo%sfoo.");
+    test_replaceall("a.b", ".", "x", "axb");
+    test_replaceall("%w and %w", "%w", "$&$`$'$1$$", "$&$`$'$1$$ and $&$`$'$1$$");
+    test_replaceall("x", "x", "xx", "xx");
 }
 
 BOOST_AUTO_TEST_CASE(util_TrimString)
@@ -585,7 +592,7 @@ BOOST_AUTO_TEST_CASE(strprintf_numbers)
 
 BOOST_AUTO_TEST_CASE(util_mocktime)
 {
-    SetMockTime(111s);
+    FakeNodeClock clock{111s};
     // Check that mock time does not change after a sleep
     for (const auto& num_sleep : {0ms, 1ms}) {
         UninterruptibleSleep(num_sleep);
@@ -598,7 +605,6 @@ BOOST_AUTO_TEST_CASE(util_mocktime)
         BOOST_CHECK_EQUAL(111000, TicksSinceEpoch<std::chrono::milliseconds>(NodeClock::now()));
         BOOST_CHECK_EQUAL(111000000, GetTime<std::chrono::microseconds>().count());
     }
-    SetMockTime(0s);
 }
 
 BOOST_AUTO_TEST_CASE(util_ticksseconds)
@@ -882,8 +888,7 @@ BOOST_AUTO_TEST_CASE(test_ToIntegralHex)
     BOOST_CHECK_EQUAL(*n, 0);
     n = ToIntegral<uint64_t>("FfFfFfFfFfFfFfFf", 16);
     BOOST_CHECK_EQUAL(*n, 0xFfFfFfFfFfFfFfFfULL);
-    n = ToIntegral<int64_t>("-1", 16);
-    BOOST_CHECK_EQUAL(*n, -1);
+    BOOST_CHECK_EQUAL(*ToIntegral<int64_t>("-1", 16), -1);
     // Invalid values
     BOOST_CHECK(!ToIntegral<uint64_t>("", 16));
     BOOST_CHECK(!ToIntegral<uint64_t>("-1", 16));
@@ -1138,7 +1143,8 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
 #endif
     // Clean up
     ReleaseDirectoryLocks();
-    fs::remove_all(dirname);
+    fs::remove(dirname / lockname);
+    fs::remove(dirname);
 }
 
 BOOST_AUTO_TEST_CASE(test_ToLower)
@@ -1632,10 +1638,10 @@ BOOST_AUTO_TEST_CASE(util_ParseByteUnits)
     BOOST_CHECK_EQUAL(ParseByteUnits("1K", noop).value(), 1ULL << 10);
 
     BOOST_CHECK_EQUAL(ParseByteUnits("2m", noop).value(), 2'000'000ULL);
-    BOOST_CHECK_EQUAL(ParseByteUnits("2M", noop).value(), 2ULL << 20);
+    BOOST_CHECK_EQUAL(ParseByteUnits("2M", noop).value(), 2_MiB);
 
     BOOST_CHECK_EQUAL(ParseByteUnits("3g", noop).value(), 3'000'000'000ULL);
-    BOOST_CHECK_EQUAL(ParseByteUnits("3G", noop).value(), 3ULL << 30);
+    BOOST_CHECK_EQUAL(ParseByteUnits("3G", noop).value(), 3_GiB);
 
     BOOST_CHECK_EQUAL(ParseByteUnits("4t", noop).value(), 4'000'000'000'000ULL);
     BOOST_CHECK_EQUAL(ParseByteUnits("4T", noop).value(), 4ULL << 40);
@@ -1656,7 +1662,7 @@ BOOST_AUTO_TEST_CASE(util_ParseByteUnits)
     BOOST_CHECK(!ParseByteUnits("+123m", noop));
 
     // zero padding
-    BOOST_CHECK_EQUAL(ParseByteUnits("020M", noop).value(), 20ULL << 20);
+    BOOST_CHECK_EQUAL(ParseByteUnits("020M", noop).value(), 20_MiB);
 
     // fractions not allowed
     BOOST_CHECK(!ParseByteUnits("0.5T", noop));
@@ -1826,12 +1832,237 @@ BOOST_AUTO_TEST_CASE(saturating_left_shift_test)
     TestSaturatingLeftShift<int64_t>();
 }
 
+template <class Int, auto bytes>
+concept BraceInitializesTo = requires { Int{bytes}; };
+
 BOOST_AUTO_TEST_CASE(mib_string_literal_test)
 {
+    // Basic equivalences and simple arithmetic operations
     BOOST_CHECK_EQUAL(0_MiB, 0);
+    BOOST_CHECK_EQUAL(1_MiB, 1 << 20);
     BOOST_CHECK_EQUAL(1_MiB, 1024 * 1024);
-    const auto max_mib{std::numeric_limits<size_t>::max() >> 20};
-    BOOST_CHECK_EXCEPTION(operator""_MiB(static_cast<unsigned long long>(max_mib) + 1), std::overflow_error, HasReason("MiB value too large for size_t byte conversion"));
+    BOOST_CHECK_EQUAL(1_MiB, 0x100000U);
+    BOOST_CHECK_EQUAL(1_MiB, 1048576U);
+    BOOST_CHECK_EQUAL(2ULL * 1_MiB, 2ULL << 20);
+    BOOST_CHECK_EQUAL((3_MiB + 123) / double(1_MiB), (3_MiB + 123) / 1024.0 / 1024.0);
+
+    // Specific codebase values
+    BOOST_CHECK_EQUAL(4_MiB, 1 << 22);
+    BOOST_CHECK_EQUAL(8_MiB, 1 << 23);
+    BOOST_CHECK_EQUAL(16_MiB, 0x1000000U);
+    BOOST_CHECK_EQUAL(16_MiB, 1 << 24);
+    BOOST_CHECK_EQUAL(32_MiB, 0x2000000U);
+    BOOST_CHECK_EQUAL(32_MiB, 32U << 20);
+    BOOST_CHECK_EQUAL(50_MiB / 1_MiB, 50U);
+    BOOST_CHECK_EQUAL(50_MiB, 52428800U);
+    BOOST_CHECK_EQUAL(128_MiB, 0x8000000U);
+    BOOST_CHECK_EQUAL(550_MiB, 550ULL * 1024 * 1024);
+
+    // 4095 MiB fits in uint32_t bytes. 4096 MiB requires the uint64_t return type.
+    static_assert(BraceInitializesTo<uint32_t, 4095_MiB>);
+    static_assert(!BraceInitializesTo<uint32_t, 4096_MiB>);
+    static_assert(BraceInitializesTo<uint64_t, 4096_MiB>);
+    BOOST_CHECK_EQUAL(4095_MiB, uint32_t{4095} << 20);
+    BOOST_CHECK_EQUAL(4096_MiB, uint64_t{4096} << 20);
+}
+
+BOOST_AUTO_TEST_CASE(ceil_div_test)
+{
+    // Type combinations used by current CeilDiv callsites.
+    BOOST_CHECK((std::is_same_v<decltype(CeilDiv(uint32_t{0}, 8u)), uint32_t>));
+    BOOST_CHECK((std::is_same_v<decltype(CeilDiv(size_t{0}, 8u)), size_t>));
+    BOOST_CHECK((std::is_same_v<decltype(CeilDiv(unsigned{0}, size_t{1})), size_t>));
+
+    // `common/bloom.cpp` and `cuckoocache.h` patterns.
+    BOOST_CHECK_EQUAL(CeilDiv(uint32_t{3}, 2u), uint32_t{2});
+    BOOST_CHECK_EQUAL(CeilDiv(uint32_t{65}, 64u), uint32_t{2});
+    BOOST_CHECK_EQUAL(CeilDiv(uint32_t{9}, 8u), uint32_t{2});
+
+    // `key_io.cpp`, `rest.cpp`, `merkleblock.cpp`, `strencodings.cpp` patterns.
+    BOOST_CHECK_EQUAL(CeilDiv(size_t{9}, 8u), size_t{2});
+    BOOST_CHECK_EQUAL(CeilDiv(size_t{10}, 3u), size_t{4});
+    BOOST_CHECK_EQUAL(CeilDiv(size_t{11}, 5u), size_t{3});
+    BOOST_CHECK_EQUAL(CeilDiv(size_t{41} * 8, 5u), size_t{66});
+
+    // `flatfile.cpp` mixed unsigned/size_t pattern.
+    BOOST_CHECK_EQUAL(CeilDiv(unsigned{10}, size_t{4}), size_t{3});
+
+    // `util/feefrac.h` fast-path rounding-up pattern.
+    constexpr int64_t fee{12345};
+    constexpr int32_t at_size{67};
+    constexpr int32_t size{10};
+    BOOST_CHECK_EQUAL(CeilDiv(uint64_t(fee) * at_size, uint32_t(size)),
+                      (uint64_t(fee) * at_size + uint32_t(size) - 1) / uint32_t(size));
+
+    // `bitset.h` template parameter pattern.
+    constexpr unsigned bits{129};
+    constexpr size_t digits{std::numeric_limits<size_t>::digits};
+    BOOST_CHECK_EQUAL(CeilDiv(bits, digits), (bits + digits - 1) / digits);
+
+    // `serialize.h` varint scratch-buffer pattern.
+    BOOST_CHECK_EQUAL(CeilDiv(sizeof(uint64_t) * 8, 7u), (sizeof(uint64_t) * 8 + 6) / 7);
+}
+
+BOOST_AUTO_TEST_CASE(gib_string_literal_test)
+{
+    // Basic equivalences and simple arithmetic operations
+    BOOST_CHECK_EQUAL(0_GiB, 0);
+    BOOST_CHECK_EQUAL(1_GiB, 1 << 30);
+    BOOST_CHECK_EQUAL(1_GiB, 1024 * 1024 * 1024);
+    BOOST_CHECK_EQUAL(1_GiB, 0x40000000U);
+    BOOST_CHECK_EQUAL(1_GiB, 1073741824U);
+    BOOST_CHECK_EQUAL(1_GiB, 1_MiB * 1024);
+    BOOST_CHECK_EQUAL(1_GiB, 1024_MiB);
+    BOOST_CHECK_EQUAL((1_GiB + 123) / double(1_GiB), (1_GiB + 123) / 1024.0 / 1024.0 / 1024.0);
+    BOOST_CHECK_EQUAL(2ULL * 1_GiB, 2ULL << 30);
+    BOOST_CHECK_EQUAL(4 * uint64_t{1_GiB}, uint64_t{4} << 30);
+    BOOST_CHECK_EQUAL(2_GiB, 2048_MiB);
+    BOOST_CHECK_EQUAL(3_GiB / 1_GiB, 3U);
+    BOOST_CHECK_EQUAL(3_GiB, 3U << 30);
+
+    // 3 GiB fits in uint32_t bytes. 4 GiB requires the uint64_t return type.
+    static_assert(BraceInitializesTo<uint32_t, 3_GiB>);
+    static_assert(!BraceInitializesTo<uint32_t, 4_GiB>);
+    static_assert(BraceInitializesTo<uint64_t, 4_GiB>);
+    BOOST_CHECK_EQUAL(3_GiB, uint32_t{3} << 30);
+    BOOST_CHECK_EQUAL(4_GiB, uint64_t{4} << 30);
+
+    // Specific codebase values
+    BOOST_CHECK_EQUAL(4_GiB, 4096_MiB);
+    BOOST_CHECK_EQUAL(8_GiB, 8192_MiB);
+    BOOST_CHECK_EQUAL(16_GiB, 16384_MiB);
+    BOOST_CHECK_EQUAL(32_GiB, 32768_MiB);
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_initial_value)
+{
+    // Initial value is clamped to cap
+    util::TokenBucket<NodeClock> b1(/*rate=*/1, /*value=*/100, /*cap=*/10);
+    BOOST_CHECK_EQUAL(b1.value(), 10);
+
+    // Initial value below cap is kept as-is
+    util::TokenBucket<NodeClock> b2(/*rate=*/1, /*value=*/5, /*cap=*/10);
+    BOOST_CHECK_EQUAL(b2.value(), 5);
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_first_increment)
+{
+    // First increment establishes the time baseline but does not refill
+    util::TokenBucket<NodeClock> b(/*rate=*/100, /*value=*/0, /*cap=*/1000);
+    b.increment(NodeClock::time_point{10s});
+    BOOST_CHECK_EQUAL(b.value(), 0);
+
+    // Second increment refills based on elapsed time
+    b.increment(NodeClock::time_point{15s});
+    BOOST_CHECK_EQUAL(b.value(), 500); // 100/s * 5s
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_refill_caps)
+{
+    util::TokenBucket<NodeClock> b(/*rate=*/10, /*value=*/90, /*cap=*/100);
+    b.increment(NodeClock::time_point{1s});
+    b.increment(NodeClock::time_point{100s}); // would add 990, but cap is 100
+    BOOST_CHECK_EQUAL(b.value(), 100);
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_time_backwards)
+{
+    util::TokenBucket<NodeClock> b(/*rate=*/10, /*value=*/50, /*cap=*/200);
+    b.increment(NodeClock::time_point{10s});
+    b.increment(NodeClock::time_point{5s}); // backwards, no change
+    BOOST_CHECK_EQUAL(b.value(), 50);
+    b.increment(NodeClock::time_point{15s}); // forwards takes backwards into account
+    BOOST_CHECK_EQUAL(b.value(), 150);
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_decrement_no_debt)
+{
+    // Default debt=0: returns false at exactly 0
+    util::TokenBucket<NodeClock> b(/*rate=*/1, /*value=*/3, /*cap=*/10);
+    BOOST_CHECK(b.decrement(1));  // 3 -> 2
+    BOOST_CHECK(b.decrement(1));  // 2 -> 1
+    BOOST_CHECK(!b.decrement(1)); // 1 -> 0, at floor
+    BOOST_CHECK_EQUAL(b.value(), 0);
+    BOOST_CHECK(!b.decrement(1)); // 0 -> -1, despite being at floor
+    BOOST_CHECK_EQUAL(b.value(), -1);
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_decrement_with_debt)
+{
+    util::TokenBucket<NodeClock> b(/*rate=*/1, /*value=*/2, /*cap=*/10);
+    BOOST_CHECK(b.decrement(1, -3));  // 2 -> 1
+    BOOST_CHECK(b.decrement(1, -3));  // 1 -> 0
+    BOOST_CHECK(b.decrement(1, -3));  // 0 -> -1, still above -3
+    BOOST_CHECK(b.decrement(1, -3));  // -1 -> -2, still above -3
+    BOOST_CHECK(!b.decrement(1, -3)); // -2 -> -3, at floor
+    BOOST_CHECK_EQUAL(b.value(), -3);
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_drain_and_refill)
+{
+    util::TokenBucket<NodeClock> b(/*rate=*/10, /*value=*/20, /*cap=*/100);
+    b.decrement(20); // drain to 0
+    BOOST_CHECK_EQUAL(b.value(), 0);
+
+    b.increment(NodeClock::time_point{1s});
+    b.increment(NodeClock::time_point{4s}); // +30
+    BOOST_CHECK_EQUAL(b.value(), 30);
+}
+
+
+BOOST_AUTO_TEST_CASE(token_bucket_first_increment_at_epoch)
+{
+    // The first increment establishes the baseline (no refill) even when it
+    // lands exactly on the clock epoch; later increments then refill normally.
+    util::TokenBucket<NodeClock> b(/*rate=*/100, /*value=*/0, /*cap=*/1000);
+    b.increment(NodeClock::time_point{0s});
+    BOOST_CHECK_EQUAL(b.value(), 0);
+    b.increment(NodeClock::time_point{5s});
+    BOOST_CHECK_EQUAL(b.value(), 500); // 100/s * 5s
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_at_cap_advances_baseline)
+{
+    util::TokenBucket<NodeClock> b(/*rate=*/10, /*value=*/100, /*cap=*/100);
+    BOOST_CHECK_EQUAL(b.value(), 100); // already at cap
+    b.increment(NodeClock::time_point{1s});   // baseline established at 1s
+    b.increment(NodeClock::time_point{100s}); // 99s spent at the cap; baseline -> 100s
+    BOOST_CHECK_EQUAL(b.value(), 100);
+
+    b.decrement(100); // drain to 0
+    BOOST_CHECK_EQUAL(b.value(), 0);
+
+    // refill doesn't "bank" the extra 99s we were at cap
+    b.increment(NodeClock::time_point{101s});
+    BOOST_CHECK_EQUAL(b.value(), 10);
+
+    // And when real time genuinely elapses, a single increment refills straight
+    // back to the cap immediately.
+    b.increment(NodeClock::time_point{200s}); // 99s elapsed -> +990, clamped to cap
+    BOOST_CHECK_EQUAL(b.value(), 100);
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_fractional_refill)
+{
+    // Sub-second elapsed time accumulates fractional tokens via double math.
+    util::TokenBucket<NodeClock> b(/*rate=*/10, /*value=*/0, /*cap=*/100);
+    b.increment(NodeClock::time_point{1s});
+    b.increment(NodeClock::time_point{1250ms}); // 10/s * 0.25s = 2.5
+    BOOST_CHECK_EQUAL(b.value(), 2.5);
+}
+
+BOOST_AUTO_TEST_CASE(token_bucket_refill_from_debt)
+{
+    // Refilling from a negative (debt) balance accrues normally and still
+    // clamps to the cap rather than to debt + increment.
+    util::TokenBucket<NodeClock> b(/*rate=*/10, /*value=*/0, /*cap=*/100);
+    BOOST_CHECK(!b.decrement(50)); // -> -50, below floor 0
+    BOOST_CHECK_EQUAL(b.value(), -50);
+    b.increment(NodeClock::time_point{1s});   // baseline
+    b.increment(NodeClock::time_point{4s});   // +30 -> -20
+    BOOST_CHECK_EQUAL(b.value(), -20);
+    b.increment(NodeClock::time_point{100s}); // +960 but clamped to cap
+    BOOST_CHECK_EQUAL(b.value(), 100);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

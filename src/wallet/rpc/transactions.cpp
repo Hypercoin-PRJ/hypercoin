@@ -38,6 +38,12 @@ static void WalletTxToJSON(const CWallet& wallet, const CWalletTx& wtx, UniValue
     }
     entry.pushKV("txid", wtx.GetHash().GetHex());
     entry.pushKV("wtxid", wtx.GetWitnessHash().GetHex());
+    UniValue alternate_wtxids(UniValue::VARR);
+    for (const auto& [wtxid, _] : wtx.GetTxs()) {
+        if (wtxid == wtx.GetWitnessHash()) continue;
+        alternate_wtxids.push_back(wtxid.GetHex());
+    }
+    entry.pushKV("alternate_wtxids", alternate_wtxids);
     UniValue conflicts(UniValue::VARR);
     for (const Txid& conflict : wallet.GetTxConflicts(wtx))
         conflicts.push_back(conflict.GetHex());
@@ -50,18 +56,22 @@ static void WalletTxToJSON(const CWallet& wallet, const CWalletTx& wtx, UniValue
     entry.pushKV("timereceived", wtx.nTimeReceived);
 
     // Add opt-in RBF status
-    std::string rbfStatus = "no";
-    if (confirms <= 0) {
-        RBFTransactionState rbfState = chain.isRBFOptIn(*wtx.tx);
-        if (rbfState == RBFTransactionState::UNKNOWN)
-            rbfStatus = "unknown";
-        else if (rbfState == RBFTransactionState::REPLACEABLE_BIP125)
-            rbfStatus = "yes";
+    if (chain.rpcEnableDeprecated("bip125")) {
+        std::string rbfStatus = "no";
+        if (confirms <= 0) {
+            RBFTransactionState rbfState = chain.isRBFOptIn(*wtx.GetTx());
+            if (rbfState == RBFTransactionState::UNKNOWN)
+                rbfStatus = "unknown";
+            else if (rbfState == RBFTransactionState::REPLACEABLE_BIP125)
+                rbfStatus = "yes";
+        }
+        entry.pushKV("bip125-replaceable", rbfStatus);
     }
-    entry.pushKV("bip125-replaceable", rbfStatus);
 
-    for (const std::pair<const std::string, std::string>& item : wtx.mapValue)
-        entry.pushKV(item.first, item.second);
+    if (wtx.m_comment) entry.pushKV("comment", *wtx.m_comment);
+    if (wtx.m_comment_to) entry.pushKV("to", *wtx.m_comment_to);
+    if (wtx.m_replaces_txid) entry.pushKV("replaces_txid", wtx.m_replaces_txid->ToString());
+    if (wtx.m_replaced_by_txid) entry.pushKV("replaced_by_txid", wtx.m_replaced_by_txid->ToString());
 }
 
 struct tallyitem
@@ -106,7 +116,7 @@ static UniValue ListReceived(const CWallet& wallet, const UniValue& params, cons
             continue;
         }
 
-        for (const CTxOut& txout : wtx.tx->vout) {
+        for (const CTxOut& txout : wtx.GetTx()->vout) {
             CTxDestination address;
             if (!ExtractDestination(txout.scriptPubKey, address))
                 continue;
@@ -129,12 +139,17 @@ static UniValue ListReceived(const CWallet& wallet, const UniValue& params, cons
     UniValue ret(UniValue::VARR);
     std::map<std::string, tallyitem> label_tally;
 
-    const auto& func = [&](const CTxDestination& address, const std::string& label, bool is_change, const std::optional<AddressPurpose>& purpose) {
+    const auto& func = [&](const CTxDestination& address, const std::string& label, bool is_change,
+                            const std::optional<AddressPurpose>& purpose) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet) {
         if (is_change) return; // no change addresses
 
+        // Entries in mapTally are only ever added for wallet.IsMine() addresses (see the tally
+        // loop above), so it's only addresses missing from mapTally that need the IsMine() check.
         auto it = mapTally.find(address);
-        if (it == mapTally.end() && !fIncludeEmpty)
-            return;
+        if (it == mapTally.end()) {
+            if (!fIncludeEmpty) return;
+            if (!wallet.IsMine(address)) return; // exclude addresses not owned by the wallet (e.g. "send" purpose)
+        }
 
         CAmount nAmount = 0;
         int nConf = std::numeric_limits<int>::max();
@@ -187,9 +202,9 @@ static UniValue ListReceived(const CWallet& wallet, const UniValue& params, cons
     return ret;
 }
 
-RPCHelpMan listreceivedbyaddress()
+RPCMethod listreceivedbyaddress()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "listreceivedbyaddress",
         "List balances by receiving address.\n",
                 {
@@ -222,7 +237,7 @@ RPCHelpMan listreceivedbyaddress()
             + HelpExampleRpc("listreceivedbyaddress", "6, true, true")
             + HelpExampleRpc("listreceivedbyaddress", "6, true, true, \"" + EXAMPLE_ADDRESS[0] + "\", true")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -240,9 +255,9 @@ RPCHelpMan listreceivedbyaddress()
     };
 }
 
-RPCHelpMan listreceivedbylabel()
+RPCMethod listreceivedbylabel()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "listreceivedbylabel",
         "List received transactions by label.\n",
                 {
@@ -267,7 +282,7 @@ RPCHelpMan listreceivedbylabel()
             + HelpExampleCli("listreceivedbylabel", "6 true")
             + HelpExampleRpc("listreceivedbylabel", "6, true, true, true")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -350,7 +365,7 @@ static void ListTransactions(const CWallet& wallet, const CWalletTx& wtx, int nM
             }
             UniValue entry(UniValue::VOBJ);
             MaybePushAddress(entry, r.destination);
-            PushParentDescriptors(wallet, wtx.tx->vout.at(r.vout).scriptPubKey, entry);
+            PushParentDescriptors(wallet, wtx.GetTx()->vout.at(r.vout).scriptPubKey, entry);
             if (wtx.IsCoinBase())
             {
                 if (wallet.GetTxDepthInMainChain(wtx) < 1)
@@ -391,6 +406,10 @@ static std::vector<RPCResult> TransactionDescriptionString()
            {RPCResult::Type::NUM_TIME, "blocktime", /*optional=*/true, "The block time expressed in " + UNIX_EPOCH_TIME + "."},
            {RPCResult::Type::STR_HEX, "txid", "The transaction id."},
            {RPCResult::Type::STR_HEX, "wtxid", "The hash of serialized transaction, including witness data."},
+           {RPCResult::Type::ARR, "alternate_wtxids", "The wtxids of transactions with different witness data but the same txid.",
+           {
+               {RPCResult::Type::STR_HEX, "wtxid", "The witness transaction id."},
+           }},
            {RPCResult::Type::ARR, "walletconflicts", "Confirmed transactions that have been detected by the wallet to conflict with this transaction.",
            {
                {RPCResult::Type::STR_HEX, "txid", "The transaction id."},
@@ -405,17 +424,17 @@ static std::vector<RPCResult> TransactionDescriptionString()
            {RPCResult::Type::NUM_TIME, "time", "The transaction time expressed in " + UNIX_EPOCH_TIME + "."},
            {RPCResult::Type::NUM_TIME, "timereceived", "The time received expressed in " + UNIX_EPOCH_TIME + "."},
            {RPCResult::Type::STR, "comment", /*optional=*/true, "If a comment is associated with the transaction, only present if not empty."},
-           {RPCResult::Type::STR, "bip125-replaceable", "(\"yes|no|unknown\") Whether this transaction signals BIP125 replaceability or has an unconfirmed ancestor signaling BIP125 replaceability.\n"
+           {RPCResult::Type::STR, "bip125-replaceable", /*optional=*/true, "(\"yes|no|unknown\") (DEPRECATED) Whether this transaction signals BIP125 replaceability or has an unconfirmed ancestor signaling BIP125 replaceability.\n"
                "May be unknown for unconfirmed transactions not in the mempool because their unconfirmed ancestors are unknown."},
-           {RPCResult::Type::ARR, "parent_descs", /*optional=*/true, "Only if 'category' is 'received'. List of parent descriptors for the output script of this coin.", {
+           {RPCResult::Type::ARR, "parent_descs", /*optional=*/true, "Only if 'category' is 'receive'. List of parent descriptors for the output script of this coin.", {
                {RPCResult::Type::STR, "desc", "The descriptor string."},
            }},
            };
 }
 
-RPCHelpMan listtransactions()
+RPCMethod listtransactions()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "listtransactions",
         "If a label name is provided, this will return only incoming transactions paying to addresses with the specified label.\n"
                 "Returns up to 'count' most recent transactions ordered from oldest to newest while skipping the first number of \n"
@@ -463,7 +482,7 @@ RPCHelpMan listtransactions()
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("listtransactions", "\"*\", 20, 100")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -521,9 +540,36 @@ RPCHelpMan listtransactions()
     };
 }
 
-RPCHelpMan listsinceblock()
+static std::vector<RPCResult> ListSinceBlockTxFields()
 {
-    return RPCHelpMan{
+    return Cat<std::vector<RPCResult>>(
+        {
+            {RPCResult::Type::STR, "address", /*optional=*/true, "The hypercoin address of the transaction (not returned if the output does not have an address, e.g. OP_RETURN null data)."},
+            {RPCResult::Type::STR, "category", "The transaction category.\n"
+                "\"send\"                  Transactions sent.\n"
+                "\"receive\"               Non-coinbase transactions received.\n"
+                "\"generate\"              Coinbase transactions received with more than 100 confirmations.\n"
+                "\"immature\"              Coinbase transactions received with 100 or fewer confirmations.\n"
+                "\"orphan\"                Orphaned coinbase transactions received."},
+            {RPCResult::Type::STR_AMOUNT, "amount", "The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and is positive\n"
+                "for all other categories"},
+            {RPCResult::Type::NUM, "vout", "the vout value"},
+            {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the\n"
+                 "'send' category of transactions."},
+        },
+        Cat(
+            TransactionDescriptionString(),
+            std::vector<RPCResult>{
+                {RPCResult::Type::BOOL, "abandoned", "'true' if the transaction has been abandoned (inputs are respendable)."},
+                {RPCResult::Type::STR, "label", /*optional=*/true, "A comment for the address/transaction, if any"},
+            }
+        )
+    );
+}
+
+RPCMethod listsinceblock()
+{
+    return RPCMethod{
         "listsinceblock",
         "Get all transactions in blocks since block [blockhash], or all transactions if omitted.\n"
                 "If \"blockhash\" is no longer a part of the main chain, transactions from the fork point onward are included.\n"
@@ -542,30 +588,13 @@ RPCHelpMan listsinceblock()
                     {
                         {RPCResult::Type::ARR, "transactions", "",
                         {
-                            {RPCResult::Type::OBJ, "", "", Cat(Cat<std::vector<RPCResult>>(
-                            {
-                                {RPCResult::Type::STR, "address",  /*optional=*/true, "The hypercoin address of the transaction (not returned if the output does not have an address, e.g. OP_RETURN null data)."},
-                                {RPCResult::Type::STR, "category", "The transaction category.\n"
-                                    "\"send\"                  Transactions sent.\n"
-                                    "\"receive\"               Non-coinbase transactions received.\n"
-                                    "\"generate\"              Coinbase transactions received with more than 100 confirmations.\n"
-                                    "\"immature\"              Coinbase transactions received with 100 or fewer confirmations.\n"
-                                    "\"orphan\"                Orphaned coinbase transactions received."},
-                                {RPCResult::Type::STR_AMOUNT, "amount", "The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and is positive\n"
-                                    "for all other categories"},
-                                {RPCResult::Type::NUM, "vout", "the vout value"},
-                                {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the\n"
-                                     "'send' category of transactions."},
-                            },
-                            TransactionDescriptionString()),
-                            {
-                                {RPCResult::Type::BOOL, "abandoned", "'true' if the transaction has been abandoned (inputs are respendable)."},
-                                {RPCResult::Type::STR, "label", /*optional=*/true, "A comment for the address/transaction, if any"},
-                            })},
+                            {RPCResult::Type::OBJ, "", "", ListSinceBlockTxFields()},
                         }},
                         {RPCResult::Type::ARR, "removed", /*optional=*/true, "<structure is the same as \"transactions\" above, only present if include_removed=true>\n"
-                            "Note: transactions that were re-added in the active chain will appear as-is in this array, and may thus have a positive confirmation count."
-                        , {{RPCResult::Type::ELISION, "", ""},}},
+                            "Note: transactions that were re-added in the active chain will appear as-is in this array, and may thus have a positive confirmation count.",
+                        {
+                            {RPCResult::Type::OBJ, "", "", ListSinceBlockTxFields(), {.print_elision = std::string{}}},
+                        }},
                         {RPCResult::Type::STR_HEX, "lastblock", "The hash of the block (target_confirmations-1) from the best block on the main chain, or the genesis hash if the referenced block does not exist yet. This is typically used to feed back into listsinceblock the next time you call it. So you would generally use a target_confirmations of say 6, so you will be continually re-notified of transactions until they've reached 6 confirmations plus any new ones"},
                     }
                 },
@@ -574,7 +603,7 @@ RPCHelpMan listsinceblock()
             + HelpExampleCli("listsinceblock", "\"000000000000000bacf66f7497b7dc45ef753ee9a7d38571037cdb1a57f663ad\" 6")
             + HelpExampleRpc("listsinceblock", "\"000000000000000bacf66f7497b7dc45ef753ee9a7d38571037cdb1a57f663ad\", 6")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -660,9 +689,9 @@ RPCHelpMan listsinceblock()
     };
 }
 
-RPCHelpMan gettransaction()
+RPCMethod gettransaction()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "gettransaction",
         "Get detailed information about in-wallet transaction <txid>\n",
                 {
@@ -697,7 +726,7 @@ RPCHelpMan gettransaction()
                                 {RPCResult::Type::STR_AMOUNT, "fee", /*optional=*/true, "The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the \n"
                                     "'send' category of transactions."},
                                 {RPCResult::Type::BOOL, "abandoned", "'true' if the transaction has been abandoned (inputs are respendable)."},
-                                {RPCResult::Type::ARR, "parent_descs", /*optional=*/true, "Only if 'category' is 'received'. List of parent descriptors for the output script of this coin.", {
+                                {RPCResult::Type::ARR, "parent_descs", /*optional=*/true, "Only if 'category' is 'receive'. List of parent descriptors for the output script of this coin.", {
                                     {RPCResult::Type::STR, "desc", "The descriptor string."},
                                 }},
                             }},
@@ -705,7 +734,7 @@ RPCHelpMan gettransaction()
                         {RPCResult::Type::STR_HEX, "hex", "Raw data for transaction"},
                         {RPCResult::Type::OBJ, "decoded", /*optional=*/true, "The decoded transaction (only present when `verbose` is passed)",
                         {
-                            DecodeTxDoc(/*txid_field_doc=*/"The transaction id", /*wallet=*/true),
+                            TxDoc({.wallet = true}),
                         }},
                         RESULT_LAST_PROCESSED_BLOCK,
                     })
@@ -716,7 +745,7 @@ RPCHelpMan gettransaction()
             + HelpExampleCli("gettransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\" false true")
             + HelpExampleRpc("gettransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     const std::shared_ptr<const CWallet> pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -741,7 +770,7 @@ RPCHelpMan gettransaction()
     CAmount nCredit = CachedTxGetCredit(*pwallet, wtx, /*avoid_reuse=*/false);
     CAmount nDebit = CachedTxGetDebit(*pwallet, wtx, /*avoid_reuse=*/false);
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (CachedTxIsFromMe(*pwallet, wtx) ? wtx.tx->GetValueOut() - nDebit : 0);
+    CAmount nFee = (CachedTxIsFromMe(*pwallet, wtx) ? wtx.GetTx()->GetValueOut() - nDebit : 0);
 
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
     if (CachedTxIsFromMe(*pwallet, wtx))
@@ -753,11 +782,11 @@ RPCHelpMan gettransaction()
     ListTransactions(*pwallet, wtx, 0, false, details, /*filter_label=*/std::nullopt);
     entry.pushKV("details", std::move(details));
 
-    entry.pushKV("hex", EncodeHexTx(*wtx.tx));
+    entry.pushKV("hex", EncodeHexTx(*wtx.GetTx()));
 
     if (verbose) {
         UniValue decoded(UniValue::VOBJ);
-        TxToUniv(*wtx.tx,
+        TxToUniv(*wtx.GetTx(),
                 /*block_hash=*/uint256(),
                 /*entry=*/decoded,
                 /*include_hex=*/false,
@@ -776,9 +805,9 @@ RPCHelpMan gettransaction()
     };
 }
 
-RPCHelpMan abandontransaction()
+RPCMethod abandontransaction()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "abandontransaction",
         "Mark in-wallet transaction <txid> as abandoned\n"
                 "This will mark this transaction and all its in-wallet descendants as abandoned which will allow\n"
@@ -793,7 +822,7 @@ RPCHelpMan abandontransaction()
                     HelpExampleCli("abandontransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
             + HelpExampleRpc("abandontransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -818,9 +847,9 @@ RPCHelpMan abandontransaction()
     };
 }
 
-RPCHelpMan rescanblockchain()
+RPCMethod rescanblockchain()
 {
-    return RPCHelpMan{
+    return RPCMethod{
         "rescanblockchain",
         "Rescan the local blockchain for wallet related transactions.\n"
                 "Note: Use \"getwalletinfo\" to query the scanning progress.\n"
@@ -841,7 +870,7 @@ RPCHelpMan rescanblockchain()
                     HelpExampleCli("rescanblockchain", "100000 120000")
             + HelpExampleRpc("rescanblockchain", "100000, 120000")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;
@@ -897,7 +926,7 @@ RPCHelpMan rescanblockchain()
     }
 
     CWallet::ScanResult result =
-        pwallet->ScanForWalletTransactions(start_block, start_height, stop_height, reserver, /*fUpdate=*/true, /*save_progress=*/false);
+        pwallet->ScanForWalletTransactions(start_block, start_height, stop_height, reserver, /*save_progress=*/false);
     switch (result.status) {
     case CWallet::ScanResult::SUCCESS:
         break;
@@ -905,8 +934,7 @@ RPCHelpMan rescanblockchain()
         throw JSONRPCError(RPC_MISC_ERROR, "Rescan failed. Potentially corrupted data files.");
     case CWallet::ScanResult::USER_ABORT:
         throw JSONRPCError(RPC_MISC_ERROR, "Rescan aborted.");
-        // no default case, so the compiler can warn about missing cases
-    }
+    } // no default case, so the compiler can warn about missing cases
     UniValue response(UniValue::VOBJ);
     response.pushKV("start_height", start_height);
     response.pushKV("stop_height", result.last_scanned_height ? *result.last_scanned_height : UniValue());
@@ -915,9 +943,9 @@ RPCHelpMan rescanblockchain()
     };
 }
 
-RPCHelpMan abortrescan()
+RPCMethod abortrescan()
 {
-    return RPCHelpMan{"abortrescan",
+    return RPCMethod{"abortrescan",
                 "Stops current wallet rescan triggered by an RPC call, e.g. by a rescanblockchain call.\n"
                 "Note: Use \"getwalletinfo\" to query the scanning progress.\n",
                 {},
@@ -930,7 +958,7 @@ RPCHelpMan abortrescan()
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("abortrescan", "")
                 },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
 {
     std::shared_ptr<CWallet> const pwallet = GetWalletForJSONRPCRequest(request);
     if (!pwallet) return UniValue::VNULL;

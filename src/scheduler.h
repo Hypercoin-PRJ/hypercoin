@@ -7,7 +7,6 @@
 
 #include <attributes.h>
 #include <sync.h>
-#include <threadsafety.h>
 #include <util/task_runner.h>
 
 #include <chrono>
@@ -71,6 +70,7 @@ public:
     void MockForward(std::chrono::seconds delta_seconds) EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex);
 
     /**
+     * \anchor scheduler
      * Services the queue 'forever'. Should be run in a thread.
      */
     void serviceQueue() EXCLUSIVE_LOCKS_REQUIRED(!newTaskMutex);

@@ -30,7 +30,6 @@
 
 #include <compare>
 #include <limits>
-#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -88,7 +87,7 @@ struct DBVal {
 std::unique_ptr<CoinStatsIndex> g_coin_stats_index;
 
 CoinStatsIndex::CoinStatsIndex(std::unique_ptr<interfaces::Chain> chain, size_t n_cache_size, bool f_memory, bool f_wipe)
-    : BaseIndex(std::move(chain), "coinstatsindex")
+    : BaseIndex(std::move(chain), "coinstatsindex", "coinstatsidx")
 {
     // An earlier version of the index used "indexes/coinstats" but it contained
     // a bug and is superseded by a fixed version at "indexes/coinstatsindex".

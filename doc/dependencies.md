@@ -8,10 +8,12 @@ them using [depends](/depends/README.md).
 
 Hypercoin Core requires one of the following compilers.
 
-| Dependency | Minimum required |
+| Toolchain | Minimum required |
 | --- | --- |
 | [Clang](https://clang.llvm.org) | [17.0](https://github.com/hypercoin/hypercoin/pull/33555) |
 | [GCC](https://gcc.gnu.org) | [12.1](https://github.com/hypercoin/hypercoin/pull/33842) |
+| [Xcode CLT](/doc/build-osx.md) | [16.2](https://github.com/hypercoin/hypercoin/pull/33932) |
+| [MSVC](/doc/build-windows-msvc.md) | [18.3](https://github.com/hypercoin/hypercoin/pull/33861) |
 
 ## Required
 
@@ -21,7 +23,6 @@ Hypercoin Core requires one of the following compilers.
 | --- | --- | --- |
 | [Boost](../depends/packages/boost.mk) | [link](https://www.boost.org/users/download/) | [1.74.0](https://github.com/hypercoin/hypercoin/pull/34107) |
 | CMake | [link](https://cmake.org/) | [3.22](https://github.com/hypercoin/hypercoin/pull/30454) |
-| [libevent](../depends/packages/libevent.mk) | [link](https://github.com/libevent/libevent/releases) | [2.1.8](https://github.com/hypercoin/hypercoin/pull/24681) |
 
 ### Runtime
 

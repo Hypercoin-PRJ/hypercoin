@@ -7,7 +7,9 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <typeindex>
+#include <utility>
 
 namespace ipc {
 struct Context;

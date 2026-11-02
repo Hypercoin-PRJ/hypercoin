@@ -48,6 +48,7 @@ set(ts_files
   hypercoin_ko.ts
   hypercoin_ku.ts
   hypercoin_ku_IQ.ts
+  hypercoin_la.ts
   hypercoin_lt.ts
   hypercoin_lv.ts
   hypercoin_mi.ts
@@ -90,8 +91,8 @@ set(ts_files
   hypercoin_uz@Cyrl.ts
   hypercoin_uz@Latn.ts
   hypercoin_ve.ts
+  hypercoin_vi.ts
   hypercoin_yi.ts
-  hypercoin_yo.ts
   hypercoin_yue.ts
   hypercoin_zh-Hans.ts
   hypercoin_zh-Hant.ts

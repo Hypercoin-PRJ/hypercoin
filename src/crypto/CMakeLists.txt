@@ -3,7 +3,7 @@
 # file COPYING or https://opensource.org/license/mit/.
 
 add_library(hypercoin_crypto STATIC EXCLUDE_FROM_ALL
-  aes.cpp
+  $<$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},Generic>>:aes.cpp>
   chacha20.cpp
   chacha20poly1305.cpp
   hex_base.cpp
@@ -20,6 +20,7 @@ add_library(hypercoin_crypto STATIC EXCLUDE_FROM_ALL
   sha512.cpp
   siphash.cpp
   ../support/cleanse.cpp
+  $<$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},Generic>>:../support/lockedpool.cpp>
 )
 
 target_link_libraries(hypercoin_crypto

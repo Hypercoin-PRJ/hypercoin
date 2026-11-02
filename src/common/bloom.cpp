@@ -12,11 +12,11 @@
 #include <span.h>
 #include <streams.h>
 #include <util/fastrange.h>
+#include <util/overflow.h>
 
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
-#include <limits>
+#include <compare>
 #include <vector>
 
 static constexpr double LN2SQUARED = 0.4804530139182014246671025263266649717305529515945455;
@@ -166,7 +166,7 @@ CRollingBloomFilter::CRollingBloomFilter(const unsigned int nElements, const dou
      * restrict it to the range 1-50. */
     nHashFuncs = std::max(1, std::min((int)round(logFpRate / log(0.5)), 50));
     /* In this rolling bloom filter, we'll store between 2 and 3 generations of nElements / 2 entries. */
-    nEntriesPerGeneration = (nElements + 1) / 2;
+    nEntriesPerGeneration = CeilDiv(nElements, 2u);
     uint32_t nMaxElements = nEntriesPerGeneration * 3;
     /* The maximum fpRate = pow(1.0 - exp(-nHashFuncs * nMaxElements / nFilterBits), nHashFuncs)
      * =>          pow(fpRate, 1.0 / nHashFuncs) = 1.0 - exp(-nHashFuncs * nMaxElements / nFilterBits)
@@ -182,7 +182,7 @@ CRollingBloomFilter::CRollingBloomFilter(const unsigned int nElements, const dou
      * treated as set in generation 1, 2, or 3 respectively.
      * These bits are stored in separate integers: position P corresponds to bit
      * (P & 63) of the integers data[(P >> 6) * 2] and data[(P >> 6) * 2 + 1]. */
-    data.resize(((nFilterBits + 63) / 64) << 1);
+    data.resize(CeilDiv(nFilterBits, 64u) << 1);
     reset();
 }
 

@@ -21,6 +21,7 @@
 #endif // ENABLE_WALLET
 #include <rpc/client.h>
 #include <rpc/server.h>
+#include <util/byte_units.h>
 #include <util/strencodings.h>
 #include <util/string.h>
 #include <util/time.h>
@@ -158,6 +159,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
     } state = STATE_EATING_SPACES;
     std::string curarg;
     UniValue lastResult;
+    bool command_parsed = false;
     unsigned nDepthInsideSensitive = 0;
     size_t filter_begin_pos = 0, chpos;
     std::vector<std::pair<size_t, size_t>> filter_ranges;
@@ -289,7 +291,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                         curarg.clear();
                         state = STATE_EATING_SPACES_IN_BRACKETS;
                     }
-                    if ((ch == ')' || ch == '\n') && stack.size() > 0)
+                    if ((ch == ')' || ch == '\n') && stack.size() > 0 && stack.back().size() > 0)
                     {
                         if (fExecute) {
                             // Convert argument list to JSON objects in method-dependent way,
@@ -305,6 +307,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                             lastResult = node->executeRpc(method, params, uri);
                         }
 
+                        command_parsed = true;
                         state = STATE_COMMAND_EXECUTED;
                         curarg.clear();
                     }
@@ -371,8 +374,11 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                 strResult = lastResult.write(2);
             [[fallthrough]];
         case STATE_ARGUMENT:
-        case STATE_EATING_SPACES:
             return true;
+        case STATE_EATING_SPACES:
+            // Reaching this state without ever parsing a command means the line
+            // held no command name (e.g. ")", "()", "(", ","); treat it as invalid.
+            return command_parsed;
         default: // ERROR to end in one of the other states
             return false;
     }
@@ -529,7 +535,7 @@ RPCConsole::RPCConsole(interfaces::Node& node, const PlatformStyle *_platformSty
 
     // Install event filter for up and down arrow
     ui->lineEdit->installEventFilter(this);
-    ui->lineEdit->setMaxLength(16 * 1024 * 1024);
+    ui->lineEdit->setMaxLength(16_MiB);
     ui->messagesWidget->installEventFilter(this);
 
     connect(ui->hidePeersDetailButton, &QAbstractButton::clicked, this, &RPCConsole::clearSelectedNode);
@@ -1165,12 +1171,13 @@ void RPCConsole::updateDetailWidget()
     if (stats->nodeStats.m_bip152_highbandwidth_from) bip152_hb_settings += (bip152_hb_settings.isEmpty() ? ts.from : QLatin1Char('/') + ts.from);
     if (bip152_hb_settings.isEmpty()) bip152_hb_settings = ts.no;
     ui->peerHighBandwidth->setText(bip152_hb_settings);
+    const auto now{NodeClock::now()};
     const auto time_now{GetTime<std::chrono::seconds>()};
-    ui->peerConnTime->setText(GUIUtil::formatDurationStr(time_now - stats->nodeStats.m_connected));
+    ui->peerConnTime->setText(GUIUtil::formatDurationStr(now - stats->nodeStats.m_connected));
     ui->peerLastBlock->setText(TimeDurationField(time_now, stats->nodeStats.m_last_block_time));
     ui->peerLastTx->setText(TimeDurationField(time_now, stats->nodeStats.m_last_tx_time));
-    ui->peerLastSend->setText(TimeDurationField(time_now, stats->nodeStats.m_last_send));
-    ui->peerLastRecv->setText(TimeDurationField(time_now, stats->nodeStats.m_last_recv));
+    ui->peerLastSend->setText(TimeDurationField(now, stats->nodeStats.m_last_send));
+    ui->peerLastRecv->setText(TimeDurationField(now, stats->nodeStats.m_last_recv));
     ui->peerBytesSent->setText(GUIUtil::formatBytes(stats->nodeStats.nSendBytes));
     ui->peerBytesRecv->setText(GUIUtil::formatBytes(stats->nodeStats.nRecvBytes));
     ui->peerPingTime->setText(GUIUtil::formatPingTime(stats->nodeStats.m_last_ping_time));

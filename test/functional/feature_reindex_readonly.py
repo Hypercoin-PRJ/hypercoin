@@ -10,6 +10,7 @@ import os
 import stat
 import subprocess
 from test_framework.test_framework import HypercoinTestFramework
+from test_framework.util import assert_equal
 
 
 class BlockstoreReindexTest(HypercoinTestFramework):
@@ -34,13 +35,14 @@ class BlockstoreReindexTest(HypercoinTestFramework):
         filename = self.nodes[0].chain_path / "blocks" / "blk00000.dat"
         filename.chmod(stat.S_IREAD)
 
-        undo_immutable = lambda: None
+        undo_immutable_cmd = None
+        should_reindex = True
         # Linux
         try:
             subprocess.run(['chattr'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
                 subprocess.run(['chattr', '+i', filename], capture_output=True, check=True)
-                undo_immutable = lambda: subprocess.check_call(['chattr', '-i', filename])
+                undo_immutable_cmd = ['chattr', '-i', filename]
                 self.log.info("Made file immutable with chattr")
             except subprocess.CalledProcessError as e:
                 self.log.warning(str(e))
@@ -52,14 +54,14 @@ class BlockstoreReindexTest(HypercoinTestFramework):
                     self.log.warning("Return early on Linux under root, because chattr failed.")
                     self.log.warning("This should only happen due to missing capabilities in a container.")
                     self.log.warning("Make sure to --cap-add LINUX_IMMUTABLE if you want to run this test.")
-                    undo_immutable = False
+                    should_reindex = False
         except Exception:
             # macOS, and *BSD
             try:
                 subprocess.run(['chflags'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 try:
                     subprocess.run(['chflags', 'uchg', filename], capture_output=True, check=True)
-                    undo_immutable = lambda: subprocess.check_call(['chflags', 'nouchg', filename])
+                    undo_immutable_cmd = ['chflags', 'nouchg', filename]
                     self.log.info("Made file immutable with chflags")
                 except subprocess.CalledProcessError as e:
                     self.log.warning(str(e))
@@ -69,16 +71,17 @@ class BlockstoreReindexTest(HypercoinTestFramework):
                         self.log.warning(f"stderr: {e.stderr}")
                     if os.getuid() == 0:
                         self.log.warning("Return early on BSD under root, because chflags failed.")
-                        undo_immutable = False
+                        should_reindex = False
             except Exception:
                 pass
 
-        if undo_immutable:
+        if should_reindex:
             self.log.debug("Attempt to restart and reindex the node with the unwritable block file")
             with self.nodes[0].assert_debug_log(["Reindexing finished"], timeout=60):
                 self.start_node(0, extra_args=['-reindex', '-fastprune'])
-            assert block_count == self.nodes[0].getblockcount()
-            undo_immutable()
+            assert_equal(block_count, self.nodes[0].getblockcount())
+            if undo_immutable_cmd is not None:
+                subprocess.check_call(undo_immutable_cmd)
 
         filename.chmod(0o777)
 
